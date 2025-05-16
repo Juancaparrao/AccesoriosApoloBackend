@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
+
 
 const { enviarOTP, verificarOTP } = require('./otpService');
 const { registrarUsuario } = require('./registroService');
@@ -32,7 +34,7 @@ app.post('/solicitar-otp', async (req, res) => {
   }
 });
 
-// Paso 2: Verificar OTP y registrar usuario
+
 app.post('/verificar-otp', async (req, res) => {
   const { correo, codigo_otp } = req.body;
 
@@ -56,13 +58,29 @@ app.post('/verificar-otp', async (req, res) => {
     );
 
     eliminarUsuarioPendiente(correo);
-    res.json({ mensaje: 'Usuario registrado correctamente', id_usuario: resultado.id_usuario });
 
+    // 🔐 Generar token JWT automáticamente
+    const payload = {
+      id_usuario: resultado.id_usuario,
+      correo: datos.correo,
+      nombre: datos.nombre
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN
+    });
+
+    res.json({
+      mensaje: 'Usuario registrado y sesión iniciada',
+      token,
+      usuario: payload
+    });
   } catch (error) {
-    console.error('Error al verificar OTP y registrar:', error);
+    console.error(error);
     res.status(500).json({ mensaje: 'Error al verificar OTP y registrar' });
   }
 });
+
 
 // Login con JWT
 app.post('/login', async (req, res) => {
