@@ -1,12 +1,17 @@
 const express = require('express');
+const cors = require('cors');
 require('dotenv').config();
-const app = express();
-const port = 3000;
 
 const { enviarOTP, verificarOTP } = require('./otpService');
 const { registrarUsuario } = require('./registroService');
 const { guardarUsuarioPendiente, obtenerUsuarioPendiente, eliminarUsuarioPendiente } = require('./registroTemporal');
+const { iniciarSesion } = require('./authService');
+const { verificarToken } = require('./middleware');
 
+const app = express();
+const port = 3000;
+
+app.use(cors());
 app.use(express.json());
 
 // Paso 1: Recibir datos y enviar OTP (no registrar aún)
@@ -17,19 +22,17 @@ app.post('/solicitar-otp', async (req, res) => {
     return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
   }
 
-  // Guardar temporalmente en memoria
-  guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena, id_rol });
-
   try {
+    guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena, id_rol });
     await enviarOTP(correo);
     res.json({ mensaje: 'Código OTP enviado al correo' });
   } catch (error) {
-    console.error(error);
+    console.error('Error al solicitar OTP:', error);
     res.status(500).json({ mensaje: 'Error enviando OTP' });
   }
 });
 
-// Paso 2: Verificar OTP y registrar
+// Paso 2: Verificar OTP y registrar usuario
 app.post('/verificar-otp', async (req, res) => {
   const { correo, codigo_otp } = req.body;
 
@@ -53,14 +56,33 @@ app.post('/verificar-otp', async (req, res) => {
     );
 
     eliminarUsuarioPendiente(correo);
-
     res.json({ mensaje: 'Usuario registrado correctamente', id_usuario: resultado.id_usuario });
+
   } catch (error) {
-    console.error(error);
+    console.error('Error al verificar OTP y registrar:', error);
     res.status(500).json({ mensaje: 'Error al verificar OTP y registrar' });
   }
 });
 
+// Login con JWT
+app.post('/login', async (req, res) => {
+  const { correo, contrasena } = req.body;
+
+  try {
+    const { token, usuario } = await iniciarSesion(correo, contrasena);
+    res.json({ mensaje: 'Login exitoso', token, usuario });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(401).json({ mensaje: error.message });
+  }
+});
+
+// Ruta protegida con JWT
+app.get('/perfil', verificarToken, (req, res) => {
+  res.json({ mensaje: 'Acceso permitido', usuario: req.user });
+});
+
+// Inicializar servidor
 app.listen(port, () => {
-  console.log(`Servidor corriendo en http://localhost:${port}`);
+  console.log(`✅ Servidor corriendo en http://localhost:${port}`);
 });

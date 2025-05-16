@@ -1,14 +1,18 @@
 const pool = require('./db');
+const bcrypt = require('bcrypt');
 
 async function registrarUsuario(nombre, correo, telefono, contrasena, id_rol) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
+    // 🔐 Encriptar la contraseña antes de guardar
+    const hashedPassword = await bcrypt.hash(contrasena, 10);
+
     const [usuarioResult] = await conn.execute(
       `INSERT INTO USUARIO (nombre, correo, telefono, contrasena)
        VALUES (?, ?, ?, ?)`,
-      [nombre, correo, telefono, contrasena]
+      [nombre, correo, telefono, hashedPassword] // usar la contraseña hasheada
     );
 
     const id_usuario = usuarioResult.insertId;
