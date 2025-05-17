@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const app = express();
 const port = 3000;
-
+const {solicitarRecuperacion, verificarCodigo, cambiarContrasena } = require('./InicioController/RecuperarContrasena');
 const { solicitarOTP, reenviarOTP, verificarOTPHandler } = require('./InicioController/OTP');
 const { login } = require('./InicioController/Login');
 const { obtenerNombre } = require('./InicioController/GeneralInicio');
@@ -30,6 +30,10 @@ app.post('/obtener-nombre', obtenerNombre);
 app.get('/perfil', verificarToken, (req, res) => {
   res.json({ mensaje: 'Acceso permitido', usuario: req.user });
 });
+
+app.post('/recuperar', solicitarRecuperacion);
+app.post('/verificar-codigo', verificarCodigo);
+app.post('/cambiar-contrasena', cambiarContrasena);
 
 // Inicializar servidor
 app.listen(port, () => {
