@@ -1,52 +1,31 @@
-const pool = require('./db');
-const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
-require('dotenv').config();
-
-async function registrarUsuario(nombre, correo, telefono, contrasena, id_rol) {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const hashedPassword = await bcrypt.hash(contrasena, 10);
-
-    const [usuarioResult] = await conn.execute(
-      `INSERT INTO USUARIO (nombre, correo, telefono, contrasena)
-       VALUES (?, ?, ?, ?)`,
-      [nombre, correo, telefono, hashedPassword]
-    );
-
-    const id_usuario = usuarioResult.insertId;
-
-    await conn.execute(
-      `INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)`,
-      [id_usuario, id_rol]
-    );
-
-    await conn.commit();
-
-    // ✅ Enviar correo de bienvenida después del commit
-    await enviarCorreoBienvenida(correo, nombre);
-
-    return { id_usuario };
-  } catch (error) {
-    await conn.rollback();
-    throw error;
-  } finally {
-    conn.release();
-  }
+function generarHtmlOTP(codigo) {
+  return `<div style="font-family: Arial, sans-serif; background: #f2f2f2; padding: 40px;">
+      <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        <div style="text-align: center;">
+          <img src="https://i.imgur.com/vf6Lg64.png" alt="Logo Accesorios Apolo" style="max-width: 120px; margin-bottom: 20px;" />
+        </div>
+        <h2 style="color: #333; text-align: center;">Verificación de correo electrónico</h2>
+        <p style="font-size: 16px; color: #555; text-align: center;">
+          ¡Gracias por registrarte en <strong>Accesorios Apolo</strong>!
+        </p>
+        <p style="font-size: 16px; color: #555; text-align: center;">
+          Ingresa el siguiente código para verificar tu dirección de correo:
+        </p>
+        <div style="background: #f0f8ff; font-size: 28px; font-weight: bold; color: #0077cc; text-align: center; padding: 15px 0; margin: 30px 0; border-radius: 8px;">
+          ${codigo}
+        </div>
+        <p style="font-size: 14px; color: #888; text-align: center;">
+          Este código expirará en 5 minutos.
+        </p>
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #eee;" />
+        <p style="font-size: 12px; color: #aaa; text-align: center;">
+          Si no solicitaste este código, puedes ignorar este correo.
+        </p>
+      </div>
+    </div>`;
 }
-
-async function enviarCorreoBienvenida(correo, nombre) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
-
-  const html = `
+function generarHtmlBienvenida(nombre) {
+  return `
     <div style="font-family: Arial, sans-serif; background-color: #f2f2f2; padding: 40px;">
       <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 10px; padding: 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
         
@@ -85,15 +64,9 @@ async function enviarCorreoBienvenida(correo, nombre) {
       </div>
     </div>
   `;
-
-  console.log('Enviando correo de bienvenida a:', correo);
-
-  await transporter.sendMail({
-    from: `"Accesorios Apolo" <${process.env.EMAIL_USER}>`,
-    to: correo,
-    subject: '¡Bienvenido a Accesorios Apolo!',
-    html
-  });
 }
 
-module.exports = { registrarUsuario };
+module.exports = {
+  generarHtmlOTP,
+  generarHtmlBienvenida
+};
