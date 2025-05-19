@@ -7,7 +7,6 @@ const jwt = require('jsonwebtoken');
 const { generarHtmlOTP, generarHtmlBienvenida } = require('./templates/otpCorreo');
 
 
-
 function guardarUsuarioPendiente(correo, datos) {
   usuariosPendientes.set(correo, datos);
 }
@@ -40,10 +39,12 @@ function verificarOTP(correo, codigo) {
 }
 
 async function solicitarOTP(req, res) {
-  const { nombre, correo, telefono, contrasena, id_rol } = req.body;
-  if (!nombre || !correo || !contrasena || !id_rol) return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+  const { nombre, correo, telefono, contrasena } = req.body;
+  if (!nombre || !correo || !contrasena)
+    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+
   try {
-    guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena, id_rol });
+    guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena });
     await enviarOTP(correo);
     res.json({ mensaje: 'Código OTP enviado al correo' });
   } catch (error) {
@@ -65,21 +66,37 @@ async function reenviarOTP(req, res) {
 }
 
 async function verificarOTPHandler(req, res) {
-  const { correo, codigo_otp } = req.body;
-  if (!verificarOTP(correo, codigo_otp)) return res.status(400).json({ mensaje: 'OTP inválido o expirado' });
+  const { correo, codigo } = req.body;
+
+  if (!verificarOTP(correo, codigo)) {
+    return res.status(400).json({ mensaje: 'OTP inválido o expirado' });
+  }
 
   const datos = obtenerUsuarioPendiente(correo);
-  if (!datos) return res.status(400).json({ mensaje: 'No hay datos pendientes para este correo' });
+  if (!datos) {
+    return res.status(400).json({ mensaje: 'No hay datos pendientes para este correo' });
+  }
 
   try {
-    const resultado = await registrarUsuario(datos.nombre, datos.correo, datos.telefono, datos.contrasena, datos.id_rol);
+    const resultado = await registrarUsuario(
+      datos.nombre,
+      datos.correo,
+      datos.telefono,
+      datos.contrasena 
+    );
+
     eliminarUsuarioPendiente(correo);
 
-    // Generar el token
-    const payload = { id_usuario: resultado.id_usuario, correo: datos.correo, nombre: datos.nombre };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+    const payload = {
+      id_usuario: resultado.id_usuario,
+      correo: datos.correo,
+      nombre: datos.nombre
+    };
 
-    // Enviar correo de bienvenida
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN
+    });
+
     await transporter.sendMail({
       from: process.env.CORREO_ORIGEN,
       to: datos.correo,
@@ -87,7 +104,11 @@ async function verificarOTPHandler(req, res) {
       html: generarHtmlBienvenida(datos.nombre)
     });
 
-    res.json({ mensaje: 'Usuario registrado y sesión iniciada', token, usuario: payload });
+    res.json({
+      mensaje: 'Usuario registrado y sesión iniciada',
+      token,
+      usuario: payload
+    });
   } catch (error) {
     console.error('Error al registrar usuario:', error);
     res.status(500).json({ mensaje: 'Error al registrar usuario' });

@@ -8,6 +8,8 @@ const { solicitarOTP, reenviarOTP, verificarOTPHandler } = require('./InicioCont
 const { login } = require('./InicioController/Login');
 const { obtenerNombre } = require('./InicioController/GeneralInicio');
 const { verificarToken } = require('./InicioController/middleware');
+const { loginConGoogle } = require('./InicioController/GoogleAuth');
+const { obtenerPerfil } = require('./InicioController/Perfil');
 
 app.use(cors({
   origin: 'http://localhost:5173',
@@ -27,13 +29,15 @@ app.post('/login', login);
 app.post('/obtener-nombre', obtenerNombre);
 
 // Ruta protegida con JWT
-app.get('/perfil', verificarToken, (req, res) => {
-  res.json({ mensaje: 'Acceso permitido', usuario: req.user });
-});
+app.get('/perfil', verificarToken, obtenerPerfil);
 
+// Recuperar contraseña
 app.post('/recuperar', solicitarRecuperacion);
 app.post('/verificar-codigo', verificarCodigo);
 app.post('/cambiar-contrasena', cambiarContrasena);
+
+// Ruta de login con Google
+app.post('/login-google', loginConGoogle);
 
 // Inicializar servidor
 app.listen(port, () => {
