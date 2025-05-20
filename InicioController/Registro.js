@@ -22,4 +22,4 @@ async function registrarUsuario(nombre, correo, telefono, contrasena) {
   return { id_usuario };
 }
 
-module.exports = { registrarUsuario };
+module.exports = { registrarUsuario };
