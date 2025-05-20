@@ -6,7 +6,6 @@ const usuariosPendientes = new Map();
 const jwt = require('jsonwebtoken');
 const { generarHtmlOTP, generarHtmlBienvenida } = require('./templates/otpCorreo');
 
-
 function guardarUsuarioPendiente(correo, datos) {
   usuariosPendientes.set(correo, datos);
 }
@@ -40,28 +39,54 @@ function verificarOTP(correo, codigo) {
 
 async function solicitarOTP(req, res) {
   const { nombre, correo, telefono, contrasena } = req.body;
-  if (!nombre || !correo || !contrasena)
-    return res.status(400).json({ mensaje: 'Faltan campos obligatorios' });
+
+  if (!nombre || !correo || !contrasena) {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'Faltan campos obligatorios.'
+    });
+  }
 
   try {
     guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena });
     await enviarOTP(correo);
-    res.json({ mensaje: 'Código OTP enviado al correo' });
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Se envió un código OTP al correo.'
+    });
   } catch (error) {
     console.error('Error al solicitar OTP:', error);
-    res.status(500).json({ mensaje: 'Error enviando OTP' });
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error enviando OTP.',
+      error: error.message
+    });
   }
 }
 
 async function reenviarOTP(req, res) {
   const { correo } = req.body;
-  if (!correo) return res.status(400).json({ error: 'El correo es obligatorio.' });
+
+  if (!correo) {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'El correo es obligatorio.'
+    });
+  }
+
   try {
     await enviarOTP(correo);
-    res.status(200).json({ message: 'Código reenviado con éxito.' });
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Código reenviado con éxito.'
+    });
   } catch (error) {
     console.error('Error al reenviar OTP:', error);
-    res.status(500).json({ error: 'Error al reenviar el código.' });
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error al reenviar el código.',
+      error: error.message
+    });
   }
 }
 
@@ -69,12 +94,18 @@ async function verificarOTPHandler(req, res) {
   const { correo, codigo } = req.body;
 
   if (!verificarOTP(correo, codigo)) {
-    return res.status(400).json({ mensaje: 'OTP inválido o expirado' });
+    return res.status(400).json({
+      success: false,
+      mensaje: 'Código OTP inválido o expirado.'
+    });
   }
 
   const datos = obtenerUsuarioPendiente(correo);
   if (!datos) {
-    return res.status(400).json({ mensaje: 'No hay datos pendientes para este correo' });
+    return res.status(400).json({
+      success: false,
+      mensaje: 'No hay datos pendientes para este correo.'
+    });
   }
 
   try {
@@ -82,7 +113,7 @@ async function verificarOTPHandler(req, res) {
       datos.nombre,
       datos.correo,
       datos.telefono,
-      datos.contrasena 
+      datos.contrasena
     );
 
     eliminarUsuarioPendiente(correo);
@@ -104,14 +135,20 @@ async function verificarOTPHandler(req, res) {
       html: generarHtmlBienvenida(datos.nombre)
     });
 
-    res.json({
-      mensaje: 'Usuario registrado y sesión iniciada',
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Usuario registrado correctamente.',
       token,
       usuario: payload
     });
+
   } catch (error) {
     console.error('Error al registrar usuario:', error);
-    res.status(500).json({ mensaje: 'Error al registrar usuario' });
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error al registrar usuario.',
+      error: error.message
+    });
   }
 }
 

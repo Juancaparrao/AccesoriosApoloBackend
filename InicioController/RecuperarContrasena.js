@@ -13,9 +13,15 @@ function generarTokenSeguro() {
 // 1. Enviar link de recuperación al correo
 async function solicitarRecuperacion(req, res) {
   const { correo } = req.body;
+
   try {
     const [usuarios] = await pool.execute('SELECT * FROM USUARIO WHERE correo = ?', [correo]);
-    if (usuarios.length === 0) return res.status(404).json({ mensaje: 'Correo no registrado' });
+    if (usuarios.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'El correo no está registrado en el sistema.'
+      });
+    }
 
     const token = generarTokenSeguro();
     const expiracion = Date.now() + 15 * 60 * 1000; // 15 minutos
@@ -30,10 +36,18 @@ async function solicitarRecuperacion(req, res) {
       html: generarHtmlRecuperarContrasena(link)
     });
 
-    res.json({ mensaje: 'Enlace de recuperación enviado al correo' });
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Se envió un enlace de recuperación al correo electrónico.'
+    });
+
   } catch (error) {
     console.error('Error al enviar enlace:', error);
-    res.status(500).json({ mensaje: 'Error enviando enlace de recuperación' });
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Ocurrió un error al enviar el enlace de recuperación.',
+      error: error.message
+    });
   }
 }
 
@@ -43,17 +57,29 @@ async function cambiarContrasena(req, res) {
   const datos = tokenRecuperacionStore.get(token);
 
   if (!datos || Date.now() > datos.expiracion) {
-    return res.status(400).json({ mensaje: 'Token inválido o expirado' });
+    return res.status(400).json({
+      success: false,
+      mensaje: 'El enlace de recuperación es inválido o ha expirado.'
+    });
   }
 
   try {
     const hash = await bcrypt.hash(nuevaContrasena, 10);
     await pool.execute('UPDATE USUARIO SET contrasena = ? WHERE correo = ?', [hash, datos.correo]);
     tokenRecuperacionStore.delete(token); // eliminar token usado
-    res.json({ mensaje: 'Contraseña actualizada correctamente' });
+
+    return res.status(200).json({
+      success: true,
+      mensaje: 'La contraseña se actualizó correctamente.'
+    });
+
   } catch (error) {
     console.error('Error actualizando contraseña:', error);
-    res.status(500).json({ mensaje: 'Error al cambiar la contraseña' });
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Ocurrió un error al cambiar la contraseña.',
+      error: error.message
+    });
   }
 }
 
