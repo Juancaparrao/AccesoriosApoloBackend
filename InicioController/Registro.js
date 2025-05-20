@@ -6,7 +6,7 @@ async function registrarUsuario(nombre, correo, telefono, contrasena) {
 
   // Insertar en USUARIO
   const [usuarioResult] = await pool.execute(
-    'INSERT INTO USUARIO (nombre, correo, telefono, contrasena) VALUES (?, ?, ?, ?)',
+    'INSERT INTO usuario (nombre, correo, telefono, contrasena) VALUES (?, ?, ?, ?)',
     [nombre, correo, telefono, hashedPassword]
   );
 
@@ -15,7 +15,7 @@ async function registrarUsuario(nombre, correo, telefono, contrasena) {
   // Asignar rol fijo: 1
   const rolPorDefecto = 1;
   await pool.execute(
-    'INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)',
+    'INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)',
     [id_usuario, rolPorDefecto]
   );
 
