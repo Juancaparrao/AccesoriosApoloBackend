@@ -1,4 +1,4 @@
-function generarHtmlRecuperarContrasena(codigo) {
+function generarHtmlRecuperarContrasena(link) {
   return `
     <div style="font-family: Arial, sans-serif; background-color: #f2f2f2; padding: 40px;">
       <div style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 10px; padding: 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
@@ -14,15 +14,17 @@ function generarHtmlRecuperarContrasena(codigo) {
         </p>
 
         <p style="font-size: 16px; color: #555555; text-align: center;">
-          Usa el siguiente código para restablecer tu contraseña:
+          Haz clic en el siguiente botón para establecer una nueva contraseña:
         </p>
 
-        <div style="background: #f0f8ff; font-size: 28px; font-weight: bold; color: #0077cc; text-align: center; padding: 15px 0; margin: 30px 0; border-radius: 8px;">
-          ${codigo}
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #0077cc; color: #ffffff; text-decoration: none; border-radius: 5px; font-size: 16px;">
+            Cambiar contraseña
+          </a>
         </div>
 
         <p style="font-size: 14px; color: #888888; text-align: center;">
-          Este código es válido por 5 minutos. Si no solicitaste este cambio, puedes ignorar este correo.
+          Este enlace es válido por 15 minutos. Si no solicitaste este cambio, puedes ignorar este correo.
         </p>
 
         <hr style="margin: 40px 0; border: none; border-top: 1px solid #eeeeee;" />
