@@ -24,13 +24,13 @@ async function loginConFacebook(req, res) {
     }
 
     // Verificar si ya existe el usuario
-    const [usuarios] = await pool.execute('SELECT * FROM USUARIO WHERE correo = ?', [email]);
+    const [usuarios] = await pool.execute('SELECT * FROM usuario WHERE correo = ?', [email]);
 
     let usuario;
     if (usuarios.length === 0) {
       // Registrar nuevo usuario
       const [resultado] = await pool.execute(
-        'INSERT INTO USUARIO (nombre, correo, id_rol) VALUES (?, ?, ?)',
+        'INSERT INTO usuario (nombre, correo, id_rol) VALUES (?, ?, ?)',
         [name, email, 2] // Puedes ajustar el ID de rol predeterminado
       );
 

@@ -5,7 +5,7 @@ async function obtenerPerfil(req, res) {
     const correo = req.user.correo;
 
     const [result] = await pool.execute(
-      'SELECT nombre, correo, cedula, telefono FROM USUARIO WHERE correo = ?',
+      'SELECT nombre, correo, cedula, telefono FROM usuario WHERE correo = ?',
       [correo]
     );
 

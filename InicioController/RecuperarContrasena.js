@@ -15,7 +15,7 @@ async function solicitarRecuperacion(req, res) {
   const { correo } = req.body;
 
   try {
-    const [usuarios] = await pool.execute('SELECT * FROM USUARIO WHERE correo = ?', [correo]);
+    const [usuarios] = await pool.execute('SELECT * FROM usuario WHERE correo = ?', [correo]);
     if (usuarios.length === 0) {
       return res.status(404).json({
         success: false,
@@ -65,7 +65,7 @@ async function cambiarContrasena(req, res) {
 
   try {
     const hash = await bcrypt.hash(nuevaContrasena, 10);
-    await pool.execute('UPDATE USUARIO SET contrasena = ? WHERE correo = ?', [hash, datos.correo]);
+    await pool.execute('UPDATE usuario SET contrasena = ? WHERE correo = ?', [hash, datos.correo]);
     tokenRecuperacionStore.delete(token); // eliminar token usado
 
     return res.status(200).json({

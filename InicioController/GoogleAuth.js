@@ -22,7 +22,7 @@ async function loginConGoogle(req, res) {
     const { email, name } = payload;
 
     // Verifica si ya existe
-    const [usuarios] = await pool.execute('SELECT * FROM USUARIO WHERE correo = ?', [email]);
+    const [usuarios] = await pool.execute('SELECT * FROM usuario WHERE correo = ?', [email]);
 
     let id_usuario;
     if (usuarios.length > 0) {
@@ -30,7 +30,7 @@ async function loginConGoogle(req, res) {
     } else {
       // Insertar solo nombre y correo, sin teléfono ni contraseña
       const [result] = await pool.execute(
-        'INSERT INTO USUARIO (nombre, correo) VALUES (?, ?)',
+        'INSERT INTO usuario (nombre, correo) VALUES (?, ?)',
         [name, email]
       );
       id_usuario = result.insertId;
@@ -38,7 +38,7 @@ async function loginConGoogle(req, res) {
       // Insertar rol por defecto en la tabla intermedia
       const rolPorDefecto = 1;
       await pool.execute(
-        'INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)',
+        'INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)',
         [id_usuario, rolPorDefecto]
       );
     }
