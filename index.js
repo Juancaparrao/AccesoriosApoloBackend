@@ -9,6 +9,7 @@ const { login } = require('./InicioController/Login');
 const { obtenerNombre } = require('./InicioController/GeneralInicio');
 const { verificarToken } = require('./InicioController/middleware');
 const { loginConGoogle } = require('./InicioController/GoogleAuth');
+const { loginConFacebook } = require('./InicioController/FacebookAuth');
 const { obtenerPerfil } = require('./InicioController/Perfil');
 
 app.use(cors({
@@ -37,6 +38,9 @@ app.post('/cambiar-contrasena', cambiarContrasena);
 
 // Ruta de login con Google
 app.post('/login-google', loginConGoogle);
+
+// Ruta de login con Facebook
+app.post('/auth/facebook', loginConFacebook);
 
 // Inicializar servidor
 app.listen(port, () => {
