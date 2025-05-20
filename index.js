@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const app = express();
 const port = 3000;
-const {solicitarRecuperacion, verificarCodigo, cambiarContrasena } = require('./InicioController/RecuperarContrasena');
+const {solicitarRecuperacion, cambiarContrasena } = require('./InicioController/RecuperarContrasena');
 const { solicitarOTP, reenviarOTP, verificarOTPHandler } = require('./InicioController/OTP');
 const { login } = require('./InicioController/Login');
 const { obtenerNombre } = require('./InicioController/GeneralInicio');
@@ -33,7 +33,6 @@ app.get('/perfil', verificarToken, obtenerPerfil);
 
 // Recuperar contraseña
 app.post('/recuperar', solicitarRecuperacion);
-app.post('/verificar-codigo', verificarCodigo);
 app.post('/cambiar-contrasena', cambiarContrasena);
 
 // Ruta de login con Google
