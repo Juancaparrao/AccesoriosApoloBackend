@@ -11,6 +11,8 @@ const { verificarToken } = require('./InicioController/middleware');
 const { loginConGoogle } = require('./InicioController/GoogleAuth');
 const { loginConFacebook } = require('./InicioController/FacebookAuth');
 const { obtenerPerfil } = require('./InicioController/Perfil');
+const { validarGerente } = require('./InicioController/validacionesUsuarios');
+
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -41,6 +43,10 @@ app.post('/login-google', loginConGoogle);
 
 // Ruta de login con Facebook
 app.post('/auth/facebook', loginConFacebook);
+
+//Validar gerente
+app.get('/validar-gerente', verificarToken, validarGerente);
+
 
 // Inicializar servidor
 app.listen(port, () => {
