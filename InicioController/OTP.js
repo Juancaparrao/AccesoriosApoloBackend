@@ -5,6 +5,7 @@ const { registrarUsuario } = require('./Registro');
 const usuariosPendientes = new Map();
 const jwt = require('jsonwebtoken');
 const { generarHtmlOTP, generarHtmlBienvenida } = require('./templates/otpCorreo');
+const pool = require('../db');
 
 function guardarUsuarioPendiente(correo, datos) {
   usuariosPendientes.set(correo, datos);
