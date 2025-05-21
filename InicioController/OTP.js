@@ -18,6 +18,11 @@ function eliminarUsuarioPendiente(correo) {
   usuariosPendientes.delete(correo);
 }
 
+async function correoExiste(correo) {
+  const [rows] = await pool.execute('SELECT id_usuario FROM usuario WHERE correo = ?', [correo]);
+  return rows.length > 0;
+}
+
 async function enviarOTP(correo) {
   const codigo = generarOTP();
   otpStore.set(correo, { codigo, expiracion: Date.now() + 5 * 60 * 1000 });
@@ -48,6 +53,13 @@ async function solicitarOTP(req, res) {
   }
 
   try {
+    if (await correoExiste(correo)) {
+      return res.status(409).json({
+        success: false,
+        mensaje: 'Este correo ya está registrado. Intenta con otro.'
+      });
+    }
+
     guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena });
     await enviarOTP(correo);
     return res.status(200).json({
