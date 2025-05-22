@@ -11,7 +11,8 @@ const { verificarToken } = require('./InicioController/middleware');
 const { loginConGoogle } = require('./InicioController/GoogleAuth');
 const { loginConFacebook } = require('./InicioController/FacebookAuth');
 const { obtenerPerfil } = require('./InicioController/Perfil');
-const { validarGerente } = require('./InicioController/validacionesUsuarios');
+const { validarGerente } = require('./UsuariosController/validacionesUsuarios');
+const { registrarUsuarioDirecto } = require('./UsuariosController/registrarUsuarios');
 
 
 app.use(cors({
@@ -47,6 +48,8 @@ app.post('/auth/facebook', loginConFacebook);
 //Validar gerente
 app.get('/validar-gerente', verificarToken, validarGerente);
 
+//Registrar Usuarios desde el modulo de usuarios
+app.post('/registrar-directo', registrarUsuarioDirecto);
 
 // Inicializar servidor
 app.listen(port, () => {
