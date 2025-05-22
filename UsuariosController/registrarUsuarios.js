@@ -35,10 +35,10 @@ async function registrarUsuarioDirecto(req, res) {
 
     const hash = await bcrypt.hash(contrasena, 10);
 
-    // Insertar en usuario con cédula
+    // Insertar en usuario con estado = true
     const [result] = await pool.execute(
-      'INSERT INTO usuario (cedula, nombre, telefono, correo, contrasena) VALUES (?, ?, ?, ?, ?)',
-      [cedula, nombre, telefono, correo, hash]
+      'INSERT INTO usuario (cedula, nombre, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)',
+      [cedula, nombre, telefono, correo, hash, true]
     );
 
     const idUsuario = result.insertId;
@@ -50,7 +50,14 @@ async function registrarUsuarioDirecto(req, res) {
 
     return res.status(201).json({
       success: true,
-      mensaje: 'Usuario registrado exitosamente.'
+      mensaje: 'Usuario registrado exitosamente.',
+      usuario: {
+        id: idUsuario,
+        nombre,
+        correo,
+        rol,
+        estado: 'Activo'
+      }
     });
 
   } catch (error) {
