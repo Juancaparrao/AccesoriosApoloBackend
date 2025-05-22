@@ -3,16 +3,19 @@ const pool = require('../db');
 async function consultarUsuarios(req, res) {
   try {
     const [usuarios] = await pool.execute(`
-      SELECT cedula, nombre, telefono, correo, contrasena, estado 
-      FROM usuario
+      SELECT u.cedula, u.nombre, u.telefono, u.correo, u.estado,
+      r.nombre AS rol
+      FROM usuario u
+      JOIN usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
+      JOIN rol r ON ur.id_rol = r.id_rol
     `);
 
     const usuariosFormateados = usuarios.map(usuario => ({
       cedula: usuario.cedula,
       nombre: usuario.nombre,
-      telefono: usuario.telefono,
       correo: usuario.correo,
-      contrasena: usuario.contrasena,
+      telefono: usuario.telefono,
+      rol: usuario.rol,
       estado: usuario.estado ? 'Activo' : 'Inactivo'
     }));
 
