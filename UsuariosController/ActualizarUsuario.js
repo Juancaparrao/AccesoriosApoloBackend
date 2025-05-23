@@ -52,7 +52,7 @@ async function actualizarUsuario(req, res) {
 
     const id_usuario = usuarioActual[0].id_usuario;
 
-    // Validar duplicados excluyendo su propio ID
+    // Validaciones de duplicados
     const [correoExistente] = await pool.execute(
       'SELECT id_usuario FROM usuario WHERE correo = ? AND id_usuario != ?',
       [correo, id_usuario]
@@ -80,14 +80,27 @@ async function actualizarUsuario(req, res) {
       return res.status(409).json({ success: false, mensaje: 'Ese teléfono ya está registrado.' });
     }
 
-    // Actualizar usuario
-    if (!contrasena || contrasena.trim() === "") {
+    // Obtener id del nuevo rol
+    const [rolData] = await pool.execute('SELECT id_rol FROM rol WHERE nombre = ?', [rol]);
+
+    if (rolData.length === 0) {
+      return res.status(400).json({ success: false, mensaje: 'Rol no válido.' });
+    }
+
+    const nuevoRolId = rolData[0].id_rol;
+
+    // Lógica condicional para la contraseña
+    const puedeActualizarContrasena = rol === 'Gerente' || rol === 'Vendedor';
+
+    if (!contrasena || contrasena.trim() === "" || !puedeActualizarContrasena) {
+      // Sin cambio de contraseña
       await pool.execute(
         `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?
          WHERE id_usuario = ?`,
         [nombre, correo, telefono, cedula, id_usuario]
       );
     } else {
+      // Con cambio de contraseña permitido
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(contrasena, salt);
 
@@ -98,16 +111,7 @@ async function actualizarUsuario(req, res) {
       );
     }
 
-    // Obtener id del nuevo rol
-    const [rolData] = await pool.execute('SELECT id_rol FROM rol WHERE nombre = ?', [rol]);
-
-    if (rolData.length === 0) {
-      return res.status(400).json({ success: false, mensaje: 'Rol no válido.' });
-    }
-
-    const nuevoRolId = rolData[0].id_rol;
-
-    // Actualizar rol del usuario
+    // Actualizar el rol en la tabla usuario_rol
     await pool.execute(
       `UPDATE usuario_rol SET id_rol = ? WHERE fk_id_usuario = ?`,
       [nuevoRolId, id_usuario]
