@@ -14,6 +14,7 @@ const { obtenerPerfil } = require('./InicioController/Perfil');
 const { validarGerente } = require('./UsuariosController/validacionesUsuarios');
 const { registrarUsuarioDirecto } = require('./UsuariosController/registrarUsuarios');
 const { consultarUsuarios } = require('./UsuariosController/consultarUsuarios');
+const { buscarUsuarioPorCorreo } = require('./UsuariosController/BuscarUsuarioPorCorreo');
 
 
 app.use(cors({
@@ -52,6 +53,7 @@ app.get('/validar-gerente', verificarToken, validarGerente);
 //Modulo de usuarios
 app.post('/registrar-directo', registrarUsuarioDirecto);
 app.get('/usuarios', verificarToken, consultarUsuarios);
+app.get('/buscar-usuario-correo', buscarUsuarioPorCorreo);
 
 // Inicializar servidor
 app.listen(port, () => {
