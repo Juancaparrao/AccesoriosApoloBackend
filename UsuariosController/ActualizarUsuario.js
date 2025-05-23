@@ -34,7 +34,6 @@ async function actualizarUsuario(req, res) {
   const { correoOriginal, nombre, correo, telefono, cedula, contrasena } = req.body;
 
   try {
-    // Obtener ID del usuario original
     const [usuarioActual] = await pool.execute(
       'SELECT id_usuario FROM usuario WHERE correo = ?',
       [correoOriginal]
@@ -49,7 +48,7 @@ async function actualizarUsuario(req, res) {
 
     const id_usuario = usuarioActual[0].id_usuario;
 
-    // Validar duplicados (excluyendo su propio ID)
+    // Validar duplicados excluyendo su propio ID
     const [correoExistente] = await pool.execute(
       'SELECT id_usuario FROM usuario WHERE correo = ? AND id_usuario != ?',
       [correo, id_usuario]
@@ -77,19 +76,23 @@ async function actualizarUsuario(req, res) {
       return res.status(409).json({ success: false, mensaje: 'Ese teléfono ya está registrado.' });
     }
 
-    // Encriptar contraseña si la envían
-    let nuevaContrasena = null;
-    if (contrasena) {
+    // Si no se envía nueva contraseña (vacía), actualizamos sin ella
+    if (!contrasena || contrasena.trim() === "") {
+      await pool.execute(
+        `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?
+         WHERE id_usuario = ?`,
+        [nombre, correo, telefono, cedula, id_usuario]
+      );
+    } else {
       const salt = await bcrypt.genSalt(10);
-      nuevaContrasena = await bcrypt.hash(contrasena, salt);
-    }
+      const hashedPassword = await bcrypt.hash(contrasena, salt);
 
-    // Actualizar usuario
-    await pool.execute(
-      `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?, contrasena = COALESCE(?, contrasena) 
-       WHERE id_usuario = ?`,
-      [nombre, correo, telefono, cedula, nuevaContrasena, id_usuario]
-    );
+      await pool.execute(
+        `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?, contrasena = ?
+         WHERE id_usuario = ?`,
+        [nombre, correo, telefono, cedula, hashedPassword, id_usuario]
+      );
+    }
 
     return res.status(200).json({
       success: true,
