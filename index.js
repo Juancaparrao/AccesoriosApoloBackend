@@ -18,6 +18,8 @@ const { buscarUsuarioPorCorreo } = require('./UsuariosController/BuscarUsuarioPo
 const { obtenerDatosUsuario, actualizarUsuario } = require('./UsuariosController/ActualizarUsuario');
 const { eliminarUsuario } = require('./UsuariosController/EliminarUsuario');
 const { reactivarUsuario } = require('./UsuariosController/ReactivarUsuario');
+const { EditarPerfil } = require('./InicioController/EditarPerfil');
+
 
 
 app.use(cors({
@@ -39,6 +41,8 @@ app.post('/obtener-nombre', obtenerNombre);
 
 // Ruta protegida con JWT
 app.get('/perfil', verificarToken, obtenerPerfil);
+app.put('/editar-perfil', verificarToken, EditarPerfil);
+
 
 // Recuperar contraseña
 app.post('/recuperar', solicitarRecuperacion);
