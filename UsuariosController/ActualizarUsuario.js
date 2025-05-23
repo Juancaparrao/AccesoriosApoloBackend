@@ -6,7 +6,11 @@ async function obtenerDatosUsuario(req, res) {
     const { correo } = req.body;
 
     const [rows] = await pool.execute(
-      'SELECT nombre, correo, telefono, cedula FROM usuario WHERE correo = ?',
+      `SELECT u.nombre, u.correo, u.telefono, u.cedula, r.nombre AS rol
+       FROM usuario u
+       JOIN usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
+       JOIN rol r ON ur.id_rol = r.id_rol
+       WHERE u.correo = ?`,
       [correo]
     );
 
@@ -31,7 +35,7 @@ async function obtenerDatosUsuario(req, res) {
 }
 
 async function actualizarUsuario(req, res) {
-  const { correoOriginal, nombre, correo, telefono, cedula, contrasena } = req.body;
+  const { correoOriginal, nombre, correo, telefono, cedula, contrasena, rol } = req.body;
 
   try {
     const [usuarioActual] = await pool.execute(
@@ -76,7 +80,7 @@ async function actualizarUsuario(req, res) {
       return res.status(409).json({ success: false, mensaje: 'Ese teléfono ya está registrado.' });
     }
 
-    // Si no se envía nueva contraseña (vacía), actualizamos sin ella
+    // Actualizar usuario
     if (!contrasena || contrasena.trim() === "") {
       await pool.execute(
         `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?
@@ -93,6 +97,21 @@ async function actualizarUsuario(req, res) {
         [nombre, correo, telefono, cedula, hashedPassword, id_usuario]
       );
     }
+
+    // Obtener id del nuevo rol
+    const [rolData] = await pool.execute('SELECT id_rol FROM rol WHERE nombre = ?', [rol]);
+
+    if (rolData.length === 0) {
+      return res.status(400).json({ success: false, mensaje: 'Rol no válido.' });
+    }
+
+    const nuevoRolId = rolData[0].id_rol;
+
+    // Actualizar rol del usuario
+    await pool.execute(
+      `UPDATE usuario_rol SET id_rol = ? WHERE fk_id_usuario = ?`,
+      [nuevoRolId, id_usuario]
+    );
 
     return res.status(200).json({
       success: true,
