@@ -10,6 +10,12 @@ function generarTokenSeguro() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function contrasenaValida(contrasena) {
+  const regex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+  return regex.test(contrasena);
+}
+
+
 // 1. Enviar link de recuperación al correo
 async function solicitarRecuperacion(req, res) {
   const { correo } = req.body;
@@ -56,17 +62,51 @@ async function cambiarContrasena(req, res) {
   const { token, nuevaContrasena } = req.body;
   const datos = tokenRecuperacionStore.get(token);
 
-  if (!datos || Date.now() > datos.expiracion) {
+  if (!datos) {
     return res.status(400).json({
       success: false,
-      mensaje: 'El enlace de recuperación es inválido o ha expirado.'
+      mensaje: 'El enlace de recuperación es inválido.'
+    });
+  }
+
+  if (Date.now() > datos.expiracion) {
+    tokenRecuperacionStore.delete(token); // eliminar token expirado
+    return res.status(400).json({
+      success: false,
+      mensaje: 'El enlace de recuperación ha expirado.'
+    });
+  }
+
+  if (!contrasenaValida(nuevaContrasena)) {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'La contraseña debe tener al menos 8 caracteres, una letra mayúscula y un número.'
     });
   }
 
   try {
-    const hash = await bcrypt.hash(nuevaContrasena, 10);
-    await pool.execute('UPDATE usuario SET contrasena = ? WHERE correo = ?', [hash, datos.correo]);
-    tokenRecuperacionStore.delete(token); // eliminar token usado
+    const [rows] = await pool.execute('SELECT contrasena FROM usuario WHERE correo = ?', [datos.correo]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Usuario no encontrado.'
+      });
+    }
+
+    const contrasenaActualHash = rows[0].contrasena;
+    const esIgual = await bcrypt.compare(nuevaContrasena, contrasenaActualHash);
+
+    if (esIgual) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'La nueva contraseña no puede ser igual a la anterior.'
+      });
+    }
+
+    const nuevaHash = await bcrypt.hash(nuevaContrasena, 10);
+    await pool.execute('UPDATE usuario SET contrasena = ? WHERE correo = ?', [nuevaHash, datos.correo]);
+    tokenRecuperacionStore.delete(token);
 
     return res.status(200).json({
       success: true,
@@ -82,6 +122,7 @@ async function cambiarContrasena(req, res) {
     });
   }
 }
+
 
 module.exports = {
   solicitarRecuperacion,

@@ -7,6 +7,12 @@ const jwt = require('jsonwebtoken');
 const { generarHtmlOTP, generarHtmlBienvenida } = require('./templates/otpCorreo');
 const pool = require('../db');
 
+function contrasenaValida(contrasena) {
+  const regex = /^(?=.*[A-Z]).{8,}$/;
+  return regex.test(contrasena);
+}
+
+
 function guardarUsuarioPendiente(correo, datos) {
   usuariosPendientes.set(correo, datos);
 }
@@ -24,6 +30,12 @@ async function correoExiste(correo) {
   return rows.length > 0;
 }
 
+async function telefonoExiste(telefono) {
+  const [rows] = await pool.execute('SELECT id_usuario FROM usuario WHERE telefono = ?', [telefono]);
+  return rows.length > 0;
+}
+
+
 async function enviarOTP(correo) {
   const codigo = generarOTP();
   otpStore.set(correo, { codigo, expiracion: Date.now() + 5 * 60 * 1000 });
@@ -38,18 +50,32 @@ async function enviarOTP(correo) {
 
 function verificarOTP(correo, codigo) {
   const entrada = otpStore.get(correo);
-  if (!entrada || entrada.codigo !== codigo || Date.now() > entrada.expiracion) return false;
+
+  if (!entrada) return 'invalido';
+  if (Date.now() > entrada.expiracion) {
+    otpStore.delete(correo);
+    return 'expirado';
+  }
+  if (entrada.codigo !== codigo) return 'invalido';
+
   otpStore.delete(correo);
-  return true;
+  return 'valido';
 }
 
 async function solicitarOTP(req, res) {
   const { nombre, correo, telefono, contrasena } = req.body;
 
-  if (!nombre || !correo || !contrasena) {
+  if (!nombre || !correo || !telefono || !contrasena) {
     return res.status(400).json({
       success: false,
       mensaje: 'Faltan campos obligatorios.'
+    });
+  }
+
+  if (!contrasenaValida(contrasena)) {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'La contraseña no cumple con los requisitos de seguridad.'
     });
   }
 
@@ -58,6 +84,13 @@ async function solicitarOTP(req, res) {
       return res.status(409).json({
         success: false,
         mensaje: 'Este correo ya está registrado. Intenta con otro.'
+      });
+    }
+
+    if (await telefonoExiste(telefono)) {
+      return res.status(409).json({
+        success: false,
+        mensaje: 'Este número de teléfono ya está registrado. Intenta con otro.'
       });
     }
 
@@ -106,10 +139,19 @@ async function reenviarOTP(req, res) {
 async function verificarOTPHandler(req, res) {
   const { correo, codigo } = req.body;
 
-  if (!verificarOTP(correo, codigo)) {
+  const resultado = verificarOTP(correo, codigo);
+
+  if (resultado === 'expirado') {
     return res.status(400).json({
       success: false,
-      mensaje: 'Código OTP inválido o expirado.'
+      mensaje: 'El código OTP ha expirado.'
+    });
+  }
+
+  if (resultado === 'invalido') {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'Código OTP inválido.'
     });
   }
 
@@ -164,5 +206,6 @@ async function verificarOTPHandler(req, res) {
     });
   }
 }
+
 
 module.exports = { solicitarOTP, verificarOTPHandler, reenviarOTP };
