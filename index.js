@@ -16,6 +16,7 @@ const { registrarUsuarioDirecto } = require('./UsuariosController/registrarUsuar
 const { consultarUsuarios } = require('./UsuariosController/consultarUsuarios');
 const { buscarUsuarioPorCorreo } = require('./UsuariosController/BuscarUsuarioPorCorreo');
 const { obtenerDatosUsuario, actualizarUsuario } = require('./UsuariosController/ActualizarUsuario');
+const { eliminarUsuario } = require('./UsuariosController/EliminarUsuario');
 
 
 app.use(cors({
@@ -57,6 +58,7 @@ app.get('/usuarios', verificarToken, consultarUsuarios);
 app.get('/buscar-usuario-correo', buscarUsuarioPorCorreo);
 app.post('/obtener-usuario-por-correo', obtenerDatosUsuario);
 app.put('/actualizar-usuario', actualizarUsuario);
+app.put('/eliminar-usuario', eliminarUsuario);
 
 // Inicializar servidor
 app.listen(port, () => {
