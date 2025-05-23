@@ -12,7 +12,11 @@ async function buscarUsuarioPorCorreo(req, res) {
     }
 
     const [usuarios] = await pool.execute(
-      'SELECT id_usuario, nombre, correo, telefono, cedula, rol, estado FROM usuario WHERE correo LIKE ?',
+      `SELECT u.id_usuario, u.nombre, u.correo, u.telefono, u.cedula, r.nombre AS rol
+       FROM usuario u
+       JOIN usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
+       JOIN rol r ON ur.id_rol = r.id_rol
+       WHERE u.correo LIKE ?`,
       [`${filtro}%`]
     );
 
