@@ -90,7 +90,7 @@ async function actualizarUsuario(req, res) {
     const nuevoRolId = rolData[0].id_rol;
 
     // Lógica condicional para la contraseña
-    const puedeActualizarContrasena = rol === 'Gerente' || rol === 'Vendedor';
+    const puedeActualizarContrasena = rol === 'gerente' || rol === 'vendedor';
 
     if (!contrasena || contrasena.trim() === "" || !puedeActualizarContrasena) {
       // Sin cambio de contraseña
