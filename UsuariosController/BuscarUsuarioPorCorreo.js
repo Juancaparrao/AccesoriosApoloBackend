@@ -12,7 +12,7 @@ async function buscarUsuarioPorCorreo(req, res) {
     }
 
     const [usuarios] = await pool.execute(
-      `SELECT u.id_usuario, u.nombre, u.correo, u.telefono, u.cedula, r.nombre AS rol
+      `SELECT u.id_usuario, u.nombre, u.correo, u.telefono, u.cedula, u.estado, r.nombre AS rol
        FROM usuario u
        JOIN usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
        JOIN rol r ON ur.id_rol = r.id_rol
