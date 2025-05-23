@@ -12,7 +12,7 @@ async function buscarUsuarioPorCorreo(req, res) {
     }
 
     const [usuarios] = await pool.execute(
-      `SELECT u.id_usuario, u.nombre, u.correo, u.telefono, u.cedula, u.estado, r.nombre AS rol
+      `SELECT  u.nombre, u.correo, u.telefono, u.cedula, u.estado, r.nombre AS rol
        FROM usuario u
        JOIN usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
        JOIN rol r ON ur.id_rol = r.id_rol
@@ -20,9 +20,18 @@ async function buscarUsuarioPorCorreo(req, res) {
       [`${filtro}%`]
     );
 
+    const usuariosFormateados = usuarios.map(usuario => ({
+      nombre: usuario.nombre,
+      correo: usuario.correo,
+      telefono: usuario.telefono,
+      cedula: usuario.cedula,
+      rol: usuario.rol,
+      estado: usuario.estado ? 'Activo' : 'Inactivo'
+    }));
+
     return res.status(200).json({
       success: true,
-      usuarios
+      usuarios: usuariosFormateados
     });
   } catch (error) {
     console.error('Error al buscar usuarios por correo:', error);
