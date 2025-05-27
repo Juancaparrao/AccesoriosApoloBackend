@@ -4,6 +4,7 @@ async function RegistrarProveedor(req, res) {
   try {
     const { nit, representante, nombreEmpresa, correo, telefono, direccion } = req.body;
 
+    // Validación de campos obligatorios
     if (!nit || !representante || !nombreEmpresa || !correo || !telefono || !direccion) {
       return res.status(400).json({
         success: false,
@@ -11,22 +12,25 @@ async function RegistrarProveedor(req, res) {
       });
     }
 
-    // Verificar si el proveedor ya está registrado
-    const [proveedores] = await pool.execute(
-      'SELECT nit FROM proveedor WHERE nit = ? OR correo = ?',
-      [nit, correo]
+    // Verificar si ya existe un proveedor con los mismos datos
+    const [existente] = await pool.execute(
+      `SELECT * FROM proveedor 
+       WHERE nit = ? OR correo = ? OR telefono = ? OR empresa = ? OR direccion = ?`,
+      [nit, correo, telefono, nombreEmpresa, direccion]
     );
 
-    if (proveedores.length > 0) {
+    if (existente.length > 0) {
       return res.status(409).json({
         success: false,
-        mensaje: 'Este proveedor ya está registrado.'
+        mensaje: 'Ya existe un proveedor con el mismo NIT, correo, teléfono, empresa o dirección.'
       });
     }
 
+    // Insertar proveedor con estado = 1 (activo)
     await pool.execute(
-      'INSERT INTO proveedor (nit, nombre, empresa, correo, telefono, direccion) VALUES (?, ?, ?, ?, ?, ?)',
-      [nit, representante, nombreEmpresa, correo, telefono, direccion]
+      `INSERT INTO proveedor (nit, nombre, empresa, correo, telefono, direccion, estado)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [nit, representante, nombreEmpresa, correo, telefono, direccion, 1]
     );
 
     return res.status(201).json({
