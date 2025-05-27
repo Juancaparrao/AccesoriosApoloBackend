@@ -3,7 +3,7 @@ const pool = require('../db');
 async function ConsultarProveedor(req, res) {
   try {
     const [proveedores] = await pool.execute(`
-      SELECT nit, nombre AS representante, empresa AS nombreEmpresa, correo, telefono, direccion
+      SELECT nit, nombre AS representante, empresa AS nombreEmpresa, correo, telefono, direccion, estado
       FROM proveedor
     `);
 
