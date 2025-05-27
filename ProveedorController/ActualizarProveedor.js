@@ -1,5 +1,3 @@
-console.log("Body recibido en ActualizarProveedor:", req.body);
-
 const pool = require('../db');
 
 async function ObtenerDatosProveedor(req, res) {
@@ -43,6 +41,8 @@ async function ActualizarProveedor(req, res) {
     telefono,
     direccion
   } = req.body;
+
+  console.log("Body recibido en ActualizarProveedor:", req.body);
 
   try {
     // Verificar existencia del proveedor original
