@@ -42,8 +42,6 @@ async function ActualizarProveedor(req, res) {
     direccion
   } = req.body;
 
-  console.log("Body recibido en ActualizarProveedor:", req.body);
-
   try {
     // Verificar existencia del proveedor original
     const [proveedores] = await pool.execute(

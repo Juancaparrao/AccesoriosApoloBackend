@@ -13,7 +13,7 @@ async function ReactivarProveedor(req, res) {
   try {
     // Verificar si el proveedor existe y está inactivo
     const [proveedores] = await pool.execute(
-      'SELECT id_proveedor, estado FROM proveedor WHERE nit = ?',
+      'SELECT estado FROM proveedor WHERE nit = ?',
       [nit]
     );
 
@@ -33,10 +33,10 @@ async function ReactivarProveedor(req, res) {
       });
     }
 
-    // Reactivar proveedor (estado = 1)
+    // Reactivar proveedor (estado = true)
     await pool.execute(
-      'UPDATE proveedor SET estado = 1 WHERE id_proveedor = ?',
-      [proveedor.id_proveedor]
+      'UPDATE proveedor SET estado = true WHERE nit = ?',
+      [nit]
     );
 
     return res.status(200).json({
