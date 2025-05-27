@@ -21,7 +21,10 @@ const { reactivarUsuario } = require('./UsuariosController/ReactivarUsuario');
 const { EditarPerfil } = require('./InicioController/EditarPerfil');
 const { RegistrarProveedor } = require('./ProveedorController/RegistrarProveedor');
 const { ConsultarProveedor } = require('./ProveedorController/ConsultarProveedor');
-
+const { ReactivarProveedor } = require('./ProveedorController/ReactivarProveedor');
+const { EliminarProveedor } = require('./ProveedorController/EliminarProveedor');
+const { ObtenerDatosProveedor, ActualizarProveedor } = require('./ProveedorController/ActualizarProveedor');
+const { BuscarProveedorPorNit } = require('./ProveedorController/BuscarProveedorPorNit');
 
 
 
@@ -72,7 +75,11 @@ app.put('/reactivar-usuario', reactivarUsuario);
 // Módulo de proveedores
 app.post('/registrar-proveedor', RegistrarProveedor);
 app.get('/proveedores', ConsultarProveedor);
-
+app.put('/eliminar-proveedor', EliminarProveedor);
+app.put('/reactivar-proveedor', ReactivarProveedor);
+app.post('/obtener-proveedor', ObtenerDatosProveedor);
+app.put('/actualizar-proveedor', ActualizarProveedor);
+app.get('/buscar-proveedor', BuscarProveedorPorNit);
 
 // Inicializar servidor
 app.listen(port, () => {
