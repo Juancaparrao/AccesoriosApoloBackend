@@ -1,3 +1,5 @@
+console.log("Body recibido en ActualizarProveedor:", req.body);
+
 const pool = require('../db');
 
 async function ObtenerDatosProveedor(req, res) {
