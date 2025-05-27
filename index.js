@@ -19,6 +19,8 @@ const { obtenerDatosUsuario, actualizarUsuario } = require('./UsuariosController
 const { eliminarUsuario } = require('./UsuariosController/EliminarUsuario');
 const { reactivarUsuario } = require('./UsuariosController/ReactivarUsuario');
 const { EditarPerfil } = require('./InicioController/EditarPerfil');
+const { RegistrarProveedor } = require('./ProveedorController/RegistrarProveedor');
+
 
 
 
@@ -65,6 +67,10 @@ app.post('/obtener-usuario-por-correo', obtenerDatosUsuario);
 app.put('/actualizar-usuario', actualizarUsuario);
 app.put('/eliminar-usuario', eliminarUsuario);
 app.put('/reactivar-usuario', reactivarUsuario);
+
+// Módulo de proveedores
+app.post('/registrar-proveedor', RegistrarProveedor);
+
 
 // Inicializar servidor
 app.listen(port, () => {
