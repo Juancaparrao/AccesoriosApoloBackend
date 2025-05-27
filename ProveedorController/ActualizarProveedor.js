@@ -47,7 +47,7 @@ async function ActualizarProveedor(req, res) {
   try {
     // Verificar existencia del proveedor original
     const [proveedores] = await pool.execute(
-      'SELECT id_proveedor FROM proveedor WHERE nit = ?',
+      'SELECT nit FROM proveedor WHERE nit = ?',
       [nitOriginal]
     );
 
@@ -58,32 +58,30 @@ async function ActualizarProveedor(req, res) {
       });
     }
 
-    const id_proveedor = proveedores[0].id_proveedor;
-
-    // Validaciones de duplicados
+    // Validaciones de duplicados (exceptuando el proveedor original)
     const [nitExiste] = await pool.execute(
-      'SELECT id_proveedor FROM proveedor WHERE nit = ? AND id_proveedor != ?',
-      [nit, id_proveedor]
+      'SELECT nit FROM proveedor WHERE nit = ? AND nit != ?',
+      [nit, nitOriginal]
     );
 
     const [correoExiste] = await pool.execute(
-      'SELECT id_proveedor FROM proveedor WHERE correo = ? AND id_proveedor != ?',
-      [correo, id_proveedor]
+      'SELECT nit FROM proveedor WHERE correo = ? AND nit != ?',
+      [correo, nitOriginal]
     );
 
     const [telefonoExiste] = await pool.execute(
-      'SELECT id_proveedor FROM proveedor WHERE telefono = ? AND id_proveedor != ?',
-      [telefono, id_proveedor]
+      'SELECT nit FROM proveedor WHERE telefono = ? AND nit != ?',
+      [telefono, nitOriginal]
     );
 
     const [empresaExiste] = await pool.execute(
-      'SELECT id_proveedor FROM proveedor WHERE empresa = ? AND id_proveedor != ?',
-      [nombreEmpresa, id_proveedor]
+      'SELECT nit FROM proveedor WHERE empresa = ? AND nit != ?',
+      [nombreEmpresa, nitOriginal]
     );
 
     const [direccionExiste] = await pool.execute(
-      'SELECT id_proveedor FROM proveedor WHERE direccion = ? AND id_proveedor != ?',
-      [direccion, id_proveedor]
+      'SELECT nit FROM proveedor WHERE direccion = ? AND nit != ?',
+      [direccion, nitOriginal]
     );
 
     if (nitExiste.length > 0) {
@@ -110,8 +108,8 @@ async function ActualizarProveedor(req, res) {
     await pool.execute(
       `UPDATE proveedor
        SET nit = ?, nombre = ?, empresa = ?, correo = ?, telefono = ?, direccion = ?
-       WHERE id_proveedor = ?`,
-      [nit, representante, nombreEmpresa, correo, telefono, direccion, id_proveedor]
+       WHERE nit = ?`,
+      [nit, representante, nombreEmpresa, correo, telefono, direccion, nitOriginal]
     );
 
     return res.status(200).json({
