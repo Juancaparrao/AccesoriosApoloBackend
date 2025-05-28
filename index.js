@@ -19,12 +19,19 @@ const { obtenerDatosUsuario, actualizarUsuario } = require('./UsuariosController
 const { eliminarUsuario } = require('./UsuariosController/EliminarUsuario');
 const { reactivarUsuario } = require('./UsuariosController/ReactivarUsuario');
 const { EditarPerfil } = require('./InicioController/EditarPerfil');
-const { RegistrarProveedor } = require('./ProveedorController/RegistrarProveedor');
-const { ConsultarProveedor } = require('./ProveedorController/ConsultarProveedor');
-const { ReactivarProveedor } = require('./ProveedorController/ReactivarProveedor');
-const { EliminarProveedor } = require('./ProveedorController/EliminarProveedor');
-const { ObtenerDatosProveedor, ActualizarProveedor } = require('./ProveedorController/ActualizarProveedor');
-const { BuscarProveedorPorNit } = require('./ProveedorController/BuscarProveedorPorNit');
+const { RegistrarProveedor } = require('./ProveedoresController/RegistrarProveedor');
+const { ConsultarProveedor } = require('./ProveedoresController/ConsultarProveedor');
+const { ReactivarProveedor } = require('./ProveedoresController/ReactivarProveedor');
+const { EliminarProveedor } = require('./ProveedoresController/EliminarProveedor');
+const { ObtenerDatosProveedor, ActualizarProveedor } = require('./ProveedoresController/ActualizarProveedor');
+const { BuscarProveedorPorNit } = require('./ProveedoresController/BuscarProveedorPorNit');
+const { RegistrarCategoria } = require('./CategoriasController/RegistrarCategoria');
+const { ConsultarCategoria } = require('./CategoriasController/ConsultarCategoria');
+const { EliminarCategoria } = require('./CategoriasController/EliminarCategoria');
+const { ObtenerDatosCategoria, ActualizarCategoria } = require('./CategoriasController/ActualizarCategoria');
+const { ReactivarCategoria } = require('./CategoriasController/ReactivarCategoria');
+const { BuscarCategoriaPorNombre } = require('./CategoriasController/BuscarCategoriaPorNombre');
+
 
 
 
@@ -80,6 +87,17 @@ app.put('/reactivar-proveedor', ReactivarProveedor);
 app.post('/obtener-proveedor', ObtenerDatosProveedor);
 app.put('/actualizar-proveedor', ActualizarProveedor);
 app.get('/buscar-proveedor', BuscarProveedorPorNit);
+
+// Módulo de categorías
+app.post('/registrar-categoria', RegistrarCategoria);
+app.get('/categorias', ConsultarCategoria);
+app.put('/eliminar-categoria', EliminarCategoria);
+app.post('/obtener-categoria', ObtenerDatosCategoria);
+app.put('/actualizar-categoria', ActualizarCategoria);
+app.put('/reactivar-categoria', ReactivarCategoria);
+app.get('/buscar-categoria-nombre', BuscarCategoriaPorNombre);
+
+
 
 // Inicializar servidor
 app.listen(port, () => {
