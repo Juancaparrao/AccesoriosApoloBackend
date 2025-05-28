@@ -2,14 +2,17 @@ const pool = require('../db');
 
 async function ObtenerDatosCategoria(req, res) {
   const { id_categoria } = req.body;
+  console.log('🔎 Buscando categoría con ID:', id_categoria);
 
   try {
     const [rows] = await pool.execute(
-      `SELECT id_categoria, nombre_categoria, descripcion, descuento,
+      `SELECT id_categoria, nombre_categoria, descripcion, descuento
        FROM categoria
        WHERE id_categoria = ?`,
       [id_categoria]
     );
+
+    console.log('📦 Resultado de la búsqueda:', rows);
 
     if (rows.length === 0) {
       return res.status(404).json({
@@ -24,13 +27,14 @@ async function ObtenerDatosCategoria(req, res) {
     });
 
   } catch (error) {
-    console.error('Error al obtener datos de la categoría:', error);
+    console.error('❌ Error al obtener datos de la categoría:', error);
     return res.status(500).json({
       success: false,
       mensaje: 'Error interno al obtener los datos de la categoría.'
     });
   }
 }
+
 
 async function ActualizarCategoria(req, res) {
   const {
