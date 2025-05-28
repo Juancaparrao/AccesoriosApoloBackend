@@ -5,7 +5,7 @@ async function ObtenerDatosCategoria(req, res) {
 
   try {
     const [rows] = await pool.execute(
-      `SELECT id_categoria, nombre_categoria, descripcion, descuento
+      `SELECT id_categoria, nombre_categoria, descripcion, descuento,
        FROM categoria
        WHERE id_categoria = ?`,
       [id_categoria]

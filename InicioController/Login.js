@@ -3,7 +3,7 @@ const pool = require('../db');
 const bcrypt = require('bcrypt');
 
 async function iniciarSesion(correo, contrasena) {
-  const [rows] = await pool.execute('SELECT * FROM usuario WHERE correo = ?', [correo]);
+const [rows] = await pool.execute('SELECT * FROM usuario WHERE correo = ? AND estado = true', [correo]);
   
   if (rows.length === 0) {
     throw new Error('Usuario no encontrado'); // Correo no registrado
