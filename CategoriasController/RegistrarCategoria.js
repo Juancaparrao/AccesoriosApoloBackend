@@ -14,7 +14,7 @@ async function RegistrarCategoria(req, res) {
 
     // Verificar si ya existe una categoría con el mismo nombre
     const [existente] = await pool.execute(
-      `SELECT * FROM CATEGORIA WHERE nombre_categoria = ?`,
+      `SELECT * FROM categoria WHERE nombre_categoria = ?`,
       [nombre_categoria]
     );
 
@@ -27,7 +27,7 @@ async function RegistrarCategoria(req, res) {
 
     // Insertar categoría con estado = 1 (activa)
     await pool.execute(
-      `INSERT INTO CATEGORIA (nombre_categoria, descripcion, descuento, estado)
+      `INSERT INTO categoria (nombre_categoria, descripcion, descuento, estado)
        VALUES (?, ?, ?, ?)`,
       [nombre_categoria, descripcion || null, descuento, 1]
     );

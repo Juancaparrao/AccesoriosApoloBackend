@@ -13,7 +13,7 @@ async function ReactivarCategoria(req, res) {
   try {
     // Verificar si la categoría existe y está inactiva
     const [categorias] = await pool.execute(
-      'SELECT estado FROM CATEGORIA WHERE id_categoria = ?',
+      'SELECT estado FROM categoria WHERE id_categoria = ?',
       [id_categoria]
     );
 
@@ -35,7 +35,7 @@ async function ReactivarCategoria(req, res) {
 
     // Reactivar categoría (estado = true)
     await pool.execute(
-      'UPDATE CATEGORIA SET estado = true WHERE id_categoria = ?',
+      'UPDATE categoria SET estado = true WHERE id_categoria = ?',
       [id_categoria]
     );
 

@@ -6,7 +6,7 @@ async function ObtenerDatosCategoria(req, res) {
   try {
     const [rows] = await pool.execute(
       `SELECT id_categoria, nombre_categoria, descripcion, descuento
-       FROM CATEGORIA
+       FROM categoria
        WHERE id_categoria = ?`,
       [id_categoria]
     );
@@ -51,7 +51,7 @@ async function ActualizarCategoria(req, res) {
   try {
     // Verificar si la categoría original existe
     const [categorias] = await pool.execute(
-      'SELECT id_categoria FROM CATEGORIA WHERE id_categoria = ?',
+      'SELECT id_categoria FROM categoria WHERE id_categoria = ?',
       [id_categoria_original]
     );
 
@@ -64,7 +64,7 @@ async function ActualizarCategoria(req, res) {
 
     // Validar si ya existe otra categoría con el mismo nombre
     const [nombreExiste] = await pool.execute(
-      'SELECT id_categoria FROM CATEGORIA WHERE nombre_categoria = ? AND id_categoria != ?',
+      'SELECT id_categoria FROM categoria WHERE nombre_categoria = ? AND id_categoria != ?',
       [nombre_categoria, id_categoria_original]
     );
 
@@ -77,7 +77,7 @@ async function ActualizarCategoria(req, res) {
 
     // Actualizar datos
     await pool.execute(
-      `UPDATE CATEGORIA
+      `UPDATE categoria
        SET nombre_categoria = ?, descripcion = ?, descuento = ?
        WHERE id_categoria = ?`,
       [nombre_categoria, descripcion, descuento, id_categoria_original]

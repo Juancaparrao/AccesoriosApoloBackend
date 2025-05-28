@@ -13,7 +13,7 @@ async function EliminarCategoria(req, res) {
   try {
     // Verificar si la categoría existe
     const [categorias] = await pool.execute(
-      'SELECT estado FROM CATEGORIA WHERE id_categoria = ?',
+      'SELECT estado FROM categoria WHERE id_categoria = ?',
       [id_categoria]
     );
 
@@ -35,7 +35,7 @@ async function EliminarCategoria(req, res) {
 
     // Cambiar el estado a inactivo
     await pool.execute(
-      'UPDATE CATEGORIA SET estado = false WHERE id_categoria = ?',
+      'UPDATE categoria SET estado = false WHERE id_categoria = ?',
       [id_categoria]
     );
 

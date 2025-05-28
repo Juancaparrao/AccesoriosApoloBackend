@@ -13,7 +13,7 @@ async function BuscarCategoriaPorNombre(req, res) {
 
     const [categorias] = await pool.execute(
       `SELECT id_categoria, nombre_categoria, descripcion, estado
-       FROM CATEGORIA
+       FROM categoria
        WHERE nombre_categoria LIKE ?`,
       [`${filtro}%`]
     );

@@ -4,7 +4,7 @@ async function ConsultarCategoria(req, res) {
   try {
     const [categorias] = await pool.execute(`
       SELECT id_categoria, nombre_categoria, descripcion, descuento, estado
-      FROM CATEGORIA
+      FROM categoria
     `);
 
     return res.status(200).json({
