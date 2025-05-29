@@ -36,7 +36,7 @@ const { RegistrarSubcategoria } = require('./SubcategoriasController/RegistrarSu
 const { ConsultarSubcategoria } = require('./SubcategoriasController/ConsultarSubcategoria');
 const { EliminarSubcategoria } = require('./SubcategoriasController/EliminarSubcategoria');
 const { ReactivarSubcategoria } = require('./SubcategoriasController/ReactivarSubcategoria');
-const { ActualizarSubcategoria } = require('./SubcategoriasController/ActualizarSubcategoria');
+const { ActualizarSubcategoria, ObtenerDatosSubcategoria } = require('./SubcategoriasController/ActualizarSubcategoria');
 const { BuscarSubcategoriaPorNombre } = require('./SubcategoriasController/BuscarSubcategoriaPorNombre');
 
 
@@ -107,6 +107,7 @@ app.post('/registrar-subcategoria', upload.single('imagen'), RegistrarSubcategor
 app.get('/subcategorias', ConsultarSubcategoria);
 app.put('/eliminar-subcategoria', EliminarSubcategoria);
 app.put('/reactivar-subcategoria', ReactivarSubcategoria);
+app.post('/obtener-subcategoria', ObtenerDatosSubcategoria);
 app.put('/actualizar-subcategoria', upload.single('imagen'), ActualizarSubcategoria);
 app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre)
 

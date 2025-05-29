@@ -1,6 +1,40 @@
 const pool = require('../db');
 const cloudinary = require('../cloudinary');
 
+async function ObtenerDatosSubcategoria(req, res) {
+  const { id_subcategoria } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      `SELECT s.id_subcategoria, s.nombre_subcategoria, s.descripcion, s.descuento,
+              s.url_imagen, s.FK_id_categoria, c.nombre_categoria
+       FROM subcategoria s
+       JOIN categoria c ON s.FK_id_categoria = c.id_categoria
+       WHERE s.id_subcategoria = ?`,
+      [id_subcategoria]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Subcategoría no encontrada.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      subcategoria: rows[0]
+    });
+
+  } catch (error) {
+    console.error('❌ Error al obtener datos de la subcategoría:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno al obtener los datos de la subcategoría.'
+    });
+  }
+}
+
 async function ActualizarSubcategoria(req, res) {
   try {
     const { id_subcategoria, nombre_subcategoria, descripcion, descuento, FK_id_categoria } = req.body;
@@ -53,4 +87,4 @@ async function ActualizarSubcategoria(req, res) {
   }
 }
 
-module.exports = { ActualizarSubcategoria };
+module.exports = { ActualizarSubcategoria, ObtenerDatosSubcategoria };
