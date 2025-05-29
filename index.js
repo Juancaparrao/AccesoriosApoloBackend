@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const app = express();
 const port = 3000;
+const { upload } = require('./cloudinary');
 const {solicitarRecuperacion, cambiarContrasena } = require('./InicioController/RecuperarContrasena');
 const { solicitarOTP, reenviarOTP, verificarOTPHandler } = require('./InicioController/OTP');
 const { login } = require('./InicioController/Login');
@@ -31,8 +32,12 @@ const { EliminarCategoria } = require('./CategoriasController/EliminarCategoria'
 const { ObtenerDatosCategoria, ActualizarCategoria } = require('./CategoriasController/ActualizarCategoria');
 const { ReactivarCategoria } = require('./CategoriasController/ReactivarCategoria');
 const { BuscarCategoriaPorNombre } = require('./CategoriasController/BuscarCategoriaPorNombre');
-
-
+const { RegistrarSubcategoria } = require('./SubcategoriasController/RegistrarSubcategoria');
+const { ConsultarSubcategoria } = require('./SubcategoriasController/ConsultarSubcategoria');
+const { EliminarSubcategoria } = require('./SubcategoriasController/EliminarSubcategoria');
+const { ReactivarSubcategoria } = require('./SubcategoriasController/ReactivarSubcategoria');
+const { ActualizarSubcategoria } = require('./SubcategoriasController/ActualizarSubcategoria');
+const { BuscarSubcategoriaPorNombre } = require('./SubcategoriasController/BuscarSubcategoriaPorNombre');
 
 
 app.use(cors({
@@ -97,6 +102,13 @@ app.put('/actualizar-categoria', ActualizarCategoria);
 app.put('/reactivar-categoria', ReactivarCategoria);
 app.get('/buscar-categoria-nombre', BuscarCategoriaPorNombre);
 
+// Módulo de subcategorías
+app.post('/registrar-subcategoria', upload.single('imagen'), RegistrarSubcategoria);
+app.get('/subcategorias', ConsultarSubcategoria);
+app.put('/eliminar-subcategoria', EliminarSubcategoria);
+app.put('/reactivar-subcategoria', ReactivarSubcategoria);
+app.put('/actualizar-subcategoria', ActualizarSubcategoria);
+app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre);
 
 
 // Inicializar servidor
