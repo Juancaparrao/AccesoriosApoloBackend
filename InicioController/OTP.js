@@ -171,12 +171,26 @@ async function verificarOTPHandler(req, res) {
       datos.contrasena
     );
 
+    // 👉 Asegura que asignas el rol por defecto (cliente, id_rol = 1)
+    await asignarRolUsuario(resultado.id_usuario, 1); // cliente
+
+    // 🔍 Obtener el nombre del rol del usuario
+    const [rolRows] = await pool.query(`
+      SELECT R.nombre AS nombre_rol
+      FROM USUARIO_ROL UR
+      JOIN ROL R ON UR.id_rol = R.id_rol
+      WHERE UR.fk_id_usuario = ?
+    `, [resultado.id_usuario]);
+
+    const nombreRol = rolRows.length > 0 ? rolRows[0].nombre_rol : null;
+
     eliminarUsuarioPendiente(correo);
 
     const payload = {
       id_usuario: resultado.id_usuario,
       correo: datos.correo,
-      nombre: datos.nombre
+      nombre: datos.nombre,
+      rol: nombreRol
     };
 
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
