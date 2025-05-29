@@ -107,8 +107,8 @@ app.post('/registrar-subcategoria', upload.single('imagen'), RegistrarSubcategor
 app.get('/subcategorias', ConsultarSubcategoria);
 app.put('/eliminar-subcategoria', EliminarSubcategoria);
 app.put('/reactivar-subcategoria', ReactivarSubcategoria);
-app.put('/actualizar-subcategoria', ActualizarSubcategoria);
-app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre);
+app.put('/actualizar-subcategoria', upload.single('imagen'), ActualizarSubcategoria);
+app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre)
 
 
 // Inicializar servidor
