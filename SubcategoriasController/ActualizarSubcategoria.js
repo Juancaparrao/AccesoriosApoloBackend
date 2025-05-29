@@ -5,7 +5,8 @@ async function ObtenerDatosSubcategoria(req, res) {
   const { id_subcategoria } = req.body;
 
   try {
-    const [rows] = await pool.execute(
+    // Obtener datos de la subcategoría, incluyendo la categoría relacionada
+    const [[subcategoria]] = await pool.execute(
       `SELECT s.id_subcategoria, s.nombre_subcategoria, s.descripcion, s.descuento,
               s.url_imagen, s.FK_id_categoria, c.nombre_categoria
        FROM subcategoria s
@@ -14,16 +15,22 @@ async function ObtenerDatosSubcategoria(req, res) {
       [id_subcategoria]
     );
 
-    if (rows.length === 0) {
+    if (!subcategoria) {
       return res.status(404).json({
         success: false,
         mensaje: 'Subcategoría no encontrada.'
       });
     }
 
+    // Obtener todas las categorías activas
+    const [categorias] = await pool.execute(
+      `SELECT id_categoria, nombre_categoria FROM categoria WHERE estado = 1`
+    );
+
     return res.status(200).json({
       success: true,
-      subcategoria: rows[0]
+      subcategoria,
+      categorias  // todas las categorías para llenar el <select> en el front
     });
 
   } catch (error) {
@@ -34,6 +41,7 @@ async function ObtenerDatosSubcategoria(req, res) {
     });
   }
 }
+
 
 async function ActualizarSubcategoria(req, res) {
   try {
