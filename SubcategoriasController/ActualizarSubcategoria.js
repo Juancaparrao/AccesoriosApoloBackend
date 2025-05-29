@@ -1,5 +1,5 @@
 const pool = require('../db');
-const cloudinary = require('../utils/cloudinary');
+const cloudinary = require('../cloudinary');
 
 async function ActualizarSubcategoria(req, res) {
   try {
