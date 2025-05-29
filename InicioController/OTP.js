@@ -36,7 +36,7 @@ async function telefonoExiste(telefono) {
 }
 
 async function asignarRolUsuario(idUsuario, idRol) {
-  const query = 'INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)';
+  const query = 'INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)';
   await pool.query(query, [idUsuario, idRol]);
 }
 
@@ -182,8 +182,8 @@ async function verificarOTPHandler(req, res) {
     // 🔍 Obtener el nombre del rol del usuario
     const [rolRows] = await pool.query(`
       SELECT R.nombre AS nombre_rol
-      FROM USUARIO_ROL UR
-      JOIN ROL R ON UR.id_rol = R.id_rol
+      FROM usuario_rol UR
+      JOIN rol R ON UR.id_rol = R.id_rol
       WHERE UR.fk_id_usuario = ?
     `, [resultado.id_usuario]);
 
