@@ -7,12 +7,13 @@ const jwt = require('jsonwebtoken');
 const { generarHtmlOTP, generarHtmlBienvenida } = require('./templates/otpCorreo');
 const pool = require('../db');
 
+// 👉 Validación de contraseña segura
 function contrasenaValida(contrasena) {
   const regex = /^(?=.*[A-Z]).{8,}$/;
   return regex.test(contrasena);
 }
 
-
+// 👉 Manejo del mapa de usuarios pendientes
 function guardarUsuarioPendiente(correo, datos) {
   usuariosPendientes.set(correo, datos);
 }
@@ -25,6 +26,7 @@ function eliminarUsuarioPendiente(correo) {
   usuariosPendientes.delete(correo);
 }
 
+// 👉 Verificación de existencia previa
 async function correoExiste(correo) {
   const [rows] = await pool.execute('SELECT id_usuario FROM usuario WHERE correo = ?', [correo]);
   return rows.length > 0;
@@ -35,12 +37,20 @@ async function telefonoExiste(telefono) {
   return rows.length > 0;
 }
 
+// ✅ ASIGNAR ROL: evita insertar duplicados
 async function asignarRolUsuario(idUsuario, idRol) {
-  const query = 'INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)';
-  await pool.query(query, [idUsuario, idRol]);
+  const [rows] = await pool.query(
+    'SELECT * FROM usuario_rol WHERE fk_id_usuario = ? AND id_rol = ?',
+    [idUsuario, idRol]
+  );
+
+  if (rows.length === 0) {
+    const query = 'INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)';
+    await pool.query(query, [idUsuario, idRol]);
+  }
 }
 
-
+// 👉 Enviar correo con OTP
 async function enviarOTP(correo) {
   const codigo = generarOTP();
   otpStore.set(correo, { codigo, expiracion: Date.now() + 5 * 60 * 1000 });
@@ -53,6 +63,7 @@ async function enviarOTP(correo) {
   });
 }
 
+// 👉 Verificar OTP
 function verificarOTP(correo, codigo) {
   const entrada = otpStore.get(correo);
 
@@ -67,6 +78,7 @@ function verificarOTP(correo, codigo) {
   return 'valido';
 }
 
+// 👉 Solicitar OTP
 async function solicitarOTP(req, res) {
   const { nombre, correo, telefono, contrasena } = req.body;
 
@@ -101,6 +113,7 @@ async function solicitarOTP(req, res) {
 
     guardarUsuarioPendiente(correo, { nombre, correo, telefono, contrasena });
     await enviarOTP(correo);
+
     return res.status(200).json({
       success: true,
       mensaje: 'Se envió un código OTP al correo.'
@@ -115,6 +128,7 @@ async function solicitarOTP(req, res) {
   }
 }
 
+// 👉 Reenviar OTP
 async function reenviarOTP(req, res) {
   const { correo } = req.body;
 
@@ -141,6 +155,7 @@ async function reenviarOTP(req, res) {
   }
 }
 
+// ✅ Verificar OTP y registrar usuario
 async function verificarOTPHandler(req, res) {
   const { correo, codigo } = req.body;
 
@@ -176,10 +191,10 @@ async function verificarOTPHandler(req, res) {
       datos.contrasena
     );
 
-    // 👉 Asegura que asignas el rol por defecto (cliente, id_rol = 1)
-    await asignarRolUsuario(resultado.id_usuario, 1); // cliente
+    // Asignar rol por defecto (cliente = 1), evitando duplicados
+    await asignarRolUsuario(resultado.id_usuario, 1);
 
-    // 🔍 Obtener el nombre del rol del usuario
+    // Obtener nombre del rol
     const [rolRows] = await pool.query(`
       SELECT R.nombre AS nombre_rol
       FROM usuario_rol UR
@@ -226,5 +241,8 @@ async function verificarOTPHandler(req, res) {
   }
 }
 
-
-module.exports = { solicitarOTP, verificarOTPHandler, reenviarOTP };
+module.exports = {
+  solicitarOTP,
+  verificarOTPHandler,
+  reenviarOTP
+};
