@@ -35,6 +35,11 @@ async function telefonoExiste(telefono) {
   return rows.length > 0;
 }
 
+async function asignarRolUsuario(idUsuario, idRol) {
+  const query = 'INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)';
+  await pool.query(query, [idUsuario, idRol]);
+}
+
 
 async function enviarOTP(correo) {
   const codigo = generarOTP();
