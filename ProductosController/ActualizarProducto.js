@@ -12,7 +12,6 @@ async function ObtenerProductos(req, res) {
         p.precio_unidad, 
         p.descuento, 
         p.precio_descuento, 
-        p.estado,
         c.nombre AS categoria,
         s.nombre AS subcategoria,
         GROUP_CONCAT(pi.url_imagen) AS imagenes
@@ -34,7 +33,6 @@ async function ObtenerProductos(req, res) {
       precio_descuento: producto.precio_descuento,
       categoria: producto.categoria,
       subcategoria: producto.subcategoria,
-      estado: producto.estado ? 'Activo' : 'Inactivo',
       imagenes: producto.imagenes ? producto.imagenes.split(',') : []
     }));
 
@@ -52,21 +50,20 @@ async function ObtenerProductos(req, res) {
   }
 }
 
-
 async function ActualizarProducto(req, res) {
   const {
     referencia,
+    nuevaReferencia,
     nombre,
     descripcion,
     talla,
     precio_unidad,
     descuento,
     FK_id_categoria,
-    FK_id_subcategoria,
-    estado
+    FK_id_subcategoria
   } = req.body;
 
-  const archivos = req.files; // array de imágenes
+  const archivos = req.files;
 
   try {
     const [productoExistente] = await pool.execute(
@@ -83,13 +80,15 @@ async function ActualizarProducto(req, res) {
 
     const precioDesc = precio_unidad - (precio_unidad * (descuento / 100));
 
+    // Actualizar el producto, sin campo "estado"
     await pool.execute(
       `UPDATE producto 
-       SET nombre = ?, descripcion = ?, talla = ?, 
+       SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
            precio_unidad = ?, descuento = ?, precio_descuento = ?, 
-           FK_id_categoria = ?, FK_id_subcategoria = ?, estado = ?
+           FK_id_categoria = ?, FK_id_subcategoria = ?
        WHERE referencia = ?`,
       [
+        nuevaReferencia || referencia,
         nombre,
         descripcion,
         talla,
@@ -98,10 +97,19 @@ async function ActualizarProducto(req, res) {
         precioDesc,
         FK_id_categoria,
         FK_id_subcategoria,
-        estado,
         referencia
       ]
     );
+
+    // Si la referencia cambió, actualizar también en producto_imagen
+    if (nuevaReferencia && nuevaReferencia !== referencia) {
+      await pool.execute(
+        `UPDATE producto_imagen 
+         SET FK_referencia_producto = ?
+         WHERE FK_referencia_producto = ?`,
+        [nuevaReferencia, referencia]
+      );
+    }
 
     // Guardar nuevas imágenes si vienen archivos
     if (archivos && archivos.length > 0) {
@@ -109,7 +117,7 @@ async function ActualizarProducto(req, res) {
         const url = file.path;
         await pool.execute(
           `INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)`,
-          [referencia, url]
+          [nuevaReferencia || referencia, url]
         );
       }
     }
@@ -127,6 +135,5 @@ async function ActualizarProducto(req, res) {
     });
   }
 }
-
 
 module.exports = { ActualizarProducto, ObtenerProductos };
