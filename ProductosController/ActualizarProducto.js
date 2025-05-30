@@ -1,7 +1,7 @@
 const pool = require('../db');
 
 async function ObtenerProductos(req, res) {
- const { referencia } = req.params;
+ const { referencia } = req.query;
 
   try {
     // 1. Obtener producto
