@@ -122,7 +122,7 @@ app.post('/registrar-producto', upload.array('imagenes', 8), RegistrarProducto);
 app.get('/categorias-productos', ObtenerCategorias);
 app.get('/subcategorias-productos/:id_categoria', ObtenerSubcategoriasPorCategoria);
 app.get('/consultar-producto', ConsultarProducto);
-app.post('/obtener-productos', ObtenerProductos);
+app.get('/obtener-productos', ObtenerProductos);
 app.put('/actualizar-producto', upload.array('imagenes', 8), ActualizarProducto);
 app.put('/eliminar-producto', EliminarProducto);
 app.put('/reactivar-producto', ReactivarProducto);
