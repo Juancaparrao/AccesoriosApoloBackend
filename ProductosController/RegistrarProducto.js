@@ -64,7 +64,7 @@ async function RegistrarProducto(req, res) {
           folder: 'productos'
         });
         await pool.execute(
-          'INSERT INTO producto_imagen (referencia_producto, url_imagen) VALUES (?, ?)',
+            'INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)',
           [referencia, subida.secure_url]
         );
       }
