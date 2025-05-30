@@ -3,24 +3,25 @@ const pool = require('../db');
 async function ObtenerProductos(req, res) {
   try {
     const [productos] = await pool.execute(`
-      SELECT 
-        p.referencia, 
-        p.nombre, 
-        p.descripcion, 
-        p.talla, 
-        p.stock, 
-        p.precio_unidad, 
-        p.descuento, 
-        p.precio_descuento, 
-        c.nombre AS categoria,
-        s.nombre AS subcategoria,
-        GROUP_CONCAT(pi.url_imagen) AS imagenes
-      FROM producto p
-      JOIN categoria c ON p.FK_id_categoria = c.id_categoria
-      JOIN subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
-      LEFT JOIN producto_imagen pi ON pi.FK_referencia_producto = p.referencia
-      GROUP BY p.referencia
-    `);
+  SELECT 
+    p.referencia, 
+    p.nombre, 
+    p.descripcion, 
+    p.talla, 
+    p.stock, 
+    p.precio_unidad, 
+    p.descuento, 
+    p.precio_descuento, 
+    c.nombre_categoria AS categoria,
+    s.nombre_subcategoria AS subcategoria,
+    GROUP_CONCAT(pi.url_imagen) AS imagenes
+  FROM producto p
+  JOIN categoria c ON p.FK_id_categoria = c.id_categoria
+  JOIN subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
+  LEFT JOIN producto_imagen pi ON pi.FK_referencia_producto = p.referencia
+  GROUP BY p.referencia
+`);
+
 
     const productosFormateados = productos.map(producto => ({
       referencia: producto.referencia,
