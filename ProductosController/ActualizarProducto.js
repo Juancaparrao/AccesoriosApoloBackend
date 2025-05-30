@@ -1,29 +1,40 @@
 const pool = require('../db');
 
 async function ObtenerProductos(req, res) {
+  const { referencia } = req.params;
+
   try {
     const [productos] = await pool.execute(`
-  SELECT 
-    p.referencia, 
-    p.nombre, 
-    p.descripcion, 
-    p.talla, 
-    p.stock, 
-    p.precio_unidad, 
-    p.descuento, 
-    p.precio_descuento, 
-    c.nombre_categoria AS categoria,
-    s.nombre_subcategoria AS subcategoria,
-    GROUP_CONCAT(pi.url_imagen) AS imagenes
-  FROM producto p
-  JOIN categoria c ON p.FK_id_categoria = c.id_categoria
-  JOIN subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
-  LEFT JOIN producto_imagen pi ON pi.FK_referencia_producto = p.referencia
-  GROUP BY p.referencia
-`);
+      SELECT 
+        p.referencia, 
+        p.nombre, 
+        p.descripcion, 
+        p.talla, 
+        p.stock, 
+        p.precio_unidad, 
+        p.descuento, 
+        p.precio_descuento, 
+        c.nombre_categoria AS categoria,
+        s.nombre_subcategoria AS subcategoria,
+        GROUP_CONCAT(pi.url_imagen) AS imagenes
+      FROM producto p
+      JOIN categoria c ON p.FK_id_categoria = c.id_categoria
+      JOIN subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
+      LEFT JOIN producto_imagen pi ON pi.FK_referencia_producto = p.referencia
+      WHERE p.referencia = ?
+      GROUP BY p.referencia
+    `, [referencia]);
 
+    if (productos.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Producto no encontrado'
+      });
+    }
 
-    const productosFormateados = productos.map(producto => ({
+    const producto = productos[0];
+
+    const productoFormateado = {
       referencia: producto.referencia,
       nombre: producto.nombre,
       descripcion: producto.descripcion,
@@ -35,18 +46,18 @@ async function ObtenerProductos(req, res) {
       categoria: producto.categoria,
       subcategoria: producto.subcategoria,
       imagenes: producto.imagenes ? producto.imagenes.split(',') : []
-    }));
+    };
 
     return res.status(200).json({
       success: true,
-      productos: productosFormateados
+      producto: productoFormateado
     });
 
   } catch (error) {
-    console.error('Error al obtener productos:', error);
+    console.error('Error al obtener el producto:', error);
     return res.status(500).json({
       success: false,
-      mensaje: 'Error al obtener los productos'
+      mensaje: 'Error al obtener el producto'
     });
   }
 }
