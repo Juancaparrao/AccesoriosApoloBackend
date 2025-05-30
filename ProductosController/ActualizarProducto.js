@@ -116,29 +116,40 @@ async function ActualizarProducto(req, res) {
         mensaje: 'Producto no encontrado'
       });
     }
+const precioUnidadNum = parseFloat(precio_unidad);
+const descuentoNum = parseFloat(descuento);
 
-    const precioDesc = precio_unidad - (precio_unidad * (descuento / 100));
+if (isNaN(precioUnidadNum) || isNaN(descuentoNum)) {
+  return res.status(400).json({
+    success: false,
+    mensaje: 'precio_unidad y descuento deben ser números válidos.'
+  });
+}
+
+const precioDesc = precioUnidadNum - (precioUnidadNum * (descuentoNum / 100));
+
 
     // Actualizar el producto, sin campo "estado"
     await pool.execute(
-      `UPDATE producto 
-       SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
-           precio_unidad = ?, descuento = ?, precio_descuento = ?, 
-           FK_id_categoria = ?, FK_id_subcategoria = ?
-       WHERE referencia = ?`,
-      [
-        nuevaReferencia || referencia,
-        nombre,
-        descripcion,
-        talla,
-        precio_unidad,
-        descuento,
-        precioDesc,
-        FK_id_categoria,
-        FK_id_subcategoria,
-        referencia
-      ]
-    );
+  `UPDATE producto 
+   SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
+       precio_unidad = ?, descuento = ?, precio_descuento = ?, 
+       FK_id_categoria = ?, FK_id_subcategoria = ?
+   WHERE referencia = ?`,
+  [
+    nuevaReferencia || referencia,
+    nombre,
+    descripcion,
+    talla,
+    precioUnidadNum,     
+    descuentoNum,        
+    precioDesc,
+    FK_id_categoria,
+    FK_id_subcategoria,
+    referencia
+  ]
+);
+
 
     // Si la referencia cambió, actualizar también en producto_imagen
     if (nuevaReferencia && nuevaReferencia !== referencia) {
