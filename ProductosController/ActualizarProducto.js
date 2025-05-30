@@ -50,7 +50,6 @@ async function ObtenerProductos(req, res) {
   }
 }
 
-const pool = require('../db');
 
 async function ActualizarProducto(req, res) {
   const {
