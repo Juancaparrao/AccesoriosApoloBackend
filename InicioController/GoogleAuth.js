@@ -18,32 +18,40 @@ async function loginConGoogle(req, res) {
     });
 
     const payload = ticket.getPayload();
-    const { email, name, picture } = payload; // Extraemos la foto
+    const { email, name, picture } = payload;
 
     // Verifica si ya existe
-    const [usuarios] = await pool.execute('SELECT * FROM usuario WHERE correo = ?', [email]);
+    const [usuarios] = await pool.execute(
+      'SELECT * FROM usuario WHERE correo = ?',
+      [email]
+    );
 
     let id_usuario;
     if (usuarios.length > 0) {
       id_usuario = usuarios[0].id_usuario;
     } else {
-      // Insertar nombre y correo, sin guardar la foto
+      // Insertar nombre, correo y estado (obligatorio)
       const [result] = await pool.execute(
-        'INSERT INTO usuario (nombre, correo) VALUES (?, ?)',
-        [name, email]
+        'INSERT INTO usuario (nombre, correo, estado) VALUES (?, ?, ?)',
+        [name, email, true]
       );
       id_usuario = result.insertId;
 
-      const rolPorDefecto = 1;
+      const rolPorDefecto = 1; // cliente
       await pool.execute(
         'INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)',
         [id_usuario, rolPorDefecto]
       );
     }
 
-    // Creamos el token incluyendo la foto solo en el JWT (opcional)
+    // Creamos el token incluyendo la foto (opcional)
     const tokenBackend = jwt.sign(
-      { id_usuario, correo: email, nombre: name, foto: picture },
+      {
+        id_usuario,
+        correo: email,
+        nombre: name,
+        foto: picture,
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
@@ -55,8 +63,8 @@ async function loginConGoogle(req, res) {
         id_usuario,
         correo: email,
         nombre: name,
-        foto: picture // Enviamos la foto al frontend
-      }
+        foto: picture,
+      },
     });
 
   } catch (error) {

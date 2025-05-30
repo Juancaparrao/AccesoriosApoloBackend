@@ -38,6 +38,7 @@ const { EliminarSubcategoria } = require('./SubcategoriasController/EliminarSubc
 const { ReactivarSubcategoria } = require('./SubcategoriasController/ReactivarSubcategoria');
 const { ActualizarSubcategoria, ObtenerDatosSubcategoria } = require('./SubcategoriasController/ActualizarSubcategoria');
 const { BuscarSubcategoriaPorNombre } = require('./SubcategoriasController/BuscarSubcategoriaPorNombre');
+const { RegistrarProducto, ObtenerCategorias, ObtenerSubcategoriasPorCategoria } = require('./ProductosController/RegistrarProducto');
 
 
 app.use(cors({
@@ -111,6 +112,10 @@ app.post('/obtener-subcategoria', ObtenerDatosSubcategoria);
 app.put('/actualizar-subcategoria', upload.single('imagen'), ActualizarSubcategoria);
 app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre)
 
+// Módulo de productos
+app.post('/registrar-producto', upload.single('imagen'), RegistrarProducto);
+app.get('/categorias-productos', ObtenerCategorias);
+app.get('/subcategorias-productos/:id_categoria', ObtenerSubcategoriasPorCategoria);
 
 // Inicializar servidor
 app.listen(port, () => {
