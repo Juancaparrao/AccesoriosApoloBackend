@@ -9,16 +9,18 @@ async function ObtenerProductos(req, res) {
         p.descripcion, 
         p.talla, 
         p.stock, 
-        p.url_archivo, 
         p.precio_unidad, 
         p.descuento, 
         p.precio_descuento, 
         p.estado,
         c.nombre AS categoria,
-        s.nombre AS subcategoria
+        s.nombre AS subcategoria,
+        GROUP_CONCAT(pi.url_imagen) AS imagenes
       FROM producto p
       JOIN categoria c ON p.FK_id_categoria = c.id_categoria
       JOIN subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
+      LEFT JOIN producto_imagen pi ON pi.FK_referencia_producto = p.referencia
+      GROUP BY p.referencia
     `);
 
     const productosFormateados = productos.map(producto => ({
@@ -27,13 +29,13 @@ async function ObtenerProductos(req, res) {
       descripcion: producto.descripcion,
       talla: producto.talla,
       stock: producto.stock,
-      url_archivo: producto.url_archivo,
       precio_unidad: producto.precio_unidad,
       descuento: producto.descuento,
       precio_descuento: producto.precio_descuento,
       categoria: producto.categoria,
       subcategoria: producto.subcategoria,
-      estado: producto.estado ? 'Activo' : 'Inactivo'
+      estado: producto.estado ? 'Activo' : 'Inactivo',
+      imagenes: producto.imagenes ? producto.imagenes.split(',') : []
     }));
 
     return res.status(200).json({
