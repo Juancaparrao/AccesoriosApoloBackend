@@ -1,9 +1,10 @@
 const pool = require('../db');
 
 async function ObtenerProductos(req, res) {
-  const { referencia } = req.params;
+ const { referencia } = req.params;
 
   try {
+    // 1. Obtener producto
     const [productos] = await pool.execute(`
       SELECT 
         p.referencia, 
@@ -14,6 +15,8 @@ async function ObtenerProductos(req, res) {
         p.precio_unidad, 
         p.descuento, 
         p.precio_descuento, 
+        p.FK_id_categoria,
+        p.FK_id_subcategoria,
         c.nombre_categoria AS categoria,
         s.nombre_subcategoria AS subcategoria,
         GROUP_CONCAT(pi.url_imagen) AS imagenes
@@ -34,6 +37,18 @@ async function ObtenerProductos(req, res) {
 
     const producto = productos[0];
 
+    // 2. Obtener todas las categorías
+    const [categorias] = await pool.execute(`
+      SELECT id_categoria, nombre_categoria FROM categoria
+    `);
+
+    // 3. Obtener subcategorías de la categoría seleccionada
+    const [subcategorias] = await pool.execute(`
+      SELECT id_subcategoria, nombre_subcategoria 
+      FROM subcategoria 
+      WHERE FK_id_categoria = ?
+    `, [producto.FK_id_categoria]);
+
     const productoFormateado = {
       referencia: producto.referencia,
       nombre: producto.nombre,
@@ -43,8 +58,20 @@ async function ObtenerProductos(req, res) {
       precio_unidad: producto.precio_unidad,
       descuento: producto.descuento,
       precio_descuento: producto.precio_descuento,
-      categoria: producto.categoria,
-      subcategoria: producto.subcategoria,
+      categoria: {
+        seleccionada: {
+          id: producto.FK_id_categoria,
+          nombre: producto.categoria
+        },
+        todas: categorias
+      },
+      subcategoria: {
+        seleccionada: {
+          id: producto.FK_id_subcategoria,
+          nombre: producto.subcategoria
+        },
+        todas: subcategorias
+      },
       imagenes: producto.imagenes ? producto.imagenes.split(',') : []
     };
 
