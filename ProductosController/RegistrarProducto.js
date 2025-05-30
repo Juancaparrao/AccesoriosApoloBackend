@@ -34,16 +34,9 @@ async function RegistrarProducto(req, res) {
       });
     }
 
-    let url_archivo = null;
-    if (req.file?.path) {
-      const subida = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'productos'
-      });
-      url_archivo = subida.secure_url;
-    }
-
     const precio_descuento = parseFloat(precio_unidad - (precio_unidad * (descuento / 100))).toFixed(2);
 
+    // Insertar producto
     await pool.execute(
       `INSERT INTO producto 
        (referencia, nombre, descripcion, talla, stock, url_archivo, precio_unidad, descuento, precio_descuento, FK_id_categoria, FK_id_subcategoria, estado)
@@ -54,7 +47,7 @@ async function RegistrarProducto(req, res) {
         descripcion || null,
         talla || null,
         0,
-        url_archivo,
+        null, // campo url_archivo se queda vacío o se puede eliminar si ya no se usará
         precio_unidad,
         descuento,
         precio_descuento,
@@ -63,6 +56,19 @@ async function RegistrarProducto(req, res) {
         1
       ]
     );
+
+    // Subir imágenes a Cloudinary
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const subida = await cloudinary.uploader.upload(file.path, {
+          folder: 'productos'
+        });
+        await pool.execute(
+          'INSERT INTO producto_imagen (referencia_producto, url_imagen) VALUES (?, ?)',
+          [referencia, subida.secure_url]
+        );
+      }
+    }
 
     return res.status(201).json({
       success: true,
@@ -84,7 +90,6 @@ async function RegistrarProducto(req, res) {
     });
   }
 }
-
 // Obtener todas las categorías activas
 async function ObtenerCategorias(req, res) {
   try {
