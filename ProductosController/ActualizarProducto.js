@@ -50,13 +50,14 @@ async function ObtenerProductos(req, res) {
   }
 }
 
+const pool = require('../db');
+
 async function ActualizarProducto(req, res) {
   const {
     referencia,
     nombre,
     descripcion,
     talla,
-    url_archivo,
     precio_unidad,
     descuento,
     FK_id_categoria,
@@ -64,8 +65,9 @@ async function ActualizarProducto(req, res) {
     estado
   } = req.body;
 
+  const archivos = req.files; // array de imágenes
+
   try {
-    // Verificar que el producto existe
     const [productoExistente] = await pool.execute(
       'SELECT * FROM producto WHERE referencia = ?',
       [referencia]
@@ -78,13 +80,11 @@ async function ActualizarProducto(req, res) {
       });
     }
 
-    // Calcular el precio con descuento
     const precioDesc = precio_unidad - (precio_unidad * (descuento / 100));
 
-    // Actualizar los datos del producto (sin incluir el stock)
     await pool.execute(
       `UPDATE producto 
-       SET nombre = ?, descripcion = ?, talla = ?, url_archivo = ?, 
+       SET nombre = ?, descripcion = ?, talla = ?, 
            precio_unidad = ?, descuento = ?, precio_descuento = ?, 
            FK_id_categoria = ?, FK_id_subcategoria = ?, estado = ?
        WHERE referencia = ?`,
@@ -92,7 +92,6 @@ async function ActualizarProducto(req, res) {
         nombre,
         descripcion,
         talla,
-        url_archivo,
         precio_unidad,
         descuento,
         precioDesc,
@@ -102,6 +101,17 @@ async function ActualizarProducto(req, res) {
         referencia
       ]
     );
+
+    // Guardar nuevas imágenes si vienen archivos
+    if (archivos && archivos.length > 0) {
+      for (const file of archivos) {
+        const url = file.path;
+        await pool.execute(
+          `INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)`,
+          [referencia, url]
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,
@@ -116,5 +126,6 @@ async function ActualizarProducto(req, res) {
     });
   }
 }
+
 
 module.exports = { ActualizarProducto, ObtenerProductos };
