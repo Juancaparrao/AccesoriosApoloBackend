@@ -1,4 +1,6 @@
 const pool = require('../db');
+const fs = require('fs');
+const path = require('path');
 
 async function ObtenerProductos(req, res) {
  const { referencia } = req.query;
@@ -99,7 +101,8 @@ async function ActualizarProducto(req, res) {
     precio_unidad,
     descuento,
     FK_id_categoria,
-    FK_id_subcategoria
+    FK_id_subcategoria,
+    imagenesEliminadas  // NUEVO: Recibir las imágenes eliminadas
   } = req.body;
 
   const archivos = req.files;
@@ -116,68 +119,102 @@ async function ActualizarProducto(req, res) {
         mensaje: 'Producto no encontrado'
       });
     }
-const precioUnidadNum = parseFloat(precio_unidad);
-const descuentoNum = parseFloat(descuento);
 
-if (isNaN(precioUnidadNum) || isNaN(descuentoNum)) {
-  return res.status(400).json({
-    success: false,
-    mensaje: 'precio_unidad y descuento deben ser números válidos.'
-  });
-}
+    const precioUnidadNum = parseFloat(precio_unidad);
+    const descuentoNum = parseFloat(descuento);
 
-const precioDesc = precioUnidadNum - (precioUnidadNum * (descuentoNum / 100));
+    if (isNaN(precioUnidadNum) || isNaN(descuentoNum)) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'precio_unidad y descuento deben ser números válidos.'
+      });
+    }
 
+    const precioDesc = precioUnidadNum - (precioUnidadNum * (descuentoNum / 100));
 
-    // Actualizar el producto, sin campo "estado"
+    // NUEVO: Procesar imágenes eliminadas
+    if (imagenesEliminadas) {
+      try {
+        const imagenesAEliminar = JSON.parse(imagenesEliminadas);
+        
+        for (const imagenUrl of imagenesAEliminar) {
+          // 1. Eliminar el archivo físico del servidor
+          try {
+            // Extraer el nombre del archivo de la URL
+            const nombreArchivo = path.basename(imagenUrl);
+            const rutaCompleta = path.join(__dirname, '..', 'uploads', nombreArchivo);
+            
+            // Verificar si el archivo existe antes de eliminarlo
+            if (fs.existsSync(rutaCompleta)) {
+              fs.unlinkSync(rutaCompleta);
+              console.log(`Archivo eliminado: ${rutaCompleta}`);
+            } else {
+              console.log(`Archivo no encontrado: ${rutaCompleta}`);
+            }
+          } catch (errorArchivo) {
+            console.error(`Error al eliminar archivo ${imagenUrl}:`, errorArchivo);
+            // Continuamos con la eliminación de la BD aunque falle el archivo
+          }
+
+          // 2. Eliminar el registro de la base de datos
+          await pool.execute(
+            `DELETE FROM producto_imagen 
+             WHERE FK_referencia_producto = ? AND url_imagen = ?`,
+            [referencia, imagenUrl]
+          );
+          
+          console.log(`Imagen eliminada de BD: ${imagenUrl}`);
+        }
+      } catch (errorJson) {
+        console.error('Error al procesar imágenes eliminadas:', errorJson);
+        return res.status(400).json({
+          success: false,
+          mensaje: 'Error al procesar las imágenes eliminadas'
+        });
+      }
+    }
+
+    // Actualizar el producto
     await pool.execute(
-  `UPDATE producto 
-   SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
-       precio_unidad = ?, descuento = ?, precio_descuento = ?, 
-       FK_id_categoria = ?, FK_id_subcategoria = ?
-   WHERE referencia = ?`,
-  [
-    nuevaReferencia || referencia,
-    nombre,
-    descripcion,
-    talla,
-    precioUnidadNum,     
-    descuentoNum,        
-    precioDesc,
-    FK_id_categoria,
-    FK_id_subcategoria,
-    referencia
-  ]
-);
-
-
-   // Si la referencia cambió, actualizar también en producto_imagen
-if (nuevaReferencia && nuevaReferencia !== referencia) {
-  await pool.execute(
-    `UPDATE producto_imagen 
-     SET FK_referencia_producto = ?
-     WHERE FK_referencia_producto = ?`,
-    [nuevaReferencia, referencia]
-  );
-}
-
-// 👉 Eliminar imágenes existentes
-await pool.execute(
-  `DELETE FROM producto_imagen WHERE FK_referencia_producto = ?`,
-  [nuevaReferencia || referencia]
-);
-
-// 👉 Insertar nuevas imágenes
-if (archivos && archivos.length > 0) {
-  for (const file of archivos) {
-    const url = file.path;
-    await pool.execute(
-      `INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)`,
-      [nuevaReferencia || referencia, url]
+      `UPDATE producto 
+       SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
+           precio_unidad = ?, descuento = ?, precio_descuento = ?, 
+           FK_id_categoria = ?, FK_id_subcategoria = ?
+       WHERE referencia = ?`,
+      [
+        nuevaReferencia || referencia,
+        nombre,
+        descripcion,
+        talla,
+        precioUnidadNum,     
+        descuentoNum,        
+        precioDesc,
+        FK_id_categoria,
+        FK_id_subcategoria,
+        referencia
+      ]
     );
-  }
-}
 
+    // Si la referencia cambió, actualizar también en producto_imagen
+    if (nuevaReferencia && nuevaReferencia !== referencia) {
+      await pool.execute(
+        `UPDATE producto_imagen 
+         SET FK_referencia_producto = ?
+         WHERE FK_referencia_producto = ?`,
+        [nuevaReferencia, referencia]
+      );
+    }
+
+    // Guardar nuevas imágenes si vienen archivos
+    if (archivos && archivos.length > 0) {
+      for (const file of archivos) {
+        const url = file.path;
+        await pool.execute(
+          `INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)`,
+          [nuevaReferencia || referencia, url]
+        );
+      }
+    }
 
     return res.status(200).json({
       success: true,
