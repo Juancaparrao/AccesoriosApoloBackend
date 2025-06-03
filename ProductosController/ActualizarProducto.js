@@ -205,17 +205,20 @@ async function ActualizarProducto(req, res) {
       }
     }
 
-    return res.status(200).json({
-      success: true,
-      mensaje: 'Producto actualizado correctamente.',
-      producto: {
-        referencia: nuevaReferencia || referencia,
-        nombre,
-        precio_unidad: formateador.format(precioUnidadNum),
-        descuento: formateador.format(descuentoNum),
-        precio_descuento: formateador.format(Number(precioDesc))
-      }
-    });
+    const precioDescuentoFormateado = formateador.format(precioDesc);
+
+return res.status(200).json({
+  success: true,
+  mensaje: 'Producto actualizado correctamente.',
+  producto: {
+    referencia: nuevaReferencia || referencia,
+    nombre,
+    precio_unidad: formateador.format(precioUnidadNum),
+    descuento: formateador.format(descuentoNum),
+    precio_descuento: precioDescuentoFormateado
+  }
+});
+
 
   } catch (error) {
     console.error('Error al actualizar producto:', error);
