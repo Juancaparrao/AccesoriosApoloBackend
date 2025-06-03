@@ -2,11 +2,13 @@ const pool = require('../db');
 const fs = require('fs');
 const path = require('path');
 
+// Formateador de números con puntos de miles (estilo colombiano)
+const formateador = new Intl.NumberFormat('es-CO');
+
 async function ObtenerProductos(req, res) {
- const { referencia } = req.query;
+  const { referencia } = req.query;
 
   try {
-    // 1. Obtener producto
     const [productos] = await pool.execute(`
       SELECT 
         p.referencia, 
@@ -39,12 +41,10 @@ async function ObtenerProductos(req, res) {
 
     const producto = productos[0];
 
-    // 2. Obtener todas las categorías
     const [categorias] = await pool.execute(`
       SELECT id_categoria, nombre_categoria FROM categoria
     `);
 
-    // 3. Obtener subcategorías de la categoría seleccionada
     const [subcategorias] = await pool.execute(`
       SELECT id_subcategoria, nombre_subcategoria 
       FROM subcategoria 
@@ -56,10 +56,10 @@ async function ObtenerProductos(req, res) {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       talla: producto.talla,
-      stock: producto.stock,
-      precio_unidad: producto.precio_unidad,
-      descuento: producto.descuento,
-      precio_descuento: producto.precio_descuento,
+      stock: Number(producto.stock),
+      precio_unidad: formateador.format(Number(producto.precio_unidad)),
+      descuento: formateador.format(Number(producto.descuento)),
+      precio_descuento: formateador.format(Number(producto.precio_descuento)),
       categoria: {
         seleccionada: {
           id: producto.FK_id_categoria,
@@ -102,7 +102,7 @@ async function ActualizarProducto(req, res) {
     descuento,
     FK_id_categoria,
     FK_id_subcategoria,
-    imagenesEliminadas  // NUEVO: Recibir las imágenes eliminadas
+    imagenesEliminadas
   } = req.body;
 
   const archivos = req.files;
@@ -132,19 +132,14 @@ async function ActualizarProducto(req, res) {
 
     const precioDesc = precioUnidadNum - (precioUnidadNum * (descuentoNum / 100));
 
-    // NUEVO: Procesar imágenes eliminadas
     if (imagenesEliminadas) {
       try {
         const imagenesAEliminar = JSON.parse(imagenesEliminadas);
         
         for (const imagenUrl of imagenesAEliminar) {
-          // 1. Eliminar el archivo físico del servidor
           try {
-            // Extraer el nombre del archivo de la URL
             const nombreArchivo = path.basename(imagenUrl);
             const rutaCompleta = path.join(__dirname, '..', 'uploads', nombreArchivo);
-            
-            // Verificar si el archivo existe antes de eliminarlo
             if (fs.existsSync(rutaCompleta)) {
               fs.unlinkSync(rutaCompleta);
               console.log(`Archivo eliminado: ${rutaCompleta}`);
@@ -153,16 +148,13 @@ async function ActualizarProducto(req, res) {
             }
           } catch (errorArchivo) {
             console.error(`Error al eliminar archivo ${imagenUrl}:`, errorArchivo);
-            // Continuamos con la eliminación de la BD aunque falle el archivo
           }
 
-          // 2. Eliminar el registro de la base de datos
           await pool.execute(
             `DELETE FROM producto_imagen 
              WHERE FK_referencia_producto = ? AND url_imagen = ?`,
             [referencia, imagenUrl]
           );
-          
           console.log(`Imagen eliminada de BD: ${imagenUrl}`);
         }
       } catch (errorJson) {
@@ -174,7 +166,6 @@ async function ActualizarProducto(req, res) {
       }
     }
 
-    // Actualizar el producto
     await pool.execute(
       `UPDATE producto 
        SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
@@ -186,8 +177,8 @@ async function ActualizarProducto(req, res) {
         nombre,
         descripcion,
         talla,
-        precioUnidadNum,     
-        descuentoNum,        
+        precioUnidadNum,
+        descuentoNum,
         precioDesc,
         FK_id_categoria,
         FK_id_subcategoria,
@@ -195,7 +186,6 @@ async function ActualizarProducto(req, res) {
       ]
     );
 
-    // Si la referencia cambió, actualizar también en producto_imagen
     if (nuevaReferencia && nuevaReferencia !== referencia) {
       await pool.execute(
         `UPDATE producto_imagen 
@@ -205,7 +195,6 @@ async function ActualizarProducto(req, res) {
       );
     }
 
-    // Guardar nuevas imágenes si vienen archivos
     if (archivos && archivos.length > 0) {
       for (const file of archivos) {
         const url = file.path;
@@ -217,16 +206,16 @@ async function ActualizarProducto(req, res) {
     }
 
     return res.status(200).json({
-  success: true,
-  mensaje: 'Producto actualizado correctamente.',
-  producto: {
-    referencia: nuevaReferencia || referencia,
-    nombre,
-    precio_unidad: precioUnidadNum,
-    descuento: descuentoNum,
-    precio_descuento: Number(precioDesc) 
-  }
-});
+      success: true,
+      mensaje: 'Producto actualizado correctamente.',
+      producto: {
+        referencia: nuevaReferencia || referencia,
+        nombre,
+        precio_unidad: formateador.format(precioUnidadNum),
+        descuento: formateador.format(descuentoNum),
+        precio_descuento: formateador.format(Number(precioDesc))
+      }
+    });
 
   } catch (error) {
     console.error('Error al actualizar producto:', error);
