@@ -217,9 +217,16 @@ async function ActualizarProducto(req, res) {
     }
 
     return res.status(200).json({
-      success: true,
-      mensaje: 'Producto actualizado correctamente.'
-    });
+  success: true,
+  mensaje: 'Producto actualizado correctamente.',
+  producto: {
+    referencia: nuevaReferencia || referencia,
+    nombre,
+    precio_unidad: precioUnidadNum,
+    descuento: descuentoNum,
+    precio_descuento: Number(precioDesc) 
+  }
+});
 
   } catch (error) {
     console.error('Error al actualizar producto:', error);
