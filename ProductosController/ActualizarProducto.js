@@ -151,26 +151,33 @@ const precioDesc = precioUnidadNum - (precioUnidadNum * (descuentoNum / 100));
 );
 
 
-    // Si la referencia cambió, actualizar también en producto_imagen
-    if (nuevaReferencia && nuevaReferencia !== referencia) {
-      await pool.execute(
-        `UPDATE producto_imagen 
-         SET FK_referencia_producto = ?
-         WHERE FK_referencia_producto = ?`,
-        [nuevaReferencia, referencia]
-      );
-    }
+   // Si la referencia cambió, actualizar también en producto_imagen
+if (nuevaReferencia && nuevaReferencia !== referencia) {
+  await pool.execute(
+    `UPDATE producto_imagen 
+     SET FK_referencia_producto = ?
+     WHERE FK_referencia_producto = ?`,
+    [nuevaReferencia, referencia]
+  );
+}
 
-    // Guardar nuevas imágenes si vienen archivos
-    if (archivos && archivos.length > 0) {
-      for (const file of archivos) {
-        const url = file.path;
-        await pool.execute(
-          `INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)`,
-          [nuevaReferencia || referencia, url]
-        );
-      }
-    }
+// 👉 Eliminar imágenes existentes
+await pool.execute(
+  `DELETE FROM producto_imagen WHERE FK_referencia_producto = ?`,
+  [nuevaReferencia || referencia]
+);
+
+// 👉 Insertar nuevas imágenes
+if (archivos && archivos.length > 0) {
+  for (const file of archivos) {
+    const url = file.path;
+    await pool.execute(
+      `INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)`,
+      [nuevaReferencia || referencia, url]
+    );
+  }
+}
+
 
     return res.status(200).json({
       success: true,
