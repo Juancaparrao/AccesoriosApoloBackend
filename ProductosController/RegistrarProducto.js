@@ -34,7 +34,7 @@ async function RegistrarProducto(req, res) {
       });
     }
 
-    const precio_descuento = parseFloat(precio_unidad - (precio_unidad * (descuento / 100)));
+    const precioDescuentoCalculado = parseFloat(precio_unidad - (precio_unidad * (descuento / 100)));
 
     // Insertar producto
     await pool.execute(
@@ -47,10 +47,10 @@ async function RegistrarProducto(req, res) {
         descripcion || null,
         talla || null,
         0,
-        null, // campo url_archivo se queda vacío o se puede eliminar si ya no se usará
+        null,
         precio_unidad,
         descuento,
-        precio_descuento,
+        precioDescuentoCalculado,
         FK_id_categoria,
         FK_id_subcategoria,
         1
@@ -64,7 +64,7 @@ async function RegistrarProducto(req, res) {
           folder: 'productos'
         });
         await pool.execute(
-            'INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)',
+          'INSERT INTO producto_imagen (FK_referencia_producto, url_imagen) VALUES (?, ?)',
           [referencia, subida.secure_url]
         );
       }
@@ -76,9 +76,9 @@ async function RegistrarProducto(req, res) {
       producto: {
         referencia,
         nombre,
-        precio_unidad,
-        descuento,
-        precio_descuento
+        precio_unidad: Number(precio_unidad),
+        descuento: Number(descuento),
+        precio_descuento: Number(precioDescuentoCalculado)
       }
     });
 
@@ -90,6 +90,7 @@ async function RegistrarProducto(req, res) {
     });
   }
 }
+
 // Obtener todas las categorías activas
 async function ObtenerCategorias(req, res) {
   try {
