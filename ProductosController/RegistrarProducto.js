@@ -34,7 +34,7 @@ async function RegistrarProducto(req, res) {
       });
     }
 
-    const precio_descuento = parseFloat(precio_unidad - (precio_unidad * (descuento / 100))).toFixed(2);
+    const precio_descuento = parseFloat(precio_unidad - (precio_unidad * (descuento / 100)));
 
     // Insertar producto
     await pool.execute(
