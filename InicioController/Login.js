@@ -3,23 +3,37 @@ const pool = require('../db');
 const bcrypt = require('bcrypt');
 
 async function iniciarSesion(correo, contrasena) {
-const [rows] = await pool.execute('SELECT * FROM usuario WHERE correo = ? AND estado = true', [correo]);
-  
+  const [rows] = await pool.execute(
+    'SELECT * FROM usuario WHERE correo = ? AND estado = true',
+    [correo]
+  );
+
   if (rows.length === 0) {
-    throw new Error('Usuario no encontrado'); // Correo no registrado
+    throw new Error('Usuario no encontrado');
   }
 
   const usuario = rows[0];
   const esValida = await bcrypt.compare(contrasena, usuario.contrasena);
 
   if (!esValida) {
-    throw new Error('Correo o contraseña incorrectos'); // Contraseña incorrecta
+    throw new Error('Correo o contraseña incorrectos');
   }
+
+  const [rolRows] = await pool.execute(
+    `SELECT r.nombre AS rol
+     FROM usuario_rol ur
+     JOIN rol r ON ur.id_rol = r.id_rol
+     WHERE ur.fk_id_usuario = ?`,
+    [usuario.id_usuario]
+  );
+
+  const nombreRol = rolRows.length > 0 ? rolRows[0].rol : null;
 
   const payload = {
     id_usuario: usuario.id_usuario,
     correo: usuario.correo,
-    nombre: usuario.nombre
+    nombre: usuario.nombre,
+    nombreRol: nombreRol
   };
 
   const token = jwt.sign(payload, process.env.JWT_SECRET, {
