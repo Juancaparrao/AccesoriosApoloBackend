@@ -45,6 +45,7 @@ const { EliminarProducto } = require('./ProductosController/EliminarProducto');
 const { ReactivarProducto } = require('./ProductosController/ReactivarProducto');
 const { BuscarProductoPorReferencia } = require('./ProductosController/BuscarProductoPorReferencia');
 const { ConsultarFacturasProveedor } = require('./FacturasProveedorController/ConsultarFacturasProveedor');
+const { RegistrarFacturasProveedor } = require('.//FacturasProveedorController/RegistrarFacturasProveedor');
 
 
 
@@ -131,7 +132,8 @@ app.put('/reactivar-producto', ReactivarProducto);
 app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 
 // Modulo de Facturas Proveedor
-app.get('/facturas-proveedores', ConsultarFacturaProveedor);
+app.post('/registrar-factura-proveedor-completa', RegistrarFacturaProveedorCompleta);
+app.get('/facturas-proveedores', ConsultarFacturasProveedor);
 
 // Inicializar servidor
 app.listen(port, () => {
