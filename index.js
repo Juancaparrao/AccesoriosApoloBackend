@@ -132,7 +132,7 @@ app.put('/reactivar-producto', ReactivarProducto);
 app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 
 // Modulo de Facturas Proveedor
-app.post('/registrar-factura-proveedor-completa', RegistrarFacturaProveedorCompleta);
+app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
 
 // Inicializar servidor
