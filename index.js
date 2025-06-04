@@ -44,6 +44,8 @@ const { ActualizarProducto, ObtenerProductos } = require('./ProductosController/
 const { EliminarProducto } = require('./ProductosController/EliminarProducto');
 const { ReactivarProducto } = require('./ProductosController/ReactivarProducto');
 const { BuscarProductoPorReferencia } = require('./ProductosController/BuscarProductoPorReferencia');
+const { ConsultarFacturasProveedor } = require('./FacturasProveedorController/ConsultarFacturasProveedor');
+
 
 
 app.use(cors({
@@ -127,6 +129,9 @@ app.put('/actualizar-producto', upload.array('imagenes', 8), ActualizarProducto)
 app.put('/eliminar-producto', EliminarProducto);
 app.put('/reactivar-producto', ReactivarProducto);
 app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
+
+// Modulo de Facturas Proveedor
+app.get('/facturas-proveedores', ConsultarFacturaProveedor);
 
 // Inicializar servidor
 app.listen(port, () => {
