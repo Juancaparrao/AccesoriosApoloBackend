@@ -8,6 +8,7 @@ async function ConsultarProducto(req, res) {
         p.nombre,
         p.descripcion,
         p.talla,
+        p.marca, -- NUEVO
         p.stock,
         p.precio_unidad,
         p.descuento,
@@ -24,15 +25,20 @@ async function ConsultarProducto(req, res) {
       ORDER BY p.nombre ASC
     `);
 
+    const formatearNumero = (valor) => {
+      return new Intl.NumberFormat('es-CO').format(Number(valor));
+    };
+
     const productosFormateados = productos.map(p => ({
       referencia: p.referencia,
       nombre: p.nombre,
       descripcion: p.descripcion,
       talla: p.talla,
+      marca: p.marca || null, // NUEVO
       stock: p.stock,
-      precio_unidad: Number(p.precio_unidad),
+      precio_unidad: formatearNumero(p.precio_unidad),
       descuento: Number(p.descuento),
-      precio_descuento: Number(p.precio_descuento),
+      precio_descuento: formatearNumero(p.precio_descuento),
       categoria: p.nombre_categoria,
       subcategoria: p.nombre_subcategoria,
       estado: p.estado ? 'Activo' : 'Inactivo',

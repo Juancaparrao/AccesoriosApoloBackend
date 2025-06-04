@@ -16,7 +16,8 @@ async function BuscarProductoPorReferencia(req, res) {
          p.referencia, 
          p.nombre, 
          p.descripcion, 
-         p.talla, 
+         p.talla,
+         p.marca, -- ← NUEVO
          p.stock, 
          p.precio_unidad, 
          p.descuento, 
@@ -39,6 +40,7 @@ async function BuscarProductoPorReferencia(req, res) {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       talla: producto.talla,
+      marca: producto.marca || null, // ← NUEVO
       stock: producto.stock,
       precio_unidad: `$${producto.precio_unidad}`,
       descuento: `${producto.descuento}%`,

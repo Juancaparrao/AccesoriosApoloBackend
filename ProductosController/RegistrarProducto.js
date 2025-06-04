@@ -9,13 +9,17 @@ async function RegistrarProducto(req, res) {
       nombre,
       descripcion,
       talla,
+      marca, // NUEVO
       precio_unidad,
       descuento,
       FK_id_categoria,
       FK_id_subcategoria
     } = req.body;
 
-    if (!referencia || !nombre || !precio_unidad || descuento === undefined || !FK_id_categoria || !FK_id_subcategoria) {
+    if (
+      !referencia || !nombre || !marca || !precio_unidad || descuento === undefined ||
+      !FK_id_categoria || !FK_id_subcategoria
+    ) {
       return res.status(400).json({
         success: false,
         mensaje: 'Faltan campos obligatorios.'
@@ -34,18 +38,21 @@ async function RegistrarProducto(req, res) {
       });
     }
 
-    const precioDescuentoCalculado = parseFloat(precio_unidad - (precio_unidad * (descuento / 100)));
+    const precioDescuentoCalculado = parseFloat(
+      precio_unidad - (precio_unidad * (descuento / 100))
+    );
 
-    // Insertar producto
+    // Insertar producto (marca añadida)
     await pool.execute(
       `INSERT INTO producto 
-       (referencia, nombre, descripcion, talla, stock, url_archivo, precio_unidad, descuento, precio_descuento, FK_id_categoria, FK_id_subcategoria, estado)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (referencia, nombre, descripcion, talla, marca, stock, url_archivo, precio_unidad, descuento, precio_descuento, FK_id_categoria, FK_id_subcategoria, estado)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         referencia,
         nombre,
         descripcion || null,
         talla || null,
+        marca,                     // NUEVO
         0,
         null,
         precio_unidad,
@@ -76,6 +83,7 @@ async function RegistrarProducto(req, res) {
       producto: {
         referencia,
         nombre,
+        marca, // NUEVO
         precio_unidad: Number(precio_unidad),
         descuento: Number(descuento),
         precio_descuento: Number(precioDescuentoCalculado)
@@ -90,6 +98,7 @@ async function RegistrarProducto(req, res) {
     });
   }
 }
+
 
 // Obtener todas las categorías activas
 async function ObtenerCategorias(req, res) {

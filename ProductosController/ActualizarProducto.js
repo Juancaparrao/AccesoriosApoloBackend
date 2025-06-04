@@ -14,7 +14,8 @@ async function ObtenerProductos(req, res) {
         p.referencia, 
         p.nombre, 
         p.descripcion, 
-        p.talla, 
+        p.talla,
+        p.marca, -- ← NUEVO
         p.stock, 
         p.precio_unidad, 
         p.descuento, 
@@ -56,6 +57,7 @@ async function ObtenerProductos(req, res) {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       talla: producto.talla,
+      marca: producto.marca || null, // ← NUEVO
       stock: Number(producto.stock),
       precio_unidad: formateador.format(Number(producto.precio_unidad)),
       descuento: formateador.format(Number(producto.descuento)),
@@ -98,6 +100,7 @@ async function ActualizarProducto(req, res) {
     nombre,
     descripcion,
     talla,
+    marca, // ← NUEVO
     precio_unidad,
     descuento,
     FK_id_categoria,
@@ -135,7 +138,7 @@ async function ActualizarProducto(req, res) {
     if (imagenesEliminadas) {
       try {
         const imagenesAEliminar = JSON.parse(imagenesEliminadas);
-        
+
         for (const imagenUrl of imagenesAEliminar) {
           try {
             const nombreArchivo = path.basename(imagenUrl);
@@ -168,7 +171,7 @@ async function ActualizarProducto(req, res) {
 
     await pool.execute(
       `UPDATE producto 
-       SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, 
+       SET referencia = ?, nombre = ?, descripcion = ?, talla = ?, marca = ?, 
            precio_unidad = ?, descuento = ?, precio_descuento = ?, 
            FK_id_categoria = ?, FK_id_subcategoria = ?
        WHERE referencia = ?`,
@@ -177,6 +180,7 @@ async function ActualizarProducto(req, res) {
         nombre,
         descripcion,
         talla,
+        marca || null, // ← NUEVO
         precioUnidadNum,
         descuentoNum,
         precioDesc,
@@ -205,20 +209,18 @@ async function ActualizarProducto(req, res) {
       }
     }
 
-    const precioDescuentoFormateado = formateador.format(precioDesc);
-
-return res.status(200).json({
-  success: true,
-  mensaje: 'Producto actualizado correctamente.',
-  producto: {
-    referencia: nuevaReferencia || referencia,
-    nombre,
-    precio_unidad: formateador.format(precioUnidadNum),
-    descuento: formateador.format(descuentoNum),
-    precio_descuento: precioDescuentoFormateado
-  }
-});
-
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Producto actualizado correctamente.',
+      producto: {
+        referencia: nuevaReferencia || referencia,
+        nombre,
+        precio_unidad: formateador.format(precioUnidadNum),
+        descuento: formateador.format(descuentoNum),
+        precio_descuento: formateador.format(precioDesc),
+        marca: marca || null
+      }
+    });
 
   } catch (error) {
     console.error('Error al actualizar producto:', error);
