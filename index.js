@@ -133,7 +133,7 @@ app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 
 // Modulo de Facturas Proveedor
 app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
-app.get('/buscar-producto-referencia', BuscarProductoFacturaPorReferencia);
+app.get('/buscar-producto-factura-referencia', BuscarProductoFacturaPorReferencia);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
 
 // Inicializar servidor
