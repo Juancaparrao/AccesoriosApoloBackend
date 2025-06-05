@@ -140,7 +140,7 @@ app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
 app.get('/buscar-producto-factura-referencia', BuscarProductoFacturaPorReferencia);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
-app.get('/consultar-detalle-factura-proveedor/:id', ConsultarDetalleFacturaProveedor);
+app.get('/consultar-detalle-factura-proveedor/:id_factura_proveedor', ConsultarDetalleFacturaProveedor);
 // Inicializar servidor
 app.listen(port, () => {
   console.log(`✅ Servidor corriendo`);
