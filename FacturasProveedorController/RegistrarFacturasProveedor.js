@@ -103,7 +103,7 @@ async function RegistrarFacturasProveedor(req, res) {
     );
     const id_factura_proveedor = maxId[0].nuevo_id;
 
-    // Validar productos
+    // Validar productos y verificar que existen en la base de datos
     const productosValidados = [];
     const referenciasVistas = new Set();
 
@@ -140,6 +140,20 @@ async function RegistrarFacturasProveedor(req, res) {
         });
       }
 
+      // NUEVO: Verificar que el producto existe en la base de datos
+      const [productoExistente] = await connection.execute(
+        'SELECT referencia, nombre, stock FROM producto WHERE TRIM(referencia) = TRIM(?)',
+        [referenciaLimpia]
+      );
+
+      if (productoExistente.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({
+          success: false,
+          mensaje: `El producto con referencia ${referenciaLimpia} no existe en la base de datos.`
+        });
+      }
+
       const subtotal = Number(producto.cantidad) * Number(producto.precio_unitario);
 
       productosValidados.push({
@@ -147,7 +161,8 @@ async function RegistrarFacturasProveedor(req, res) {
         nombre: producto.nombre,
         cantidad: Number(producto.cantidad),
         precio_unitario: Number(producto.precio_unitario),
-        subtotal: subtotal
+        subtotal: subtotal,
+        stock_actual: productoExistente[0].stock // Guardamos el stock actual para referencia
       });
     }
 
@@ -159,14 +174,25 @@ async function RegistrarFacturasProveedor(req, res) {
       [id_factura_proveedor, fecha_compra, Number(valor_total), metodo_pago, nit_proveedor]
     );
 
-    // Insertar detalles de la factura
+    // Insertar detalles de la factura Y actualizar stock manualmente
     for (const producto of productosValidados) {
+      // 1. Insertar detalle de la factura
       await connection.execute(
         `INSERT INTO detalle_factura_proveedor 
          (FK_id_factura_proveedor, FK_referencia, cantidad, precio_unitario)
          VALUES (?, ?, ?, ?)`,
         [id_factura_proveedor, producto.referencia, producto.cantidad, producto.precio_unitario]
       );
+
+      // 2. NUEVO: Actualizar stock manualmente (sumar la cantidad comprada)
+      await connection.execute(
+        `UPDATE producto 
+         SET stock = stock + ?
+         WHERE TRIM(referencia) = TRIM(?)`,
+        [producto.cantidad, producto.referencia]
+      );
+
+      console.log(`✅ Stock actualizado para ${producto.referencia}: +${producto.cantidad} unidades`);
     }
 
     await connection.commit();
@@ -177,7 +203,7 @@ async function RegistrarFacturasProveedor(req, res) {
 
     return res.status(201).json({
       success: true,
-      mensaje: 'Factura de proveedor registrada exitosamente.',
+      mensaje: 'Factura de proveedor registrada exitosamente y stock actualizado.',
       factura: {
         id_factura_proveedor,
         nit_proveedor,
@@ -191,7 +217,9 @@ async function RegistrarFacturasProveedor(req, res) {
           nombre: p.nombre,
           cantidad: p.cantidad,
           precio_unitario: formatearNumero(p.precio_unitario),
-          subtotal: formatearNumero(p.subtotal)
+          subtotal: formatearNumero(p.subtotal),
+          stock_anterior: p.stock_actual,
+          stock_nuevo: p.stock_actual + p.cantidad
         }))
       }
     });
