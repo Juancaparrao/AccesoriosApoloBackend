@@ -79,13 +79,20 @@ async function ConsultarDetalleFacturaProveedor(req, res) {
           direccion: factura[0].direccion
         }
       },
-      productos: detalles.map(item => ({
-        referencia: item.referencia,
-        nombre: item.nombre_producto,
-        cantidad: item.cantidad,
-        precio_unitario: formatearNumero(item.precio_unitario),
-        subtotal: formatearNumero(item.subtotal)
-      }))
+      productos: detalles.map(item => {
+        const precioUnitario = Number(item.precio_unitario);
+        const cantidad = Number(item.cantidad);
+        const subtotal = cantidad * precioUnitario;
+
+        return {
+          referencia: item.referencia,
+          nombre: item.nombre_producto,
+          cantidad: cantidad,
+          precio_unitario: formatearNumero(precioUnitario),
+          subtotal: formatearNumero(subtotal)
+        };
+      })
+
     };
 
     return res.status(200).json({
