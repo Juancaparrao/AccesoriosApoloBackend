@@ -1,7 +1,7 @@
 const pool = require('../db');
 
 // Controlador para buscar producto por referencia
-async function BuscarProductoPorReferencia(req, res) {
+async function BuscarProductoFacturaPorReferencia(req, res) {
   try {
     const { referencia } = req.query;
     
@@ -211,6 +211,6 @@ async function RegistrarFacturasProveedor(req, res) {
 
 // Exportamos ambos métodos
 module.exports = {
-  BuscarProductoPorReferencia,
+  BuscarProductoFacturaPorReferencia,
   RegistrarFacturasProveedor
 };
