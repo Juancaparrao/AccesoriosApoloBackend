@@ -13,7 +13,7 @@ async function BuscarProductoFacturaPorReferencia(req, res) {
     }
 
     const [producto] = await pool.execute(
-      'SELECT referencia, nombre, precio_venta FROM producto WHERE TRIM(referencia) = TRIM(?)',
+      'SELECT referencia, nombre FROM producto WHERE TRIM(referencia) = TRIM(?)',
       [referencia]
     );
 
