@@ -1,6 +1,49 @@
 const pool = require('../db');
 
-// Registrar Factura Completa de Proveedor (con todas las validaciones integradas)
+// Controlador para buscar producto por referencia
+async function BuscarProductoPorReferencia(req, res) {
+  try {
+    const { referencia } = req.query;
+    
+    if (!referencia) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'La referencia del producto es requerida'
+      });
+    }
+
+    const [producto] = await pool.execute(
+      'SELECT referencia, nombre, precio_venta FROM producto WHERE TRIM(referencia) = TRIM(?)',
+      [referencia]
+    );
+
+    if (producto.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Producto no encontrado'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      producto: {
+        referencia: producto[0].referencia,
+        nombre: producto[0].nombre,
+        precio_venta: producto[0].precio_venta,
+        // Puedes agregar más campos si los necesitas
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al buscar producto:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno al buscar el producto'
+    });
+  }
+}
+
+// Controlador para registrar facturas de proveedor
 async function RegistrarFacturasProveedor(req, res) {
   const connection = await pool.getConnection();
   
@@ -11,8 +54,8 @@ async function RegistrarFacturasProveedor(req, res) {
       nit_proveedor,
       fecha_compra,
       metodo_pago,
-      valor_total, // Ahora recibido del frontend
-      productos // Array de productos: [{referencia, cantidad, precio_unitario}, ...]
+      valor_total,
+      productos // Array de productos: [{referencia, nombre, cantidad, precio_unitario}, ...]
     } = req.body;
 
     // Validaciones básicas de campos obligatorios
@@ -63,58 +106,38 @@ async function RegistrarFacturasProveedor(req, res) {
 
     // Validar productos
     const productosValidados = [];
-    const referenciasVistas = new Set(); // Para evitar duplicados
+    const referenciasVistas = new Set();
 
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
 
-      // Validar campos obligatorios del producto
-      if (!producto.referencia || !producto.cantidad || !producto.precio_unitario) {
+      // Validar campos obligatorios del producto (ahora incluye nombre)
+      if (!producto.referencia || !producto.nombre || !producto.cantidad || !producto.precio_unitario) {
         await connection.rollback();
         return res.status(400).json({
           success: false,
-          mensaje: `El producto en la posición ${i + 1} debe tener referencia, cantidad y precio unitario.`
+          mensaje: `El producto en la posición ${i + 1} debe tener referencia, nombre, cantidad y precio unitario.`
         });
       }
 
-      // Convertir referencia a string y limpiar espacios
       const referenciaLimpia = String(producto.referencia).trim();
       
-      // Log para debugging
-      console.log(`🔍 Buscando producto con referencia: "${referenciaLimpia}" (tipo: ${typeof referenciaLimpia})`);
-
-      // Validar que la cantidad y precio sean números positivos
-      if (Number(producto.cantidad) <= 0 || Number(producto.precio_unitario) <= 0) {
-        await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          mensaje: `El producto ${referenciaLimpia} debe tener cantidad y precio unitario mayores a cero.`
-        });
-      }
-
-      // Validar que no haya referencias duplicadas en la misma factura
+      // Validar que no haya referencias duplicadas
       if (referenciasVistas.has(referenciaLimpia)) {
         await connection.rollback();
         return res.status(409).json({
           success: false,
-          mensaje: `La referencia ${referenciaLimpia} está duplicada en la factura. Cada producto debe aparecer solo una vez.`
+          mensaje: `La referencia ${referenciaLimpia} está duplicada en la factura.`
         });
       }
       referenciasVistas.add(referenciaLimpia);
 
-      // Validar que la referencia del producto existe (con TRIM para evitar problemas de espacios)
-      const [productoExiste] = await connection.execute(
-        'SELECT referencia, nombre FROM producto WHERE TRIM(referencia) = TRIM(?)',
-        [referenciaLimpia]
-      );
-
-      console.log(`📦 Productos encontrados para referencia "${referenciaLimpia}":`, productoExiste.length);
-
-      if (productoExiste.length === 0) {
+      // Validar valores numéricos
+      if (Number(producto.cantidad) <= 0 || Number(producto.precio_unitario) <= 0) {
         await connection.rollback();
-        return res.status(404).json({
+        return res.status(400).json({
           success: false,
-          mensaje: `La referencia '${referenciaLimpia}' no existe en el sistema de productos.`
+          mensaje: `El producto ${producto.nombre} debe tener cantidad y precio unitario mayores a cero.`
         });
       }
 
@@ -122,14 +145,14 @@ async function RegistrarFacturasProveedor(req, res) {
 
       productosValidados.push({
         referencia: referenciaLimpia,
-        nombre: productoExiste[0].nombre,
+        nombre: producto.nombre,
         cantidad: Number(producto.cantidad),
         precio_unitario: Number(producto.precio_unitario),
         subtotal: subtotal
       });
     }
 
-    // Insertar factura de proveedor (usando valor_total del frontend)
+    // Insertar factura de proveedor
     await connection.execute(
       `INSERT INTO factura_proveedor 
        (id_factura_proveedor, fecha_compra, valor_total, metodo_pago, nit_proveedor)
@@ -137,7 +160,7 @@ async function RegistrarFacturasProveedor(req, res) {
       [id_factura_proveedor, fecha_compra, Number(valor_total), metodo_pago, nit_proveedor]
     );
 
-    // Insertar detalles de la factura (esto activará el trigger que aumenta el stock)
+    // Insertar detalles de la factura
     for (const producto of productosValidados) {
       await connection.execute(
         `INSERT INTO detalle_factura_proveedor 
@@ -150,13 +173,8 @@ async function RegistrarFacturasProveedor(req, res) {
     await connection.commit();
 
     // Funciones para formatear la respuesta
-    const formatearNumero = (valor) => {
-      return new Intl.NumberFormat('es-CO').format(Number(valor));
-    };
-
-    const formatearFecha = (fecha) => {
-      return new Date(fecha).toLocaleDateString('es-CO');
-    };
+    const formatearNumero = (valor) => new Intl.NumberFormat('es-CO').format(Number(valor));
+    const formatearFecha = (fecha) => new Date(fecha).toLocaleDateString('es-CO');
 
     return res.status(201).json({
       success: true,
@@ -167,7 +185,7 @@ async function RegistrarFacturasProveedor(req, res) {
         nombre_proveedor: proveedor[0].nombre,
         fecha_compra: formatearFecha(fecha_compra),
         metodo_pago,
-        valor_total: formatearNumero(valor_total), // Usando el valor del frontend
+        valor_total: formatearNumero(valor_total),
         total_productos: productosValidados.length,
         productos: productosValidados.map(p => ({
           referencia: p.referencia,
@@ -191,6 +209,8 @@ async function RegistrarFacturasProveedor(req, res) {
   }
 }
 
+// Exportamos ambos métodos
 module.exports = {
+  BuscarProductoPorReferencia,
   RegistrarFacturasProveedor
 };

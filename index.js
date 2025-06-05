@@ -45,7 +45,7 @@ const { EliminarProducto } = require('./ProductosController/EliminarProducto');
 const { ReactivarProducto } = require('./ProductosController/ReactivarProducto');
 const { BuscarProductoPorReferencia } = require('./ProductosController/BuscarProductoPorReferencia');
 const { ConsultarFacturasProveedor } = require('./FacturasProveedorController/ConsultarFacturasProveedor');
-const { RegistrarFacturasProveedor } = require('.//FacturasProveedorController/RegistrarFacturasProveedor');
+const { RegistrarFacturasProveedor, BuscarProductoPorReferencia } = require('.//FacturasProveedorController/RegistrarFacturasProveedor');
 
 
 
@@ -133,6 +133,7 @@ app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 
 // Modulo de Facturas Proveedor
 app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
+app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
 
 // Inicializar servidor
