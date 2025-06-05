@@ -24,8 +24,8 @@ async function ConsultarDetalleFacturaProveedor(req, res) {
         p.empresa,
         p.telefono AS telefono_proveedor,
         p.direccion
-      FROM FACTURA_PROVEEDOR fp
-      JOIN PROVEEDOR p ON fp.nit_proveedor = p.nit
+      FROM factura_proveedor fp
+      JOIN proveedor p ON fp.nit_proveedor = p.nit
       WHERE fp.id_factura_proveedor = ?`,
       [id]
     );
@@ -46,8 +46,8 @@ async function ConsultarDetalleFacturaProveedor(req, res) {
         df.cantidad,
         df.precio_unitario,
         (df.cantidad * df.precio_unitario) AS subtotal
-      FROM DETALLE_FACTURA_PROVEEDOR df
-      JOIN PRODUCTO pr ON df.FK_referencia = pr.referencia
+      FROM detalle_factura_proveedor df
+      JOIN producto pr ON df.FK_referencia = pr.referencia
       WHERE df.FK_id_factura_proveedor = ?`,
       [id]
     );
