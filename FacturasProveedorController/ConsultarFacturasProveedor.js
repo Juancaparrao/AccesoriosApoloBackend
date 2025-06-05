@@ -6,7 +6,7 @@ async function ConsultarFacturasProveedor(req, res) {
       SELECT 
         fp.id_factura_proveedor AS id,
         fp.nit_proveedor AS nit,
-        p.nombre,
+        p.empresa,
         fp.fecha_compra AS fecha,
         fp.valor_total,
         fp.metodo_pago
@@ -26,7 +26,7 @@ async function ConsultarFacturasProveedor(req, res) {
     const facturasFormateadas = facturas.map(f => ({
       id: f.id,
       nit: f.nit,
-      nombre: f.nombre,
+      empresa: f.empresa,
       fecha: formatearFecha(f.fecha),
       valor_total: formatearNumero(f.valor_total),
       metodo_pago: f.metodo_pago
