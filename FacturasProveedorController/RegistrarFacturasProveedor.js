@@ -29,7 +29,6 @@ async function BuscarProductoFacturaPorReferencia(req, res) {
       producto: {
         referencia: producto[0].referencia,
         nombre: producto[0].nombre,
-        precio_venta: producto[0].precio_venta,
         // Puedes agregar más campos si los necesitas
       }
     });
