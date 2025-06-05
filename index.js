@@ -46,7 +46,7 @@ const { ReactivarProducto } = require('./ProductosController/ReactivarProducto')
 const { BuscarProductoPorReferencia } = require('./ProductosController/BuscarProductoPorReferencia');
 const { ConsultarFacturasProveedor } = require('./FacturasProveedorController/ConsultarFacturasProveedor');
 const { RegistrarFacturasProveedor, BuscarProductoFacturaPorReferencia } = require('.//FacturasProveedorController/RegistrarFacturasProveedor');
-
+const { ConsultarDetalleFacturaProveedor } = require('./FacturasProveedorController/ConsultarDetalleFacturaProveedor');
 
 
 app.use(cors({
@@ -135,6 +135,7 @@ app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
 app.get('/buscar-producto-factura-referencia', BuscarProductoFacturaPorReferencia);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
+app.get('/consultar-detalle-factura-proveedor', ConsultarDetalleFacturaProveedor);
 
 // Inicializar servidor
 app.listen(port, () => {
