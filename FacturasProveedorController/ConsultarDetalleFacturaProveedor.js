@@ -2,10 +2,10 @@ const pool = require('../db');
 
 async function ConsultarDetalleFacturaProveedor(req, res) {
   try {
-    const { id_factura_proveedor } = req.params;
+    const { id } = req.params;
 
     // Validar que el ID de factura esté presente
-    if (!id_factura_proveedor) {
+    if (!id) {
       return res.status(400).json({
         success: false,
         mensaje: 'El ID de factura de proveedor es requerido'
@@ -27,7 +27,7 @@ async function ConsultarDetalleFacturaProveedor(req, res) {
       FROM FACTURA_PROVEEDOR fp
       JOIN PROVEEDOR p ON fp.nit_proveedor = p.nit
       WHERE fp.id_factura_proveedor = ?`,
-      [id_factura_proveedor]
+      [id]
     );
 
     // Si no se encuentra la factura
@@ -49,7 +49,7 @@ async function ConsultarDetalleFacturaProveedor(req, res) {
       FROM DETALLE_FACTURA_PROVEEDOR df
       JOIN PRODUCTO pr ON df.FK_referencia = pr.referencia
       WHERE df.FK_id_factura_proveedor = ?`,
-      [id_factura_proveedor]
+      [id]
     );
 
     // Formatear respuesta
@@ -67,7 +67,7 @@ async function ConsultarDetalleFacturaProveedor(req, res) {
 
     const respuesta = {
       factura: {
-        id: factura[0].id_factura_proveedor,
+        id: factura[0].id,
         fecha_compra: formatearFecha(factura[0].fecha_compra),
         metodo_pago: factura[0].metodo_pago,
         valor_total: formatearNumero(factura[0].valor_total),

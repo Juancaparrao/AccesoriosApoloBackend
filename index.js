@@ -55,6 +55,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
 // Rutas de registro con OTP
 app.post('/solicitar-otp', solicitarOTP);
 app.post('/reenviar-otp', reenviarOTP);
@@ -118,7 +123,7 @@ app.put('/eliminar-subcategoria', EliminarSubcategoria);
 app.put('/reactivar-subcategoria', ReactivarSubcategoria);
 app.post('/obtener-subcategoria', ObtenerDatosSubcategoria);
 app.put('/actualizar-subcategoria', upload.single('imagen'), ActualizarSubcategoria);
-app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre)
+app.get('/buscar-subcategoria-nombre', BuscarSubcategoriaPorNombre);
 
 // Módulo de productos
 app.post('/registrar-producto', upload.array('imagenes', 8), RegistrarProducto);
@@ -135,8 +140,7 @@ app.get('/buscar-producto-referencia', BuscarProductoPorReferencia);
 app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
 app.get('/buscar-producto-factura-referencia', BuscarProductoFacturaPorReferencia);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
-app.get('/consultar-detalle-factura-proveedor', ConsultarDetalleFacturaProveedor);
-
+app.get('/consultar-detalle-factura-proveedor/:id', ConsultarDetalleFacturaProveedor);
 // Inicializar servidor
 app.listen(port, () => {
   console.log(`✅ Servidor corriendo`);
