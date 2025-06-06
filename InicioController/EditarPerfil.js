@@ -1,14 +1,15 @@
 const pool = require('../db');
+const bcrypt = require('bcrypt');
 
 async function EditarPerfil(req, res) {
   try {
     const id_usuario = req.user.id_usuario;
-    const { nombre, cedula, telefono } = req.body;
+    const { nombre, cedula, telefono, contrasena } = req.body;
 
     if (!nombre || !cedula || !telefono) {
       return res.status(400).json({
         success: false,
-        mensaje: 'Todos los campos son obligatorios.'
+        mensaje: 'Los campos nombre, cédula y teléfono son obligatorios.'
       });
     }
 
@@ -36,11 +37,23 @@ async function EditarPerfil(req, res) {
       });
     }
 
-    // Actualizar perfil
-    await pool.execute(
-      'UPDATE usuario SET nombre = ?, cedula = ?, telefono = ? WHERE id_usuario = ?',
-      [nombre, cedula, telefono, id_usuario]
-    );
+    // Determinar si se debe actualizar la contraseña
+    let queryUpdate;
+    let parametros;
+
+    if (contrasena && contrasena.trim() !== '') {
+      // Si hay contraseña, encriptarla y actualizar todos los campos
+      const hashedPassword = await bcrypt.hash(contrasena, 10);
+      queryUpdate = 'UPDATE usuario SET nombre = ?, cedula = ?, telefono = ?, contrasena = ? WHERE id_usuario = ?';
+      parametros = [nombre, cedula, telefono, hashedPassword, id_usuario];
+    } else {
+      // Si no hay contraseña, actualizar solo los otros campos
+      queryUpdate = 'UPDATE usuario SET nombre = ?, cedula = ?, telefono = ? WHERE id_usuario = ?';
+      parametros = [nombre, cedula, telefono, id_usuario];
+    }
+
+    // Ejecutar la actualización
+    await pool.execute(queryUpdate, parametros);
 
     return res.status(200).json({
       success: true,
