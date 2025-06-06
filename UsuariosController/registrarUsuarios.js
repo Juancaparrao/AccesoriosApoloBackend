@@ -1,6 +1,6 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
+const transporter = require('./config/mailer'); // Usar tu transporter existente
 const { generarHtmlContrasena } = require('../InicioController/templates/RegistrarUsuarioDirectoCorreo');
 
 // Función para generar contraseña segura
@@ -27,17 +27,6 @@ function generarContrasenaSegura() {
   // Mezclar la contraseña para que no siempre tenga el mismo patrón
   return contrasena.split('').sort(() => Math.random() - 0.5).join('');
 }
-
-// Configuración del transporter de nodemailer
-const transporter = nodemailer.createTransporter({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false, // true para 465, false para otros puertos
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
 
 async function registrarUsuarioDirecto(req, res) {
   try {
@@ -99,7 +88,7 @@ async function registrarUsuarioDirecto(req, res) {
 
     // Enviar correo con la contraseña
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: process.env.CORREO_ORIGEN, // Usar la misma variable que tu código actual
       to: correo,
       subject: '¡Bienvenido a Accesorios Apolo - Datos de acceso!',
       html: generarHtmlContrasena(nombre, contrasenaGenerada)
