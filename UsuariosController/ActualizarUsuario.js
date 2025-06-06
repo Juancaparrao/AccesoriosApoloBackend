@@ -1,6 +1,6 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const transporter = require('../config/mailer');
+const transporter = require('../InicioController/config/mailer');
 
 async function obtenerDatosUsuario(req, res) {
   try {
