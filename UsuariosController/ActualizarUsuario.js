@@ -1,6 +1,7 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const transporter = require('../InicioController/config/mailer');
+const NuevaContraseñaCorreo = require('../InicioController/templates/NuevaContraseñaCorreo');
 
 async function obtenerDatosUsuario(req, res) {
   try {
@@ -56,15 +57,12 @@ async function actualizarUsuario(req, res) {
 
   try {
     const [usuarioActual] = await pool.execute(
-      'SELECT id_usuario, contrasena FROM usuario WHERE correo = ?',
+      'SELECT id_usuario FROM usuario WHERE correo = ?',
       [correoOriginal]
     );
 
     if (usuarioActual.length === 0) {
-      return res.status(404).json({
-        success: false,
-        mensaje: 'Usuario no encontrado'
-      });
+      return res.status(404).json({ success: false, mensaje: 'Usuario no encontrado' });
     }
 
     const id_usuario = usuarioActual[0].id_usuario;
@@ -105,10 +103,10 @@ async function actualizarUsuario(req, res) {
     const nuevoRolId = rolData[0].id_rol;
     let contrasenaParaEnviar = null;
 
+    // CLIENTE
     if (rol === 'cliente') {
       await pool.execute(
-        `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?
-         WHERE id_usuario = ?`,
+        `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ? WHERE id_usuario = ?`,
         [nombre, correo, telefono, cedula, id_usuario]
       );
 
@@ -122,39 +120,38 @@ async function actualizarUsuario(req, res) {
           [hashedPassword, id_usuario]
         );
       }
+
+    // VENDEDOR
     } else if (rol === 'vendedor') {
       if (contrasena && contrasena.trim() !== "") {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(contrasena, salt);
+        contrasenaParaEnviar = contrasena;
 
         await pool.execute(
-          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?, contrasena = ?
-           WHERE id_usuario = ?`,
+          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?, contrasena = ? WHERE id_usuario = ?`,
           [nombre, correo, telefono, cedula, hashedPassword, id_usuario]
         );
-
-        contrasenaParaEnviar = contrasena;
       } else {
         await pool.execute(
-          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?
-           WHERE id_usuario = ?`,
+          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ? WHERE id_usuario = ?`,
           [nombre, correo, telefono, cedula, id_usuario]
         );
       }
+
+    // GERENTE
     } else if (rol === 'gerente') {
       if (contrasena && contrasena.trim() !== "") {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(contrasena, salt);
 
         await pool.execute(
-          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?, contrasena = ?
-           WHERE id_usuario = ?`,
+          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?, contrasena = ? WHERE id_usuario = ?`,
           [nombre, correo, telefono, cedula, hashedPassword, id_usuario]
         );
       } else {
         await pool.execute(
-          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ?
-           WHERE id_usuario = ?`,
+          `UPDATE usuario SET nombre = ?, correo = ?, telefono = ?, cedula = ? WHERE id_usuario = ?`,
           [nombre, correo, telefono, cedula, id_usuario]
         );
       }
@@ -165,30 +162,16 @@ async function actualizarUsuario(req, res) {
       [nuevoRolId, id_usuario]
     );
 
+    // ENVÍO DE CORREO (solo si hay contraseña para enviar)
     if (contrasenaParaEnviar) {
       try {
+        const htmlContent = NuevaContraseñaCorreo(nombre, correo, contrasenaParaEnviar);
+
         const mailOptions = {
           from: process.env.EMAIL_USER,
           to: correo,
           subject: 'Actualización de contraseña - Sistema',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #333;">Actualización de Usuario</h2>
-              <p>Hola <strong>${nombre}</strong>,</p>
-              <p>Tu usuario ha sido actualizado exitosamente. A continuación encontrarás tu información de acceso:</p>
-              
-              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                <p><strong>Correo:</strong> ${correo}</p>
-                <p><strong>Contraseña:</strong> ${contrasenaParaEnviar}</p>
-              </div>
-              
-              <p style="color: #666; font-size: 14px;">
-                Por seguridad, te recomendamos cambiar tu contraseña después del primer inicio de sesión.
-              </p>
-              
-              <p>Saludos,<br>El equipo de administración</p>
-            </div>
-          `
+          html: htmlContent
         };
 
         await transporter.sendMail(mailOptions);
@@ -200,8 +183,8 @@ async function actualizarUsuario(req, res) {
 
     return res.status(200).json({
       success: true,
-      mensaje: contrasenaParaEnviar 
-        ? 'Usuario actualizado correctamente. Se ha enviado la contraseña por correo.' 
+      mensaje: contrasenaParaEnviar
+        ? 'Usuario actualizado correctamente. Se ha enviado la contraseña por correo.'
         : 'Usuario actualizado correctamente.'
     });
 
