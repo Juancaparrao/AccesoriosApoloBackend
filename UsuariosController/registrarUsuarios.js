@@ -1,6 +1,6 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const transporter = require('./config/mailer'); // Usar tu transporter existente
+const transporter = require('../InicioController/config/mailer'); // Usar tu transporter existente
 const { generarHtmlContrasena } = require('../InicioController/templates/RegistrarUsuarioDirectoCorreo');
 
 // Función para generar contraseña segura
