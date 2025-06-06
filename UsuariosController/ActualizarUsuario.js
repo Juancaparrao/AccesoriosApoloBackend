@@ -37,6 +37,14 @@ async function obtenerDatosUsuario(req, res) {
 async function actualizarUsuario(req, res) {
   const { correoOriginal, nombre, correo, telefono, cedula, contrasena, rol } = req.body;
 
+  // Validación: teléfono obligatorio
+  if (!telefono || telefono.trim() === "") {
+    return res.status(400).json({
+      success: false,
+      mensaje: 'El teléfono es obligatorio.'
+    });
+  }
+
   try {
     const [usuarioActual] = await pool.execute(
       'SELECT id_usuario FROM usuario WHERE correo = ?',
