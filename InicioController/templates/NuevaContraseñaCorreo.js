@@ -14,7 +14,7 @@ function NuevaContraseñaCorreo(nombre, correo, contrasenaParaEnviar) {
       </p>
 
       <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 30px 0; font-size: 16px; color: #333;">
-        <p><strong>Correo:</strong> ${correo}</p>
+        <p style="white-space: nowrap;"><strong>Correo:</strong> ${correo}</p>
         <p><strong>Contraseña:</strong> ${contrasenaParaEnviar}</p>
       </div>
 
