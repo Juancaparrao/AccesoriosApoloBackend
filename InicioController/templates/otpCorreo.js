@@ -24,6 +24,7 @@ function generarHtmlOTP(codigo) {
       </div>
     </div>`;
 }
+
 function generarHtmlBienvenida(nombre) {
   return `
     <div style="font-family: Arial, sans-serif; background-color: #f2f2f2; padding: 40px;">
