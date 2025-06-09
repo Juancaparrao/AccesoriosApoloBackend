@@ -2,17 +2,18 @@ const pool = require('../db');
 
 async function RegistrarCalcomania(req, res) {
   try {
-    const { nombre, fk_id_usuario } = req.body;
+    const { nombre } = req.body;
+    const fk_id_usuario = req.user.id_usuario; // Obtener ID del usuario del token
 
     // Validar datos requeridos
-    if (!nombre || !fk_id_usuario || !req.file?.path) {
+    if (!nombre || !req.file?.path) {
       return res.status(400).json({ 
         success: false, 
-        mensaje: 'Faltan datos requeridos: nombre, usuario o imagen.' 
+        mensaje: 'Faltan datos requeridos: nombre o imagen.' 
       });
     }
 
-    // Verificar que el usuario existe
+    // Verificar que el usuario del token existe y está activo
     const [usuario] = await pool.execute(
       'SELECT id_usuario FROM usuario WHERE id_usuario = ? AND estado = 1',
       [fk_id_usuario]

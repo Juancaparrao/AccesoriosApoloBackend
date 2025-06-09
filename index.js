@@ -149,7 +149,7 @@ app.get('/facturas-proveedores', ConsultarFacturasProveedor);
 app.get('/consultar-detalle-factura-proveedor/:id_factura_proveedor', ConsultarDetalleFacturaProveedor);
 
 // Módulo de Calcomanías
-app.post('/registrar-calcomania', upload.single('imagen'), RegistrarCalcomania);
+app.post('/registrar-calcomania', verificarToken, upload.single('imagen'), RegistrarCalcomania);
 app.get('/calcomanias', ConsultarCalcomania);
 app.post('/obtener-calcomania', ObtenerDatosCalcomania);
 app.put('/actualizar-calcomania', upload.single('imagen'), ActualizarCalcomania);
