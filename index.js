@@ -47,6 +47,12 @@ const { BuscarProductoPorReferencia } = require('./ProductosController/BuscarPro
 const { ConsultarFacturasProveedor } = require('./FacturasProveedorController/ConsultarFacturasProveedor');
 const { RegistrarFacturasProveedor, BuscarProductoFacturaPorReferencia } = require('.//FacturasProveedorController/RegistrarFacturasProveedor');
 const { ConsultarDetalleFacturaProveedor } = require('./FacturasProveedorController/ConsultarDetalleFacturaProveedor');
+const { RegistrarCalcomania } = require('./CalcomaniasController/RegistrarCalcomania');
+const { ConsultarCalcomania } = require('./CalcomaniasController/ConsultarCalcomania');
+const { ActualizarCalcomania, ObtenerDatosCalcomania } = require('./CalcomaniasController/ActualizarCalcomania'); 
+const { EliminarCalcomania } = require('./CalcomaniasController/EliminarCalcomania');
+const { ReactivarCalcomania } = require('./CalcomaniasController/ReactivarCalcomania');
+const { BuscarCalcomaniaPorNombre } = require('./CalcomaniasController/BuscarCalcomaniaPorNombre');
 
 
 app.use(cors({
@@ -141,6 +147,17 @@ app.post('/registrar-factura-proveedor', RegistrarFacturasProveedor);
 app.get('/buscar-producto-factura-referencia', BuscarProductoFacturaPorReferencia);
 app.get('/facturas-proveedores', ConsultarFacturasProveedor);
 app.get('/consultar-detalle-factura-proveedor/:id_factura_proveedor', ConsultarDetalleFacturaProveedor);
+
+// Módulo de Calcomanías
+app.post('/registrar-calcomania', upload.single('imagen'), RegistrarCalcomania);
+app.get('/calcomanias', ConsultarCalcomania);
+app.post('/obtener-calcomania', ObtenerDatosCalcomania);
+app.put('/actualizar-calcomania', upload.single('imagen'), ActualizarCalcomania);
+app.put('/eliminar-calcomania', EliminarCalcomania);
+app.put('/reactivar-calcomania', ReactivarCalcomania);
+app.get('/buscar-calcomania-nombre', BuscarCalcomaniaPorNombre);
+
+
 // Inicializar servidor
 app.listen(port, () => {
   console.log(`✅ Servidor corriendo`);

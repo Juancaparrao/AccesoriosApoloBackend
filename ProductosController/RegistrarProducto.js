@@ -17,7 +17,7 @@ async function RegistrarProducto(req, res) {
     } = req.body;
 
     if (
-      !referencia || !nombre || !marca || !precio_unidad || descuento === undefined ||
+      !referencia || !nombre || !descripcion || !talla || !marca || !url_archivo || !precio_unidad || descuento === undefined ||
       !FK_id_categoria || !FK_id_subcategoria
     ) {
       return res.status(400).json({

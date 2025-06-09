@@ -8,6 +8,8 @@ const storage = new CloudinaryStorage({
     let folder = 'otros';
     if (req.url.includes('producto')) folder = 'productos';
     if (req.url.includes('subcategoria')) folder = 'subcategorias';
+    if (req.url.includes('calcomania')) folder = 'calcomanias';
+
 
     return {
       folder,
