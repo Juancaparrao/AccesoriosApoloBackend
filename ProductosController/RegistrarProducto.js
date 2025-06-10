@@ -1,3 +1,6 @@
+const pool = require('../db');
+const cloudinary = require('../cloudinary');
+
 // Registrar Producto
 async function RegistrarProducto(req, res) {
   try {
@@ -102,3 +105,58 @@ async function RegistrarProducto(req, res) {
     });
   }
 }
+
+
+
+// Obtener todas las categorías activas
+async function ObtenerCategorias(req, res) {
+  try {
+    const [categorias] = await pool.execute(`
+      SELECT id_categoria, nombre_categoria 
+      FROM categoria 
+      WHERE estado = 1
+    `);
+
+    return res.status(200).json({
+      success: true,
+      categorias
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener categorías:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno al obtener las categorías.'
+    });
+  }
+}
+
+// Obtener subcategorías activas por ID de categoría
+async function ObtenerSubcategoriasPorCategoria(req, res) {
+  const { id_categoria } = req.params;
+
+  try {
+    const [subcategorias] = await pool.execute(`
+      SELECT id_subcategoria, nombre_subcategoria 
+      FROM subcategoria 
+      WHERE FK_id_categoria = ? AND estado = 1
+    `, [id_categoria]);
+
+    return res.status(200).json({
+      success: true,
+      subcategorias
+    });
+
+  } catch (error) {
+    console.error('❌ Error al obtener subcategorías:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno al obtener subcategorías.'
+    });
+  }
+}
+
+module.exports = {
+  RegistrarProducto,
+  ObtenerCategorias,
+  ObtenerSubcategoriasPorCategoria
+};
