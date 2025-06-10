@@ -10,6 +10,7 @@ async function RegistrarProducto(req, res) {
       descripcion,
       talla,
       marca, // NUEVO
+      url_archivo,
       precio_unidad,
       descuento,
       FK_id_categoria,
