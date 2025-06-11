@@ -1,5 +1,5 @@
 const pool = require('../db');
-const emailService = require('../services/emailService'); // Importar el servicio de correo
+const emailService = require('../templates/FacturaVentaCorreo'); // Importar el servicio de correo
 
 // Controlador para validar cliente por cédula
 async function ValidarClientePorCedula(req, res) {
