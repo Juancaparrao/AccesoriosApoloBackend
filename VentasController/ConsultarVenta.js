@@ -20,11 +20,13 @@ async function ConsultarVenta(req, res) {
     `);
 
     if (ventas.length === 0) {
-      return res.status(404).json({
-        success: false,
-        mensaje: 'No se encontraron ventas registradas'
-      });
-    }
+  return res.status(200).json({
+    success: true,
+    mensaje: 'No se encontraron ventas registradas',
+    total_ventas: 0,
+    ventas: []
+  });
+}
 
     // Formatear los datos para una mejor presentación
     const ventasFormateadas = ventas.map(venta => ({
