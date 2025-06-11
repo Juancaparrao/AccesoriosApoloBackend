@@ -53,7 +53,8 @@ const { ActualizarCalcomania, ObtenerDatosCalcomania } = require('./CalcomaniasC
 const { EliminarCalcomania } = require('./CalcomaniasController/EliminarCalcomania');
 const { ReactivarCalcomania } = require('./CalcomaniasController/ReactivarCalcomania');
 const { BuscarCalcomaniaPorNombre } = require('./CalcomaniasController/BuscarCalcomaniaPorNombre');
-
+const { RegistrarVenta, ValidarClientePorCedula, BuscarProductoVentaPorReferencia } = require('./VentasController/RegistrarVenta');
+const { ConsultarVenta } = require('./VentasController/ConsultarVenta');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -156,6 +157,13 @@ app.put('/actualizar-calcomania', upload.single('imagen'), ActualizarCalcomania)
 app.put('/eliminar-calcomania', EliminarCalcomania);
 app.put('/reactivar-calcomania', ReactivarCalcomania);
 app.get('/buscar-calcomania-nombre', BuscarCalcomaniaPorNombre);
+
+
+//Módulo de Ventas
+app.post('/registrar-venta',  RegistrarVenta);
+app.get('/validar-cliente-venta', ValidarClientePorCedula);
+app.get('/buscar-producto-venta-referencia', BuscarProductoVentaPorReferencia);
+app.get('/Consultar-ventas', ConsultarVenta);
 
 
 // Inicializar servidor

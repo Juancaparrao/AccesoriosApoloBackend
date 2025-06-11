@@ -1,7 +1,7 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const transporter = require('./config/mailer');
-const generarHtmlRecuperarContrasena = require('./templates/recuperarCorreo');
+const transporter = require('../config/mailer');
+const generarHtmlRecuperarContrasena = require('../templates/recuperarCorreo');
 const crypto = require('crypto');
 
 const tokenRecuperacionStore = new Map(); // token -> { correo, expiracion }

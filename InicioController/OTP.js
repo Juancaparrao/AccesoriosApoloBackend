@@ -1,10 +1,10 @@
 const otpStore = new Map();
 const generarOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
-const transporter = require('./config/mailer');
+const transporter = require('../config/mailer');
 const { registrarUsuario } = require('./Registro');
 const usuariosPendientes = new Map();
 const jwt = require('jsonwebtoken');
-const { generarHtmlOTP, generarHtmlBienvenida } = require('./templates/otpCorreo');
+const { generarHtmlOTP, generarHtmlBienvenida } = require('../templates/otpCorreo');
 const pool = require('../db');
 
 // 👉 Validación de contraseña segura

@@ -1,7 +1,7 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const transporter = require('../InicioController/config/mailer');
-const NuevaContraseñaCorreo = require('../InicioController/templates/NuevaContraseñaCorreo');
+const transporter = require('../config/mailer');
+const NuevaContraseñaCorreo = require('../templates/NuevaContraseñaCorreo');
 
 async function obtenerDatosUsuario(req, res) {
   try {
