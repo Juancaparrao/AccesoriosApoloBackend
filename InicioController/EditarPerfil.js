@@ -1,6 +1,7 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 
+
 async function EditarPerfil(req, res) {
   try {
     const id_usuario = req.user.id_usuario;
