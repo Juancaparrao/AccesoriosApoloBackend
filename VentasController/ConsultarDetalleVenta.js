@@ -18,6 +18,7 @@ async function ConsultarDetalleVenta(req, res) {
         p.nombre AS nombre_producto,
         p.precio_descuento,
         df.cantidad,
+        df.precio_unidad AS precio_real,
         p.precio_unidad   
       FROM factura f
       JOIN usuario u ON f.fk_id_usuario = u.id_usuario
@@ -62,7 +63,7 @@ async function ConsultarDetalleVenta(req, res) {
         cantidad: Number(v.cantidad),
         precio_unitario: formatearNumero(v.precio_unidad),
         precio_descuento: v.precio_descuento ? formatearNumero(v.precio_descuento) : null,
-        subtotal: formatearNumero(v.precio_unidad * v.cantidad)
+        subtotal: formatearNumero(v.precio_real * v.cantidad)
       }))
     };
 
