@@ -16,6 +16,7 @@ async function ConsultarDetalleVenta(req, res) {
         u.telefono AS telefono_cliente,
         df.FK_referencia AS referencia_producto,
         p.nombre AS nombre_producto,
+        p.precio_descuento,
         df.cantidad,
         df.precio_unidad   
       FROM factura f
@@ -60,6 +61,7 @@ async function ConsultarDetalleVenta(req, res) {
         nombre: v.nombre_producto,
         cantidad: Number(v.cantidad),
         precio_unitario: formatearNumero(v.precio_unidad),
+        precio_descuento: formatearNumero(v.precio_descuento),
       }))
     };
 
