@@ -50,14 +50,18 @@ async function ConsultarDetalleVenta(req, res) {
       return total + (v.precio_unidad * v.cantidad);
     }, 0);
 
+    const descuentoTotal = ventas.reduce((total, v) => {
+      return total + ((v.precio_unidad * v.cantidad) - (v.precio_real * v.cantidad));
+    }, 0);
+
     const venta = {
       id: ventas[0].id_factura,
       fecha_venta: formatearFecha(ventas[0].fecha_venta),
       metodo_pago: ventas[0].metodo_pago,
       valor_total: formatearNumero(ventas[0].valor_total),
       subtotal_general: formatearNumero(subtotalGeneral),
-      descuentoTotal: formatearNumero((v.precio_unidad * v.cantidad) - (v.precio_real * v.cantidad )),
-cliente: {
+      descuentoTotal: formatearNumero(descuentoTotal),
+      cliente: {
         cedula: ventas[0].cedula_cliente,
         nombre: ventas[0].nombre_cliente,
         correo: ventas[0].correo_cliente,
