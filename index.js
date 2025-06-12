@@ -165,8 +165,7 @@ app.post('/registrar-venta',  RegistrarVenta);
 app.get('/validar-cliente-venta', ValidarClientePorCedula);
 app.get('/buscar-producto-venta-referencia', BuscarProductoVentaPorReferencia);
 app.get('/Consultar-ventas', ConsultarVenta);
-app.get('/Consultar-detalle-venta/:id_venta', ConsultarDetalleVenta);
-
+app.get('/Consultar-detalle-venta/:id_factura', ConsultarDetalleVenta);
 // Inicializar servidor
 app.listen(port, () => {
   console.log(`✅ Servidor corriendo`);

@@ -1,10 +1,9 @@
 const pool = require('../db');
 
 async function ConsultarDetalleVenta(req, res) {
-  const { id_venta } = req.params;
+  const { id_factura } = req.params;
 
   try {
-    // Consultar una venta específica
     const [ventas] = await pool.execute(`
       SELECT 
         f.id_factura,
@@ -18,14 +17,17 @@ async function ConsultarDetalleVenta(req, res) {
         df.FK_referencia AS referencia_producto,
         p.nombre AS nombre_producto,
         df.cantidad,
-        df.precio_unidad,
+        df.precio_unidad,   
         df.valor_total AS subtotal
       FROM factura f
       JOIN usuario u ON f.fk_id_usuario = u.id_usuario
       JOIN detalle_factura df ON df.fk_id_factura = f.id_factura
       JOIN producto p ON p.referencia = df.fk_referencia
       WHERE f.id_factura = ?
-    `, [id_venta]);
+    `, [id_factura]);
+
+    // ... resto del código igual ...
+
 
     if (ventas.length === 0) {
       return res.status(404).json({
