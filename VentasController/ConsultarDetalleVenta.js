@@ -56,7 +56,8 @@ async function ConsultarDetalleVenta(req, res) {
       metodo_pago: ventas[0].metodo_pago,
       valor_total: formatearNumero(ventas[0].valor_total),
       subtotal_general: formatearNumero(subtotalGeneral),
-      cliente: {
+      descuentoTotal: formatearNumero((v.precio_unidad * v.cantidad) - (v.precio_real * v.cantidad )),
+cliente: {
         cedula: ventas[0].cedula_cliente,
         nombre: ventas[0].nombre_cliente,
         correo: ventas[0].correo_cliente,
@@ -69,7 +70,6 @@ async function ConsultarDetalleVenta(req, res) {
         precio_unitario: formatearNumero(v.precio_unidad),
         precio_descuento: v.precio_descuento ? formatearNumero(v.precio_descuento) : null,
         subtotal: formatearNumero(v.precio_real * v.cantidad),
-        descuentoTotal: formatearNumero((v.precio_unidad * v.cantidad) - (v.precio_real * v.cantidad ))
       }))
     };
 
