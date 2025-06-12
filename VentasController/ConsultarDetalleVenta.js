@@ -26,9 +26,6 @@ async function ConsultarDetalleVenta(req, res) {
       WHERE f.id_factura = ?
     `, [id_factura]);
 
-    // ... resto del código igual ...
-
-
     if (ventas.length === 0) {
       return res.status(404).json({
         success: false,

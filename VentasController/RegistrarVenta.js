@@ -121,16 +121,17 @@ async function RegistrarVenta(req, res) {
       cedula_cliente,
       metodo_pago,
       fecha_venta, // Fecha que viene del frontend
+      valor_total, // Valor total calculado por el frontend
       productos, // Array de productos: [{referencia, nombre, cantidad, precio_unidad, precio_descuento?}, ...]
       enviar_correo = false // Boolean para saber si enviar correo con PDF
     } = req.body;
 
     // Validaciones básicas de campos obligatorios
-    if (!cedula_cliente || !metodo_pago) {
+    if (!cedula_cliente || !metodo_pago || valor_total === undefined || valor_total === null) {
       await connection.rollback();
       return res.status(400).json({
         success: false,
-        mensaje: 'Faltan campos obligatorios: cédula del cliente y método de pago.'
+        mensaje: 'Faltan campos obligatorios: cédula del cliente, método de pago y valor total.'
       });
     }
 
@@ -139,6 +140,15 @@ async function RegistrarVenta(req, res) {
       return res.status(400).json({
         success: false,
         mensaje: 'Debe agregar al menos un producto a la venta.'
+      });
+    }
+
+    // Validar que el valor total sea positivo
+    if (Number(valor_total) <= 0) {
+      await connection.rollback();
+      return res.status(400).json({
+        success: false,
+        mensaje: 'El valor total debe ser mayor a cero.'
       });
     }
 
@@ -173,7 +183,6 @@ async function RegistrarVenta(req, res) {
     // Validar productos y verificar stock disponible
     const productosValidados = [];
     const referenciasVistas = new Set();
-    let valor_total_factura = 0;
 
     for (let i = 0; i < productos.length; i++) {
       const producto = productos[i];
@@ -239,13 +248,11 @@ async function RegistrarVenta(req, res) {
         });
       }
 
-      // Determinar el precio a usar (con descuento si aplica, o precio normal)
-      const precio_a_usar = productoExistente[0].precio_descuento && productoExistente[0].precio_descuento > 0 
-        ? parseFloat(productoExistente[0].precio_descuento)
-        : parseFloat(productoExistente[0].precio_unidad);
-
-      const subtotal = Number(producto.cantidad) * precio_a_usar;
-      valor_total_factura += subtotal;
+      // Determinar el precio usado (viene del frontend pero lo validamos con BD)
+      const precio_a_usar = producto.precio_usado || 
+        (productoExistente[0].precio_descuento && productoExistente[0].precio_descuento > 0 
+          ? parseFloat(productoExistente[0].precio_descuento)
+          : parseFloat(productoExistente[0].precio_unidad));
 
       productosValidados.push({
         referencia: referenciaLimpia,
@@ -254,7 +261,6 @@ async function RegistrarVenta(req, res) {
         precio_unidad: parseFloat(productoExistente[0].precio_unidad),
         precio_descuento: productoExistente[0].precio_descuento ? parseFloat(productoExistente[0].precio_descuento) : null,
         precio_usado: precio_a_usar,
-        subtotal: subtotal,
         stock_disponible: productoExistente[0].stock
       });
     }
@@ -278,20 +284,20 @@ async function RegistrarVenta(req, res) {
       fecha_venta_formateada = new Date().toISOString().split('T')[0];
     }
 
-    // Insertar factura con la fecha procesada
+    // Insertar factura CON EL VALOR TOTAL QUE VIENE DEL FRONTEND
     await connection.execute(
-      `INSERT INTO factura (id_factura, fecha_venta, metodo_pago, fk_id_usuario)
-       VALUES (?, ?, ?, ?)`,
-      [id_factura, fecha_venta_formateada, metodo_pago, cliente[0].id_usuario]
+      `INSERT INTO factura (id_factura, fecha_venta, metodo_pago, valor_total, fk_id_usuario)
+       VALUES (?, ?, ?, ?, ?)`,
+      [id_factura, fecha_venta_formateada, metodo_pago, Number(valor_total), cliente[0].id_usuario]
     );
 
     // Insertar detalles de la factura (el trigger se encarga de restar el stock)
     for (const producto of productosValidados) {
       await connection.execute(
         `INSERT INTO detalle_factura 
-         (FK_id_factura, FK_referencia, cantidad, precio_unidad, valor_total)
-         VALUES (?, ?, ?, ?, ?)`,
-        [id_factura, producto.referencia, producto.cantidad, producto.precio_usado, producto.subtotal]
+         (FK_id_factura, FK_referencia, cantidad, precio_unidad)
+         VALUES (?, ?, ?, ?)`,
+        [id_factura, producto.referencia, producto.cantidad, producto.precio_usado]
       );
 
       console.log(`✅ Producto vendido: ${producto.referencia} - Cantidad: ${producto.cantidad} - Stock restado automáticamente por trigger`);
@@ -304,6 +310,7 @@ async function RegistrarVenta(req, res) {
       id_factura,
       fecha_venta: new Date(fecha_venta_formateada).toLocaleDateString('es-CO'),
       metodo_pago,
+      valor_total_numerico: Number(valor_total), // Valor numérico que viene del frontend
       cliente: {
         cedula: cliente[0].cedula,
         nombre: cliente[0].nombre,
@@ -316,10 +323,9 @@ async function RegistrarVenta(req, res) {
         cantidad: p.cantidad,
         precio_unitario: new Intl.NumberFormat('es-CO').format(p.precio_usado),
         tiene_descuento: p.precio_descuento && p.precio_descuento > 0,
-        precio_original: p.precio_descuento ? new Intl.NumberFormat('es-CO').format(p.precio_unidad) : null,
-        subtotal: new Intl.NumberFormat('es-CO').format(p.subtotal)
+        precio_original: p.precio_descuento ? new Intl.NumberFormat('es-CO').format(p.precio_unidad) : null
       })),
-      valor_total: new Intl.NumberFormat('es-CO').format(valor_total_factura),
+      valor_total: new Intl.NumberFormat('es-CO').format(Number(valor_total)),
       total_productos: productosValidados.length
     };
 
