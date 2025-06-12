@@ -46,11 +46,16 @@ async function ConsultarDetalleVenta(req, res) {
       day: 'numeric'
     });
 
+    const subtotalGeneral = ventas.reduce((total, v) => {
+      return total + (v.precio_unidad * v.cantidad);
+    }, 0);
+
     const venta = {
       id: ventas[0].id_factura,
       fecha_venta: formatearFecha(ventas[0].fecha_venta),
       metodo_pago: ventas[0].metodo_pago,
       valor_total: formatearNumero(ventas[0].valor_total),
+      subtotal_general: formatearNumero(subtotalGeneral),
       cliente: {
         cedula: ventas[0].cedula_cliente,
         nombre: ventas[0].nombre_cliente,
@@ -63,7 +68,8 @@ async function ConsultarDetalleVenta(req, res) {
         cantidad: Number(v.cantidad),
         precio_unitario: formatearNumero(v.precio_unidad),
         precio_descuento: v.precio_descuento ? formatearNumero(v.precio_descuento) : null,
-        subtotal: formatearNumero(v.precio_real * v.cantidad)
+        subtotal: formatearNumero(v.precio_real * v.cantidad),
+        descuentoTotal: formatearNumero((v.precio_real * v.cantidad) - (v.precio_unidad * v.cantidad ))
       }))
     };
 
