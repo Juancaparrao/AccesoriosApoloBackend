@@ -61,7 +61,8 @@ async function ConsultarDetalleVenta(req, res) {
         nombre: v.nombre_producto,
         cantidad: Number(v.cantidad),
         precio_unitario: formatearNumero(v.precio_unidad),
-        precio_descuento: v.precio_descuento ? formatearNumero(v.precio_descuento) : null 
+        precio_descuento: v.precio_descuento ? formatearNumero(v.precio_descuento) : null,
+        subtotal: formatearNumero(v.precio_unidad * v.cantidad)
       }))
     };
 
