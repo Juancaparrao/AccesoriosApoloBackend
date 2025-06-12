@@ -291,8 +291,9 @@ async function RegistrarVenta(req, res) {
       [id_factura, fecha_venta_formateada, metodo_pago, Number(valor_total), cliente[0].id_usuario]
     );
 
-    // Insertar detalles de la factura (el trigger se encarga de restar el stock)
+    // Insertar detalles de la factura y restar stock manualmente
     for (const producto of productosValidados) {
+      // Insertar detalle de la factura
       await connection.execute(
         `INSERT INTO detalle_factura 
          (FK_id_factura, FK_referencia, cantidad, precio_unidad)
@@ -300,7 +301,15 @@ async function RegistrarVenta(req, res) {
         [id_factura, producto.referencia, producto.cantidad, producto.precio_usado]
       );
 
-      console.log(`✅ Producto vendido: ${producto.referencia} - Cantidad: ${producto.cantidad} - Stock restado automáticamente por trigger`);
+      // Restar stock manualmente
+      await connection.execute(
+        `UPDATE producto 
+         SET stock = stock - ? 
+         WHERE referencia = ?`,
+        [producto.cantidad, producto.referencia]
+      );
+
+      console.log(`✅ Producto vendido: ${producto.referencia} - Cantidad: ${producto.cantidad} - Stock restado manualmente`);
     }
 
     await connection.commit();
