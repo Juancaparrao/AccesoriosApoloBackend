@@ -18,7 +18,7 @@ async function ConsultarDetalleVenta(req, res) {
         p.nombre AS nombre_producto,
         p.precio_descuento,
         df.cantidad,
-        df.precio_unidad   
+        p.precio_unidad   
       FROM factura f
       JOIN usuario u ON f.fk_id_usuario = u.id_usuario
       JOIN detalle_factura df ON df.fk_id_factura = f.id_factura
