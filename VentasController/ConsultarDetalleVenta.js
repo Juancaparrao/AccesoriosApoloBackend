@@ -17,8 +17,7 @@ async function ConsultarDetalleVenta(req, res) {
         df.FK_referencia AS referencia_producto,
         p.nombre AS nombre_producto,
         df.cantidad,
-        df.precio_unidad,   
-        df.valor_total AS subtotal
+        df.precio_unidad   
       FROM factura f
       JOIN usuario u ON f.fk_id_usuario = u.id_usuario
       JOIN detalle_factura df ON df.fk_id_factura = f.id_factura
@@ -61,7 +60,6 @@ async function ConsultarDetalleVenta(req, res) {
         nombre: v.nombre_producto,
         cantidad: Number(v.cantidad),
         precio_unitario: formatearNumero(v.precio_unidad),
-        subtotal: formatearNumero(v.subtotal)
       }))
     };
 
