@@ -55,6 +55,7 @@ const { ReactivarCalcomania } = require('./CalcomaniasController/ReactivarCalcom
 const { BuscarCalcomaniaPorNombre } = require('./CalcomaniasController/BuscarCalcomaniaPorNombre');
 const { RegistrarVenta, ValidarClientePorCedula, BuscarProductoVentaPorReferencia } = require('./VentasController/RegistrarVenta');
 const { ConsultarVenta } = require('./VentasController/ConsultarVenta');
+const { ConsultarDetalleVenta } = require('./VentasController/ConsultarDetalleVenta');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -164,7 +165,7 @@ app.post('/registrar-venta',  RegistrarVenta);
 app.get('/validar-cliente-venta', ValidarClientePorCedula);
 app.get('/buscar-producto-venta-referencia', BuscarProductoVentaPorReferencia);
 app.get('/Consultar-ventas', ConsultarVenta);
-
+app.get('/Consultar-detalle-venta/:id_venta', ConsultarDetalleVenta);
 
 // Inicializar servidor
 app.listen(port, () => {
