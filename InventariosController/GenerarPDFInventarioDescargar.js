@@ -3,7 +3,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-async function GenerarPDFInventario(req, res) {
+async function GenerarPDFInventarioDescargar(req, res) {
   try {
     const { id } = req.params;
 
@@ -61,7 +61,7 @@ async function GenerarPDFInventario(req, res) {
     
     // Configurar la respuesta HTTP para mostrar en el navegador
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=inventario_${id}_${new Date().toISOString().split('T')[0]}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=inventario_${id}_${new Date().toISOString().split('T')[0]}.pdf`);
     
     // Enviar el PDF directamente al cliente
     doc.pipe(res);
@@ -232,4 +232,4 @@ async function GenerarPDFInventario(req, res) {
   }
 }
 
-module.exports = { GenerarPDFInventario };
+module.exports = { GenerarPDFInventarioDescargar };
