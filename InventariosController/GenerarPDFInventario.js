@@ -59,9 +59,9 @@ async function GenerarPDFInventario(req, res) {
     // Crear el documento PDF
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     
-    // Configurar la respuesta HTTP
+    // Configurar la respuesta HTTP para mostrar en el navegador
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=inventario_${id}_${new Date().toISOString().split('T')[0]}.pdf`);
+    res.setHeader('Content-Disposition', `inline; filename=inventario_${id}_${new Date().toISOString().split('T')[0]}.pdf`);
     
     // Enviar el PDF directamente al cliente
     doc.pipe(res);
