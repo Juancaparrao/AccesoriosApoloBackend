@@ -60,6 +60,8 @@ const { ConsultarInventario } = require('./InventariosController/ConsultarInvent
 const { GenerarInventario } = require('./InventariosController/GenerarInventario');
 const { GenerarPDFInventario } = require('./InventariosController/GenerarPDFInventario');
 const { GenerarPDFInventarioDescargar } = require('./InventariosController/GenerarPDFInventarioDescargar');
+const { ConsultarInventarioPorFecha } = require('./InventariosController/ConsultarInventarioPorFecha');
+const { ConsultarVentaEspecifica } = require('./VentasController/ConsultarVentaPorFecha&Cedula');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -170,6 +172,7 @@ app.get('/validar-cliente-venta', ValidarClientePorCedula);
 app.get('/buscar-producto-venta-referencia', BuscarProductoVentaPorReferencia);
 app.get('/Consultar-ventas', ConsultarVenta);
 app.get('/Consultar-detalle-venta/:id_factura', ConsultarDetalleVenta);
+app.get('/Consultar-venta-especifica', ConsultarVentaEspecifica);
 
 
 //Módulo de Inventarios
@@ -177,6 +180,7 @@ app.get('/consultar-inventario', ConsultarInventario);
 app.post('/generar-inventario', verificarToken, GenerarInventario);
 app.get('/inventario-pdf/:id', GenerarPDFInventario); 
 app.get('/inventario-pdf-descargar/:id', GenerarPDFInventarioDescargar);
+app.get('/consultar-inventario-por-fecha', ConsultarInventarioPorFecha);
 
 // Inicializar servidor
 app.listen(port, () => {
