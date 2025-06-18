@@ -112,20 +112,21 @@ async function GenerarInventarioAutomatico() {
   try {
     await connection.beginTransaction();
 
-    console.log('🕐 Iniciando generación automática de inventario...');
+    const fechaHoy = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    console.log(`🕐 [${new Date().toLocaleString('es-CO')}] Iniciando generación automática de inventario...`);
 
     // Verificar si ya existe un inventario para hoy
     const [inventarioHoy] = await connection.execute(`
       SELECT id_inventario 
       FROM inventario 
-      WHERE fecha_creacion = CURDATE()
+      WHERE DATE(fecha_creacion) = CURDATE()
       LIMIT 1
     `);
 
     if (inventarioHoy.length > 0) {
-      console.log('ℹ️ Ya existe un inventario para hoy, saltando generación automática.');
+      console.log(`ℹ️ [${new Date().toLocaleString('es-CO')}] Ya existe un inventario para hoy (ID: ${inventarioHoy[0].id_inventario}), saltando generación automática.`);
       await connection.rollback();
-      return;
+      return { success: true, message: 'Inventario ya existe para hoy' };
     }
 
     // Obtener todos los productos activos con stock
@@ -142,9 +143,9 @@ async function GenerarInventarioAutomatico() {
     `);
 
     if (productos.length === 0) {
-      console.log('⚠️ No hay productos disponibles para generar inventario automático.');
+      console.log(`⚠️ [${new Date().toLocaleString('es-CO')}] No hay productos disponibles para generar inventario automático.`);
       await connection.rollback();
-      return;
+      return { success: false, message: 'No hay productos disponibles' };
     }
 
     // Calcular totales
@@ -155,7 +156,7 @@ async function GenerarInventarioAutomatico() {
     // Crear registro principal de inventario
     const [inventarioResult] = await connection.execute(`
       INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, valor_total, responsable)
-      VALUES (CURDATE(), ?, ?, 0, 'Sistema')
+      VALUES (NOW(), ?, ?, 0, 'Sistema Automático')
     `, [cantidad_productos, cantidad_unidades]);
 
     const id_inventario = inventarioResult.insertId;
@@ -181,30 +182,125 @@ async function GenerarInventarioAutomatico() {
 
     await connection.commit();
 
-    console.log(`✅ Inventario automático generado exitosamente - ID: ${id_inventario}`);
-    console.log(`📊 Productos: ${cantidad_productos}, Unidades: ${cantidad_unidades}, Valor: $${valor_total.toLocaleString('es-CO')}`);
+    const mensaje = `✅ [${new Date().toLocaleString('es-CO')}] Inventario automático generado exitosamente - ID: ${id_inventario}`;
+    const estadisticas = `📊 Productos: ${cantidad_productos.toLocaleString('es-CO')}, Unidades: ${cantidad_unidades.toLocaleString('es-CO')}, Valor: $${valor_total.toLocaleString('es-CO')}`;
+    
+    console.log(mensaje);
+    console.log(estadisticas);
+
+    return { 
+      success: true, 
+      message: 'Inventario generado exitosamente',
+      data: {
+        id: id_inventario,
+        productos: cantidad_productos,
+        unidades: cantidad_unidades,
+        valor: valor_total
+      }
+    };
 
   } catch (error) {
     await connection.rollback();
-    console.error('❌ Error al generar inventario automático:', error);
+    const errorMsg = `❌ [${new Date().toLocaleString('es-CO')}] Error al generar inventario automático: ${error.message}`;
+    console.error(errorMsg);
+    console.error('Stack trace:', error.stack);
+    return { success: false, message: error.message };
   } finally {
     connection.release();
   }
 }
 
+// Función para verificar el estado del cron job
+function verificarEstadoCron() {
+  console.log(`🔍 [${new Date().toLocaleString('es-CO')}] Verificando estado del sistema de inventario automático...`);
+  console.log(`⏰ Próxima ejecución programada: Todos los días a las 8:00 AM (Zona horaria: America/Bogota)`);
+  console.log(`🌐 Hora actual del servidor: ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}`);
+}
+
+// Función para probar la conexión a la base de datos
+async function probarConexionDB() {
+  try {
+    const connection = await pool.getConnection();
+    const [result] = await connection.execute('SELECT NOW() as hora_servidor, CURDATE() as fecha_servidor');
+    console.log(`✅ [${new Date().toLocaleString('es-CO')}] Conexión a base de datos OK`);
+    console.log(`🗄️ Hora del servidor de BD: ${result[0].hora_servidor}`);
+    console.log(`📅 Fecha del servidor de BD: ${result[0].fecha_servidor}`);
+    connection.release();
+    return true;
+  } catch (error) {
+    console.error(`❌ [${new Date().toLocaleString('es-CO')}] Error de conexión a base de datos:`, error.message);
+    return false;
+  }
+}
+
 // Programar la ejecución automática todos los días a las 8:00 AM
-// Formato: segundo minuto hora día mes día_semana
-cron.schedule('0 0 8 * * *', () => {
-  console.log('🔄 Ejecutando generación automática de inventario...');
-  GenerarInventarioAutomatico();
+const cronJob = cron.schedule('0 0 8 * * *', async () => {
+  console.log(`🔄 [${new Date().toLocaleString('es-CO')}] Ejecutando generación automática de inventario...`);
+  
+  // Verificar conexión antes de ejecutar
+  const conexionOK = await probarConexionDB();
+  if (!conexionOK) {
+    console.error(`❌ [${new Date().toLocaleString('es-CO')}] No se puede generar inventario: problema de conexión a BD`);
+    return;
+  }
+  
+  // Ejecutar generación de inventario
+  const resultado = await GenerarInventarioAutomatico();
+  
+  if (resultado.success) {
+    console.log(`🎉 [${new Date().toLocaleString('es-CO')}] Inventario automático completado exitosamente`);
+  } else {
+    console.error(`💥 [${new Date().toLocaleString('es-CO')}] Falló la generación automática de inventario: ${resultado.message}`);
+  }
 }, {
   scheduled: true,
   timezone: "America/Bogota"
 });
 
-console.log('⏰ Cron job configurado: Inventario automático todos los días a las 8:00 AM');
+// Verificar que el cron job esté activo
+if (cronJob) {
+  console.log('✅ Cron job configurado exitosamente: Inventario automático todos los días a las 8:00 AM (Zona horaria: America/Bogota)');
+  
+  // Verificar estado al iniciar
+  setTimeout(() => {
+    verificarEstadoCron();
+    probarConexionDB();
+  }, 2000);
+  
+  // Verificar estado cada hora para asegurar que el cron sigue activo
+  cron.schedule('0 0 * * * *', () => {
+    console.log(`💓 [${new Date().toLocaleString('es-CO')}] Sistema de inventario automático activo - Heartbeat`);
+  }, {
+    scheduled: true,
+    timezone: "America/Bogota"
+  });
+  
+} else {
+  console.error('❌ Error: No se pudo configurar el cron job');
+}
+
+// Manejar señales del sistema para limpiar recursos
+process.on('SIGINT', () => {
+  console.log(`🛑 [${new Date().toLocaleString('es-CO')}] Recibida señal SIGINT, cerrando aplicación...`);
+  if (cronJob) {
+    cronJob.destroy();
+    console.log('🗑️ Cron job detenido correctamente');
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log(`🛑 [${new Date().toLocaleString('es-CO')}] Recibida señal SIGTERM, cerrando aplicación...`);
+  if (cronJob) {
+    cronJob.destroy();
+    console.log('🗑️ Cron job detenido correctamente');
+  }
+  process.exit(0);
+});
 
 module.exports = { 
   GenerarInventario,
-  GenerarInventarioAutomatico 
+  GenerarInventarioAutomatico,
+  verificarEstadoCron,
+  probarConexionDB
 };

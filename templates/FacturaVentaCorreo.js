@@ -50,17 +50,27 @@ function generarPDFFactura(datosFactura) {
 
       let posicionY = inicioTabla + 25;
       datosFactura.productos.forEach(producto => {
+        // Extraer valores numéricos de los strings formateados
+        const precioUnitarioNumerico = parseFloat(producto.precio_unitario.replace(/[^0-9.-]+/g, ''));
+        const subtotalNumerico = parseFloat(producto.subtotal.replace(/[^0-9.-]+/g, ''));
+        const precioOriginalNumerico = producto.precio_descuento ? 
+          parseFloat(producto.precio_descuento.replace(/[^0-9.-]+/g, '')) : precioUnitarioNumerico;
+        
+        const tieneDescuento = precioOriginalNumerico > precioUnitarioNumerico;
+
         doc.fontSize(9).fillColor('#34495e')
           .text(producto.referencia, 50, posicionY)
           .text(producto.nombre.substring(0, 25) + (producto.nombre.length > 25 ? '...' : ''), 100, posicionY)
           .text(producto.cantidad.toString(), 300, posicionY)
-          .text(`$${producto.precio_unitario}`, 350, posicionY)
-          .text(`$${producto.subtotal}`, 450, posicionY);
-        if (producto.tiene_descuento) {
+          .text(producto.precio_unitario, 350, posicionY)
+          .text(producto.subtotal, 450, posicionY);
+        
+        if (tieneDescuento) {
           doc.fontSize(8).fillColor('#e74c3c')
-            .text(`(Precio original: $${producto.precio_original})`, 350, posicionY + 12);
+            .text(`(Precio original: ${producto.precio_descuento})`, 350, posicionY + 12);
         }
-        posicionY += producto.tiene_descuento ? 30 : 20;
+        
+        posicionY += tieneDescuento ? 30 : 20;
         if (posicionY > 700) {
           doc.addPage();
           posicionY = 50;
@@ -69,14 +79,28 @@ function generarPDFFactura(datosFactura) {
 
       doc.moveTo(50, posicionY + 10).lineTo(550, posicionY + 10).stroke('#bdc3c7');
       doc.fontSize(14).fillColor('#2c3e50').text('VALOR TOTAL:', 350, posicionY + 25);
-      doc.fontSize(16).fillColor('#27ae60').text(`$${datosFactura.valor_total}`, 450, posicionY + 25);
+      doc.fontSize(16).fillColor('#014aad').text(datosFactura.valor_total, 450, posicionY + 25);
       doc.fontSize(10).fillColor('#7f8c8d')
-        .text(`Total de productos: ${datosFactura.total_productos}`, 50, posicionY + 60)
+        .text(`Total de productos: ${datosFactura.productos.length}`, 50, posicionY + 60)
         .text('Gracias por su compra en Accesorios Apolo', 50, posicionY + 80)
         .text('Para soporte técnico: soporte@accesoriosapolo.com', 50, posicionY + 95);
+
+      // Corregir zona horaria para Colombia (UTC-5)
+      const fechaActual = new Date();
+      const fechaColombia = new Date(fechaActual.getTime() - (5 * 60 * 60 * 1000));
+      const fechaFormateada = fechaColombia.toLocaleString('es-CO', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
       doc.fontSize(8).fillColor('#95a5a6')
         .text('Este documento es una factura de venta generada electrónicamente.', 50, posicionY + 120)
-        .text(`Generado el: ${new Date().toLocaleString('es-CO')}`, 50, posicionY + 135);
+        .text(`Generado el: ${fechaFormateada}`, 50, posicionY + 135);
       doc.end();
 
       stream.on('finish', () => resolve(rutaArchivo));
