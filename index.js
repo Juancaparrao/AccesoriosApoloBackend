@@ -65,6 +65,7 @@ const { ConsultarVentaEspecifica } = require('./VentasController/ConsultarVentaP
 const { obtenerCategoriasConValor } = require('./InventariosController/EstadisticasInventario.js/obtenerCategoriasConValor');
 const { obtenerTopProductosStock } = require('./InventariosController/EstadisticasInventario.js/obtenerTopProductosStock');
 const { obtenerInventariosUltimos7Dias } = require('./InventariosController/EstadisticasInventario.js/obtenerInventariosUltimos7Dias');
+const { handleContactForm } = require('./templates/FormularioContactoCorreo'); // Ajusta la ruta según donde pongas el archivo
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -189,6 +190,9 @@ app.get('/consultar-inventario-por-fecha', ConsultarInventarioPorFecha);
 app.get('/categorias-con-valor', obtenerCategoriasConValor);
 app.get('/productos-top-stock', obtenerTopProductosStock);
 app.get('/inventarios-ultimos-7-dias', obtenerInventariosUltimos7Dias);
+
+// Formulario de contacto
+app.post('/contacto', handleContactForm);
 
 // Inicializar servidor
 app.listen(port, () => {
