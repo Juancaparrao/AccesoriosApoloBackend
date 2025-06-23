@@ -65,8 +65,9 @@ const { ConsultarVentaEspecifica } = require('./VentasController/ConsultarVentaP
 const { obtenerCategoriasConValor } = require('./InventariosController/EstadisticasInventario.js/obtenerCategoriasConValor');
 const { obtenerTopProductosStock } = require('./InventariosController/EstadisticasInventario.js/obtenerTopProductosStock');
 const { obtenerInventariosUltimos7Dias } = require('./InventariosController/EstadisticasInventario.js/obtenerInventariosUltimos7Dias');
-const { handleContactForm } = require('./templates/FormularioContactoCorreo'); // Ajusta la ruta según donde pongas el archivo
+const { handleContactForm } = require('./templates/FormularioContactoCorreo');
 const { ConsultarCalcomaniasPorUsuario } = require('./CalcomaniasController/ConsultarCalcomaniasPorUsuario');
+const { EditarNombreCalcomania } = require('./CalcomaniasController/EditarNombreCalcomania');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -170,7 +171,8 @@ app.put('/eliminar-calcomania', EliminarCalcomania);
 app.put('/reactivar-calcomania', ReactivarCalcomania);
 app.get('/buscar-calcomania-nombre', BuscarCalcomaniaPorNombre);
 app.get('/calcomanias-usuario',verificarToken, ConsultarCalcomaniasPorUsuario);
-
+app.delete('/eliminar-calcomanias/:id_calcomania', EliminarCalcomania);
+app.put('/editar-nombre-calcomanias/:id_calcomania', EditarNombreCalcomania);
 
 //Módulo de Ventas
 app.post('/registrar-venta',  RegistrarVenta);
