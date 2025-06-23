@@ -68,6 +68,7 @@ const { obtenerInventariosUltimos7Dias } = require('./InventariosController/Esta
 const { handleContactForm } = require('./templates/FormularioContactoCorreo');
 const { ConsultarCalcomaniasPorUsuario } = require('./CalcomaniasController/ConsultarCalcomaniasPorUsuario');
 const { EditarNombreCalcomania } = require('./CalcomaniasController/EditarNombreCalcomania');
+const { EliminarCalcomaniaUsuario } = require('./CalcomaniasController/EliminarCalcomaniasUsuario');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -171,7 +172,7 @@ app.put('/eliminar-calcomania', EliminarCalcomania);
 app.put('/reactivar-calcomania', ReactivarCalcomania);
 app.get('/buscar-calcomania-nombre', BuscarCalcomaniaPorNombre);
 app.get('/calcomanias-usuario',verificarToken, ConsultarCalcomaniasPorUsuario);
-app.delete('/eliminar-calcomanias/:id_calcomania', EliminarCalcomania);
+app.delete('/eliminar-calcomanias/:id_calcomania', EliminarCalcomaniaUsuario);
 app.put('/editar-nombre-calcomanias/:id_calcomania', EditarNombreCalcomania);
 
 //Módulo de Ventas
