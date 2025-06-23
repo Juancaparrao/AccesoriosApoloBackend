@@ -14,6 +14,7 @@ async function ConsultarCalcomaniasPorUsuario(req, res) {
 
     const [calcomanias] = await pool.execute(`
       SELECT 
+        c.id_calcomania,
         c.nombre,
         c.formato,
         c.url_archivo
@@ -24,6 +25,7 @@ async function ConsultarCalcomaniasPorUsuario(req, res) {
 
     // Formatear los datos
     const calcomaniasFomateadas = calcomanias.map(calcomania => ({
+      id_calcomania: calcomania.id_calcomania,
       nombre: calcomania.nombre,
       formato: calcomania.formato,
       url_archivo: calcomania.url_archivo
