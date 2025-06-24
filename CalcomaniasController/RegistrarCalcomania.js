@@ -2,14 +2,16 @@ const pool = require('../db');
 
 async function RegistrarCalcomania(req, res) {
   try {
-    const { nombre } = req.body;
+    // Extraer datos del cuerpo de la solicitud
+    const { nombre, precio_unidad, precio_descuento, stock_pequeño, stock_mediano, stock_grande } = req.body;
     const fk_id_usuario = req.user.id_usuario; // Obtener ID del usuario del token
 
     // Validar datos requeridos
-    if (!nombre || !req.file?.path) {
-      return res.status(400).json({ 
-        success: false, 
-        mensaje: 'Faltan datos requeridos: nombre o imagen.' 
+    if (!nombre || !req.file?.path || precio_unidad === undefined || precio_descuento === undefined ||
+        stock_pequeño === undefined || stock_mediano === undefined || stock_grande === undefined) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'Faltan datos requeridos: nombre, imagen, precio_unidad, precio_descuento o valores de stock.'
       });
     }
 
@@ -20,9 +22,9 @@ async function RegistrarCalcomania(req, res) {
     );
 
     if (usuario.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        mensaje: 'Usuario no encontrado o inactivo.' 
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Usuario no encontrado o inactivo.'
       });
     }
 
@@ -30,13 +32,17 @@ async function RegistrarCalcomania(req, res) {
     const url_archivo = req.file.path;
     const formato = req.file.mimetype.split('/')[1]; // Extrae 'jpg', 'png', etc.
     const tamano_archivo = `${(req.file.size / 1024).toFixed(2)} KB`; // Convierte bytes a KB
-    const fecha_subida = new Date().toISOString().split('T')[0]; // Fecha actual en formato YYYY-MM-DD
+    const fecha_subida = new Date().toISOString().split('T')[0]; // Fecha actual en formato ISO y solo la fecha
+
+    // Definir tamaño_x y tamano_y como '5'
+    const tamano_x = '5';
+    const tamano_y = '5';
 
     // Insertar la calcomanía en la base de datos
     const [result] = await pool.execute(
-      `INSERT INTO calcomania (nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario, estado)
-       VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      [nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario]
+      `INSERT INTO calcomania (nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario, estado, precio_unidad, precio_descuento, tamano_x, tamano_y, stock_pequeño, stock_mediano, stock_grande)
+       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+      [nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario, precio_unidad, precio_descuento, tamano_x, tamano_y, stock_pequeño, stock_mediano, stock_grande]
     );
 
     return res.status(201).json({
@@ -50,17 +56,59 @@ async function RegistrarCalcomania(req, res) {
         fecha_subida,
         url_archivo,
         fk_id_usuario,
-        estado: true
+        estado: true,
+        precio_unidad,
+        precio_descuento,
+        tamano_x,
+        tamano_y,
+        stock_pequeño,
+        stock_mediano,
+        stock_grande
       }
     });
 
   } catch (error) {
     console.error('Error registrando calcomanía:', error);
-    res.status(500).json({ 
-      success: false, 
-      mensaje: 'Error interno del servidor.' 
+    res.status(500).json({
+      success: false,
+      mensaje: 'Error interno del servidor al registrar la calcomanía.'
     });
   }
 }
 
-module.exports = { RegistrarCalcomania };
+/**
+ * Obtiene todas las calcomanías de la base de datos.
+ * @param {Object} req - El objeto de solicitud HTTP.
+ * @param {Object} res - El objeto de respuesta HTTP.
+ */
+async function ObtenerCalcomanias(req, res) {
+  try {
+    // Consultar todas las calcomanías
+    const [calcomanias] = await pool.execute('SELECT * FROM calcomania WHERE estado = 1');
+
+    if (calcomanias.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'No se encontraron calcomanías activas.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Calcomanías obtenidas exitosamente.',
+      calcomanias: calcomanias
+    });
+
+  } catch (error) {
+    console.error('Error obteniendo calcomanías:', error);
+    res.status(500).json({
+      success: false,
+      mensaje: 'Error interno del servidor al obtener las calcomanías.'
+    });
+  }
+}
+
+module.exports = {
+  RegistrarCalcomania,
+  ObtenerCalcomanias
+};

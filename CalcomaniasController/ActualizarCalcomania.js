@@ -1,17 +1,30 @@
 const pool = require('../db');
-const cloudinary = require('../cloudinary');
+const cloudinary = require('../cloudinary'); // Asegúrate de que esta línea sea necesaria y que cloudinary esté configurado
+
 
 async function ObtenerDatosCalcomania(req, res) {
-  const { id_calcomania } = req.body;
+  // Asegúrate de que id_calcomania venga del cuerpo si es un POST, o de los parámetros si es un GET.
+  // Para este ejemplo, se mantiene como req.body.
+  const { id_calcomania } = req.body; 
 
   try {
-    // Obtener datos de la calcomanía, incluyendo el usuario relacionado
+    // Validar que el id_calcomania es proporcionado
+    if (!id_calcomania) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'El ID de calcomanía es requerido para obtener sus datos.'
+      });
+    }
+
+    // Obtener datos de la calcomanía, incluyendo el usuario relacionado, precios, dimensiones y stock
     const [[calcomania]] = await pool.execute(
       `SELECT c.id_calcomania, c.nombre, c.formato, c.tamano_archivo,
-              c.fecha_subida, c.url_archivo, c.fk_id_usuario, u.nombre AS nombre_usuario
-       FROM calcomania c
-       JOIN usuario u ON c.fk_id_usuario = u.id_usuario
-       WHERE c.id_calcomania = ?`,
+               c.fecha_subida, c.url_archivo, c.fk_id_usuario, u.nombre AS nombre_usuario,
+               c.precio_unidad, c.precio_descuento, c.tamano_x, c.tamano_y,
+               c.stock_pequeño, c.stock_mediano, c.stock_grande, c.estado
+         FROM calcomania c
+         JOIN usuario u ON c.fk_id_usuario = u.id_usuario
+         WHERE c.id_calcomania = ?`,
       [id_calcomania]
     );
 
@@ -22,7 +35,7 @@ async function ObtenerDatosCalcomania(req, res) {
       });
     }
 
-    // Obtener todos los usuarios activos
+    // Obtener todos los usuarios activos para un posible selector en el frontend
     const [usuarios] = await pool.execute(
       `SELECT id_usuario, nombre FROM usuario WHERE estado = 1`
     );
@@ -30,7 +43,7 @@ async function ObtenerDatosCalcomania(req, res) {
     return res.status(200).json({
       success: true,
       calcomania,
-      usuarios  // todos los usuarios para llenar el <select> en el front
+      usuarios // Retorna todos los usuarios para llenar un <select> en el front-end
     });
 
   } catch (error) {
@@ -42,68 +55,118 @@ async function ObtenerDatosCalcomania(req, res) {
   }
 }
 
+
 async function ActualizarCalcomania(req, res) {
   try {
-    const { id_calcomania, nombre, fk_id_usuario } = req.body;
+    const {
+      id_calcomania,
+      nombre,
+      fk_id_usuario,
+      precio_unidad,
+      precio_descuento,
+      stock_pequeño,
+      stock_mediano,
+      stock_grande,
+      estado // Se añade 'estado' para permitir su actualización
+    } = req.body;
 
+    // Validar que el ID de calcomanía es requerido
     if (!id_calcomania) {
-      return res.status(400).json({ 
-        success: false, 
-        mensaje: 'El ID de calcomanía es requerido.' 
+      return res.status(400).json({
+        success: false,
+        mensaje: 'El ID de calcomanía es requerido para la actualización.'
       });
     }
 
+    // Obtener la calcomanía actual para comparar y mantener valores si no se proporcionan nuevos
     const [resultado] = await pool.execute(`
       SELECT * FROM calcomania WHERE id_calcomania = ?
     `, [id_calcomania]);
 
     if (resultado.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        mensaje: 'Calcomanía no encontrada.' 
+      return res.status(404).json({
+        success: false,
+        mensaje: 'Calcomanía no encontrada.'
       });
     }
 
     const calcomaniaActual = resultado[0];
-    let url_archivo = calcomaniaActual.url_archivo;
-    let formato = calcomaniaActual.formato;
-    let tamano_archivo = calcomaniaActual.tamano_archivo;
-    let fecha_subida = calcomaniaActual.fecha_subida;
+
+    // Variables a actualizar, inicializadas con los valores actuales o los proporcionados en la solicitud
+    let updatedNombre = nombre !== undefined ? nombre : calcomaniaActual.nombre;
+    let updatedFkIdUsuario = fk_id_usuario !== undefined ? fk_id_usuario : calcomaniaActual.fk_id_usuario;
+    let updatedUrlArchivo = calcomaniaActual.url_archivo;
+    let updatedFormato = calcomaniaActual.formato;
+    let updatedTamanoArchivo = calcomaniaActual.tamano_archivo;
+    let updatedFechaSubida = calcomaniaActual.fecha_subida;
+    let updatedPrecioUnidad = precio_unidad !== undefined ? precio_unidad : calcomaniaActual.precio_unidad;
+    let updatedPrecioDescuento = precio_descuento !== undefined ? precio_descuento : calcomaniaActual.precio_descuento;
+    let updatedStockPequeno = stock_pequeño !== undefined ? stock_pequeño : calcomaniaActual.stock_pequeño;
+    let updatedStockMediano = stock_mediano !== undefined ? stock_mediano : calcomaniaActual.stock_mediano;
+    let updatedStockGrande = stock_grande !== undefined ? stock_grande : calcomaniaActual.stock_grande;
+    let updatedEstado = estado !== undefined ? estado : calcomaniaActual.estado; // Actualizar el estado
+
+    // tamano_x y tamano_y siempre deben ser '5'. Si no se envían, mantienen su valor actual ('5').
+    const updatedTamanoX = '5';
+    const updatedTamanoY = '5';
 
     // Si viene una imagen nueva, la sube a Cloudinary y actualiza metadatos
     if (req.file?.path) {
-      url_archivo = req.file.path;
-      formato = req.file.mimetype.split('/')[1]; // Extrae 'jpg', 'png', etc.
-      tamano_archivo = `${(req.file.size / 1024).toFixed(2)} KB`; // Convierte bytes a KB
-      fecha_subida = new Date().toISOString().split('T')[0]; // Nueva fecha de subida
+      updatedUrlArchivo = req.file.path;
+      updatedFormato = req.file.mimetype.split('/')[1]; // Extrae 'jpg', 'png', etc.
+      updatedTamanoArchivo = `${(req.file.size / 1024).toFixed(2)} KB`; // Convierte bytes a KB
+      updatedFechaSubida = new Date().toISOString().split('T')[0]; // Nueva fecha de subida
     }
 
     // Verificar que el usuario existe si se está cambiando
-    if (fk_id_usuario && fk_id_usuario !== calcomaniaActual.fk_id_usuario) {
+    if (fk_id_usuario !== undefined && fk_id_usuario !== calcomaniaActual.fk_id_usuario) {
       const [usuario] = await pool.execute(
         'SELECT id_usuario FROM usuario WHERE id_usuario = ? AND estado = 1',
         [fk_id_usuario]
       );
 
       if (usuario.length === 0) {
-        return res.status(404).json({ 
-          success: false, 
-          mensaje: 'Usuario no encontrado o inactivo.' 
+        return res.status(404).json({
+          success: false,
+          mensaje: 'Usuario no encontrado o inactivo para la asignación.'
         });
       }
     }
 
+    // Actualizar la calcomanía en la base de datos con todos los campos relevantes
     await pool.execute(`
-      UPDATE calcomania 
-      SET nombre = ?, formato = ?, tamano_archivo = ?, fecha_subida = ?, url_archivo = ?, fk_id_usuario = ?
+      UPDATE calcomania
+      SET
+        nombre = ?,
+        formato = ?,
+        tamano_archivo = ?,
+        fecha_subida = ?,
+        url_archivo = ?,
+        fk_id_usuario = ?,
+        precio_unidad = ?,
+        precio_descuento = ?,
+        tamano_x = ?,
+        tamano_y = ?,
+        stock_pequeño = ?,
+        stock_mediano = ?,
+        stock_grande = ?,
+        estado = ?
       WHERE id_calcomania = ?
     `, [
-      nombre || calcomaniaActual.nombre,
-      formato,
-      tamano_archivo,
-      fecha_subida,
-      url_archivo,
-      fk_id_usuario || calcomaniaActual.fk_id_usuario,
+      updatedNombre,
+      updatedFormato,
+      updatedTamanoArchivo,
+      updatedFechaSubida,
+      updatedUrlArchivo,
+      updatedFkIdUsuario,
+      updatedPrecioUnidad,
+      updatedPrecioDescuento,
+      updatedTamanoX,
+      updatedTamanoY,
+      updatedStockPequeno,
+      updatedStockMediano,
+      updatedStockGrande,
+      updatedEstado, // Agregado el estado a la actualización
       id_calcomania
     ]);
 
@@ -112,22 +175,33 @@ async function ActualizarCalcomania(req, res) {
       mensaje: 'Calcomanía actualizada correctamente.',
       calcomania: {
         id_calcomania,
-        nombre: nombre || calcomaniaActual.nombre,
-        formato,
-        tamano_archivo,
-        fecha_subida,
-        url_archivo,
-        fk_id_usuario: fk_id_usuario || calcomaniaActual.fk_id_usuario
+        nombre: updatedNombre,
+        formato: updatedFormato,
+        tamano_archivo: updatedTamanoArchivo,
+        fecha_subida: updatedFechaSubida,
+        url_archivo: updatedUrlArchivo,
+        fk_id_usuario: updatedFkIdUsuario,
+        precio_unidad: updatedPrecioUnidad,
+        precio_descuento: updatedPrecioDescuento,
+        tamano_x: updatedTamanoX,
+        tamano_y: updatedTamanoY,
+        stock_pequeño: updatedStockPequeno,
+        stock_mediano: updatedStockMediano,
+        stock_grande: updatedStockGrande,
+        estado: updatedEstado
       }
     });
 
   } catch (error) {
     console.error('Error al actualizar calcomanía:', error);
-    return res.status(500).json({ 
-      success: false, 
-      mensaje: 'Error interno del servidor.' 
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno del servidor al actualizar la calcomanía.'
     });
   }
 }
 
-module.exports = { ActualizarCalcomania, ObtenerDatosCalcomania };
+module.exports = {
+  ObtenerDatosCalcomania,
+  ActualizarCalcomania
+};
