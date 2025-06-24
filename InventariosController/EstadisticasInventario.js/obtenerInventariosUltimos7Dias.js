@@ -9,7 +9,7 @@ const obtenerInventariosUltimos7Dias = async (req, res) => {
                 cantidad_unidades
             FROM inventario 
             WHERE responsable = 'Sistema'
-            ORDER BY fecha_creacion DESC
+            ORDER BY fecha_creacion ASC
             LIMIT 7
         `;
 
