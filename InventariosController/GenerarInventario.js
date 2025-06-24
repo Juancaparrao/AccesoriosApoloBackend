@@ -115,19 +115,8 @@ async function GenerarInventarioAutomatico() {
     const fechaHoy = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
     console.log(`🕐 [${new Date().toLocaleString('es-CO')}] Iniciando generación automática de inventario...`);
 
-    // Verificar si ya existe un inventario para hoy
-    const [inventarioHoy] = await connection.execute(`
-      SELECT id_inventario 
-      FROM inventario 
-      WHERE DATE(fecha_creacion) = CURDATE()
-      LIMIT 1
-    `);
-
-    if (inventarioHoy.length > 0) {
-      console.log(`ℹ️ [${new Date().toLocaleString('es-CO')}] Ya existe un inventario para hoy (ID: ${inventarioHoy[0].id_inventario}), saltando generación automática.`);
-      await connection.rollback(); // Revierte la transacción
-      return { success: true, message: 'Inventario ya existe para hoy' };
-    }
+    // *** MODIFICACIÓN: Se eliminó la verificación de existencia de inventario para hoy ***
+    // Esto asegura que el inventario se genere siempre, incluso si ya hay uno para el día.
 
     // Obtener todos los productos activos con stock
     const [productos] = await connection.execute(`
