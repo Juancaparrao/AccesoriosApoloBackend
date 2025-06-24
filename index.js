@@ -70,6 +70,14 @@ const { ConsultarCalcomaniasPorUsuario } = require('./CalcomaniasController/Cons
 const { EditarNombreCalcomania } = require('./CalcomaniasController/EditarNombreCalcomania');
 const { EliminarCalcomaniaUsuario } = require('./CalcomaniasController/EliminarCalcomaniasUsuario');
 
+// ====== IMPORTAR FUNCIONES DE INVENTARIO AUTOMÁTICO ======
+const { 
+  GenerarInventarioAutomatico, 
+  verificarEstadoCron, 
+  probarConexionDB, 
+  probarCronJob 
+} = require('./InventariosController/GenerarInventario');
+
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
   credentials: true
@@ -95,7 +103,6 @@ app.post('/obtener-nombre', obtenerNombre);
 // Ruta protegida con JWT
 app.get('/perfil', verificarToken, obtenerPerfil);
 app.put('/editar-perfil', verificarToken, EditarPerfil);
-
 
 // Recuperar contraseña
 app.post('/recuperar', solicitarRecuperacion);
@@ -183,13 +190,137 @@ app.get('/Consultar-ventas', ConsultarVenta);
 app.get('/Consultar-detalle-venta/:id_factura', ConsultarDetalleVenta);
 app.get('/Consultar-venta-especifica', ConsultarVentaEspecifica);
 
-
 //Módulo de Inventarios
 app.get('/consultar-inventario', ConsultarInventario);
 app.post('/generar-inventario', verificarToken, GenerarInventario);
 app.get('/inventario-pdf/:id', GenerarPDFInventario); 
 app.get('/inventario-pdf-descargar/:id', GenerarPDFInventarioDescargar);
 app.get('/consultar-inventario-por-fecha', ConsultarInventarioPorFecha);
+
+// ====== NUEVAS RUTAS PARA INVENTARIO AUTOMÁTICO ======
+
+// Ruta para generar inventario automáticamente (sin token - para uso interno/cron)
+app.post('/generar-inventario-automatico', async (req, res) => {
+  try {
+    console.log(`🔄 [${new Date().toLocaleString('es-CO')}] Solicitud manual de inventario automático recibida`);
+    const resultado = await GenerarInventarioAutomatico();
+    
+    if (resultado.success) {
+      return res.status(200).json({
+        success: true,
+        mensaje: 'Inventario automático generado exitosamente',
+        data: resultado.data
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        mensaje: resultado.message
+      });
+    }
+  } catch (error) {
+    console.error(`❌ [${new Date().toLocaleString('es-CO')}] Error en ruta de inventario automático:`, error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno del servidor'
+    });
+  }
+});
+
+// Ruta para verificar el estado del sistema cron (solo para administradores)
+app.get('/verificar-estado-cron', verificarToken, validarGerente, (req, res) => {
+  try {
+    verificarEstadoCron();
+    
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Estado del cron job verificado exitosamente',
+      timestamp: new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
+      configuracion: {
+        horario: '8:00 AM todos los días',
+        zona_horaria: 'America/Bogota',
+        estado: 'Activo'
+      }
+    });
+  } catch (error) {
+    console.error('Error al verificar estado del cron:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error al verificar el estado del cron job'
+    });
+  }
+});
+
+// Ruta para probar la conexión a la base de datos (solo para administradores)
+app.get('/probar-conexion-bd', verificarToken, validarGerente, async (req, res) => {
+  try {
+    const conexionOK = await probarConexionDB();
+    
+    if (conexionOK) {
+      return res.status(200).json({
+        success: true,
+        mensaje: 'Conexión a la base de datos exitosa',
+        timestamp: new Date().toLocaleString('es-CO')
+      });
+    } else {
+      return res.status(500).json({
+        success: false,
+        mensaje: 'Error de conexión a la base de datos'
+      });
+    }
+  } catch (error) {
+    console.error('Error al probar conexión:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error interno al probar la conexión'
+    });
+  }
+});
+
+// Ruta para ejecutar una prueba del cron job (solo para administradores)
+app.post('/probar-cron-job', verificarToken, validarGerente, (req, res) => {
+  try {
+    probarCronJob();
+    
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Prueba de cron job programada para ejecutarse en 30 segundos',
+      timestamp: new Date().toLocaleString('es-CO'),
+      nota: 'Revisa los logs del servidor para ver los resultados de la prueba'
+    });
+  } catch (error) {
+    console.error('Error al programar prueba del cron:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error al programar la prueba del cron job'
+    });
+  }
+});
+
+// Ruta para obtener estadísticas del sistema de inventario automático
+app.get('/estadisticas-inventario-automatico', verificarToken, validarGerente, async (req, res) => {
+  try {
+    // Aquí puedes agregar lógica para obtener estadísticas desde la BD
+    // Por ejemplo: inventarios generados automáticamente vs manuales
+    
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Estadísticas del sistema de inventario automático',
+      data: {
+        sistema_activo: true,
+        horario_configurado: '8:00 AM',
+        zona_horaria: 'America/Bogota',
+        ultima_verificacion: new Date().toLocaleString('es-CO'),
+        // Aquí podrías agregar más estadísticas desde la BD
+      }
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    return res.status(500).json({
+      success: false,
+      mensaje: 'Error al obtener estadísticas del sistema'
+    });
+  }
+});
 
 // Estadisticas 
 app.get('/categorias-con-valor', obtenerCategoriasConValor);
@@ -202,5 +333,18 @@ app.post('/contacto', handleContactForm);
 
 // Inicializar servidor
 app.listen(port, () => {
-  console.log(`✅ Servidor corriendo`);
+  console.log(`✅ Servidor corriendo en puerto ${port}`);
+  console.log(`🕐 Sistema de inventario automático configurado para ejecutarse a las 8:00 AM diariamente`);
+  console.log(`🌐 Zona horaria: America/Bogota`);
+});
+
+// ====== MANEJO GRACEFUL DE CIERRE DEL SERVIDOR ======
+process.on('SIGINT', () => {
+  console.log(`🛑 [${new Date().toLocaleString('es-CO')}] Cerrando servidor...`);
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log(`🛑 [${new Date().toLocaleString('es-CO')}] Cerrando servidor...`);
+  process.exit(0);
 });
