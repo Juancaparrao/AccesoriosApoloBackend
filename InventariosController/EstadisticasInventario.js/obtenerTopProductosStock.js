@@ -1,10 +1,9 @@
 const pool = require('../../db');
 
-// Función para obtener top 5 productos con más stock y top 5 con menos stock
-const obtenerTopProductosStock = async (req, res) => {
+// Función para obtener top 5 productos con MÁS stock
+const obtenerTopProductosMasStock = async (req, res) => {
     try {
-        // Query para productos con más stock
-        const queryMasStock = `
+        const query = `
             SELECT 
                 p.nombre,
                 p.stock
@@ -14,8 +13,37 @@ const obtenerTopProductosStock = async (req, res) => {
             LIMIT 5
         `;
 
-        // Query para productos con menos stock
-        const queryMenosStock = `
+        const resultado = await pool.query(query);
+        
+        // Extraer las filas correctamente
+        const productos = resultado[0] || resultado;
+
+        // Formatear respuesta
+        const topMasStock = productos.map(producto => ({
+            nombre: producto.nombre,
+            stock: producto.stock
+        }));
+
+        res.status(200).json({
+            success: true,
+            message: 'Top 5 productos con más stock obtenidos exitosamente',
+            data: topMasStock
+        });
+
+    } catch (error) {
+        console.error('Error al obtener productos con más stock:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor',
+            error: error.message
+        });
+    }
+};
+
+// Función para obtener top 5 productos con MENOS stock
+const obtenerTopProductosMenosStock = async (req, res) => {
+    try {
+        const query = `
             SELECT 
                 p.nombre,
                 p.stock
@@ -25,34 +53,25 @@ const obtenerTopProductosStock = async (req, res) => {
             LIMIT 5
         `;
 
-        // Ejecutar ambas consultas
-        const [productosMasStock, productosMenosStock] = await Promise.all([
-            pool.query(queryMasStock),
-            pool.query(queryMenosStock)
-        ]);
+        const resultado = await pool.query(query);
+        
+        // Extraer las filas correctamente
+        const productos = resultado[0] || resultado;
 
         // Formatear respuesta
-        const topMasStock = productosMasStock.map(producto => ({
-            nombre: producto.nombre,
-            stock: producto.stock
-        }));
-
-        const topMenosStock = productosMenosStock.map(producto => ({
+        const topMenosStock = productos.map(producto => ({
             nombre: producto.nombre,
             stock: producto.stock
         }));
 
         res.status(200).json({
             success: true,
-            message: 'Top productos por stock obtenidos exitosamente',
-            data: {
-                mas_stock: topMasStock,
-                menos_stock: topMenosStock
-            }
+            message: 'Top 5 productos con menos stock obtenidos exitosamente',
+            data: topMenosStock
         });
 
     } catch (error) {
-        console.error('Error al obtener top productos por stock:', error);
+        console.error('Error al obtener productos con menos stock:', error);
         res.status(500).json({
             success: false,
             message: 'Error interno del servidor',
@@ -62,5 +81,6 @@ const obtenerTopProductosStock = async (req, res) => {
 };
 
 module.exports = {
-    obtenerTopProductosStock
+    obtenerTopProductosMasStock,
+    obtenerTopProductosMenosStock
 };

@@ -63,7 +63,7 @@ const { GenerarPDFInventarioDescargar } = require('./InventariosController/Gener
 const { ConsultarInventarioPorFecha } = require('./InventariosController/ConsultarInventarioPorFecha');
 const { ConsultarVentaEspecifica } = require('./VentasController/ConsultarVentaPorFecha&Cedula');
 const { obtenerCategoriasConValor } = require('./InventariosController/EstadisticasInventario.js/obtenerCategoriasConValor');
-const { obtenerTopProductosStock } = require('./InventariosController/EstadisticasInventario.js/obtenerTopProductosStock');
+const { obtenerTopProductosMasStock, obtenerTopProductosMenosStock } = require('./InventariosController/EstadisticasInventario.js/obtenerTopProductosStock');
 const { obtenerInventariosUltimos7Dias } = require('./InventariosController/EstadisticasInventario.js/obtenerInventariosUltimos7Dias');
 const { handleContactForm } = require('./templates/FormularioContactoCorreo');
 const { ConsultarCalcomaniasPorUsuario } = require('./CalcomaniasController/ConsultarCalcomaniasPorUsuario');
@@ -193,7 +193,8 @@ app.get('/consultar-inventario-por-fecha', ConsultarInventarioPorFecha);
 
 // Estadisticas 
 app.get('/categorias-con-valor', obtenerCategoriasConValor);
-app.get('/productos-top-stock', obtenerTopProductosStock);
+app.get('/productos/mas-stock', obtenerTopProductosMasStock);
+app.get('/productos/menos-stock', obtenerTopProductosMenosStock);
 app.get('/inventarios-ultimos-7-dias', obtenerInventariosUltimos7Dias);
 
 // Formulario de contacto
