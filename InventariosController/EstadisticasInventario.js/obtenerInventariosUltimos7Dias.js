@@ -7,7 +7,7 @@ const obtenerInventariosUltimos7Dias = async (req, res) => {
             SELECT 
                 fecha_creacion,
                 cantidad_unidades
-            FROM INVENTARIO 
+            FROM inventario 
             WHERE responsable = 'Sistema'
             ORDER BY fecha_creacion DESC
             LIMIT 7

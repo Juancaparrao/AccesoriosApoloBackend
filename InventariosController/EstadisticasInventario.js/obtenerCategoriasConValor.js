@@ -14,8 +14,8 @@ const obtenerCategoriasConValor = async (req, res) => {
                         ELSE p.precio_unidad * p.stock
                     END
                 ), 0) as valor_total
-            FROM CATEGORIA c
-            LEFT JOIN PRODUCTO p ON c.id_categoria = p.FK_id_categoria 
+            FROM categoria c
+            LEFT JOIN producto p ON c.id_categoria = p.FK_id_categoria 
                 AND p.estado = true
             WHERE c.estado = true
             GROUP BY c.id_categoria, c.nombre_categoria

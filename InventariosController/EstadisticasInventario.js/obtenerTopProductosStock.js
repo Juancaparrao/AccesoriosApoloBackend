@@ -8,7 +8,7 @@ const obtenerTopProductosStock = async (req, res) => {
             SELECT 
                 p.nombre,
                 p.stock
-            FROM PRODUCTO p
+            FROM producto p
             WHERE p.estado = true
             ORDER BY p.stock DESC
             LIMIT 5
@@ -19,7 +19,7 @@ const obtenerTopProductosStock = async (req, res) => {
             SELECT 
                 p.nombre,
                 p.stock
-            FROM PRODUCTO p
+            FROM producto p
             WHERE p.estado = true
             ORDER BY p.stock ASC
             LIMIT 5
