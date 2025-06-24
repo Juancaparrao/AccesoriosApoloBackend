@@ -1,4 +1,4 @@
-const pool = require('../db');
+const pool = require('../../db');
 
 // Función para obtener categorías con el valor total de productos
 const obtenerCategoriasConValor = async (req, res) => {
@@ -9,7 +9,7 @@ const obtenerCategoriasConValor = async (req, res) => {
                 c.nombre_categoria,
                 COALESCE(SUM(
                     CASE 
-                        WHEN p.precio_descuento IS NOT NULL AND p.precio_descuento > 0 
+                        WHEN p.precio_descuento IS NOT NULL AND p.precio_descuento > 0
                         THEN p.precio_descuento * p.stock
                         ELSE p.precio_unidad * p.stock
                     END
@@ -22,7 +22,7 @@ const obtenerCategoriasConValor = async (req, res) => {
             ORDER BY c.nombre_categoria ASC
         `;
 
-        const resultado = await db.query(query);
+        const resultado = await pool.query(query); // Cambiado de 'db' a 'pool'
 
         const categorias = resultado.map(categoria => ({
             id: categoria.id_categoria,

@@ -1,4 +1,4 @@
-const pool = require('../db');
+const pool = require('../../db');
 
 // Función para obtener top 5 productos con más stock y top 5 con menos stock
 const obtenerTopProductosStock = async (req, res) => {
@@ -27,8 +27,8 @@ const obtenerTopProductosStock = async (req, res) => {
 
         // Ejecutar ambas consultas
         const [productosMasStock, productosMenosStock] = await Promise.all([
-            db.query(queryMasStock),
-            db.query(queryMenosStock)
+            pool.query(queryMasStock),
+            pool.query(queryMenosStock)
         ]);
 
         // Formatear respuesta
