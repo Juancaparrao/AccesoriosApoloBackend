@@ -1,3 +1,5 @@
+const pool = require('../db');
+
 // Función para obtener cantidad de unidades de los últimos 7 inventarios del sistema
 const obtenerInventariosUltimos7Dias = async (req, res) => {
     try {

@@ -1,3 +1,5 @@
+const pool = require('../db');
+
 // Función para obtener categorías con el valor total de productos
 const obtenerCategoriasConValor = async (req, res) => {
     try {
