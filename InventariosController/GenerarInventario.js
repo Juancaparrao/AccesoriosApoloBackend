@@ -1,20 +1,20 @@
-const pool = require('../db');
-const jwt = require('jsonwebtoken');
-const cron = require('node-cron');
+const pool = require('../db'); // Asume que db.js configura tu pool de conexiones a la base de datos
+const jwt = require('jsonwebtoken'); // Para verificar tokens JWT
+const cron = require('node-cron'); // Para programar tareas cron
 
 // Función para generar inventario (manual o automático)
 async function GenerarInventario(req, res) {
   const connection = await pool.getConnection();
-  
+
   try {
-    await connection.beginTransaction();
+    await connection.beginTransaction(); // Inicia una transacción de base de datos
 
     // Determinar el responsable (manual vs automático)
     let responsable = 'Sistema';
     if (req.headers.authorization) {
       try {
         const token = req.headers.authorization.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verifica el token JWT
         responsable = decoded.nombre || 'Usuario';
       } catch (tokenError) {
         console.log('Token inválido, usando Sistema como responsable');
@@ -35,7 +35,7 @@ async function GenerarInventario(req, res) {
     `);
 
     if (productos.length === 0) {
-      await connection.rollback();
+      await connection.rollback(); // Revierte la transacción si no hay productos
       return res.status(400).json({
         success: false,
         mensaje: 'No hay productos disponibles para generar inventario.'
@@ -74,7 +74,7 @@ async function GenerarInventario(req, res) {
       WHERE id_inventario = ?
     `, [valor_total, id_inventario]);
 
-    await connection.commit();
+    await connection.commit(); // Confirma la transacción
 
     const formatearNumero = (valor) => {
       return new Intl.NumberFormat('es-CO').format(Number(valor));
@@ -94,23 +94,23 @@ async function GenerarInventario(req, res) {
     });
 
   } catch (error) {
-    await connection.rollback();
+    await connection.rollback(); // Revierte la transacción en caso de error
     console.error('❌ Error al generar inventario:', error);
     return res.status(500).json({
       success: false,
       mensaje: 'Error al generar el inventario.'
     });
   } finally {
-    connection.release();
+    connection.release(); // Libera la conexión de la base de datos
   }
 }
 
-// Función para generar inventario automáticamente (sin response)
+// Función para generar inventario automáticamente (sin response directo a cliente)
 async function GenerarInventarioAutomatico() {
   const connection = await pool.getConnection();
-  
+
   try {
-    await connection.beginTransaction();
+    await connection.beginTransaction(); // Inicia una transacción de base de datos
 
     const fechaHoy = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
     console.log(`🕐 [${new Date().toLocaleString('es-CO')}] Iniciando generación automática de inventario...`);
@@ -125,7 +125,7 @@ async function GenerarInventarioAutomatico() {
 
     if (inventarioHoy.length > 0) {
       console.log(`ℹ️ [${new Date().toLocaleString('es-CO')}] Ya existe un inventario para hoy (ID: ${inventarioHoy[0].id_inventario}), saltando generación automática.`);
-      await connection.rollback();
+      await connection.rollback(); // Revierte la transacción
       return { success: true, message: 'Inventario ya existe para hoy' };
     }
 
@@ -144,7 +144,7 @@ async function GenerarInventarioAutomatico() {
 
     if (productos.length === 0) {
       console.log(`⚠️ [${new Date().toLocaleString('es-CO')}] No hay productos disponibles para generar inventario automático.`);
-      await connection.rollback();
+      await connection.rollback(); // Revierte la transacción
       return { success: false, message: 'No hay productos disponibles' };
     }
 
@@ -180,11 +180,11 @@ async function GenerarInventarioAutomatico() {
       WHERE id_inventario = ?
     `, [valor_total, id_inventario]);
 
-    await connection.commit();
+    await connection.commit(); // Confirma la transacción
 
     const mensaje = `✅ [${new Date().toLocaleString('es-CO')}] Inventario automático generado exitosamente - ID: ${id_inventario}`;
     const estadisticas = `📊 Productos: ${cantidad_productos.toLocaleString('es-CO')}, Unidades: ${cantidad_unidades.toLocaleString('es-CO')}, Valor: $${valor_total.toLocaleString('es-CO')}`;
-    
+
     console.log(mensaje);
     console.log(estadisticas);
 
@@ -200,13 +200,13 @@ async function GenerarInventarioAutomatico() {
     };
 
   } catch (error) {
-    await connection.rollback();
+    await connection.rollback(); // Revierte la transacción en caso de error
     const errorMsg = `❌ [${new Date().toLocaleString('es-CO')}] Error al generar inventario automático: ${error.message}`;
     console.error(errorMsg);
     console.error('Stack trace:', error.stack);
     return { success: false, message: error.message };
   } finally {
-    connection.release();
+    connection.release(); // Libera la conexión de la base de datos
   }
 }
 
@@ -238,17 +238,17 @@ async function probarConexionDB() {
 // '0 0 8 * * *' significa: segundo 0, minuto 0, hora 8, cualquier día del mes, cualquier mes, cualquier día de la semana
 const cronJob = cron.schedule('0 0 8 * * *', async () => {
   console.log(`🔄 [${new Date().toLocaleString('es-CO')}] Ejecutando generación automática de inventario...`);
-  
+
   // Verificar conexión antes de ejecutar
   const conexionOK = await probarConexionDB();
   if (!conexionOK) {
     console.error(`❌ [${new Date().toLocaleString('es-CO')}] No se puede generar inventario: problema de conexión a BD`);
     return;
   }
-  
+
   // Ejecutar generación de inventario
   const resultado = await GenerarInventarioAutomatico();
-  
+
   if (resultado.success) {
     console.log(`🎉 [${new Date().toLocaleString('es-CO')}] Inventario automático completado exitosamente`);
   } else {
@@ -265,9 +265,9 @@ function probarCronJob() {
   const proximaEjecucion = new Date(ahora.getTime() + 30000); // 30 segundos desde ahora
   const minutos = proximaEjecucion.getMinutes();
   const segundos = proximaEjecucion.getSeconds();
-  
+
   console.log(`🧪 [${new Date().toLocaleString('es-CO')}] Programando prueba de cron job para ${proximaEjecucion.toLocaleTimeString('es-CO')}`);
-  
+
   // Crear un cron job de prueba que se ejecute una sola vez
   const cronPrueba = cron.schedule(`${segundos} ${minutos} * * * *`, async () => {
     console.log(`🎯 [${new Date().toLocaleString('es-CO')}] ¡PRUEBA DE CRON JOB EJECUTADA CORRECTAMENTE!`);
@@ -282,16 +282,16 @@ function probarCronJob() {
 // Verificar que el cron job esté activo
 if (cronJob) {
   console.log('✅ Cron job configurado exitosamente: Inventario automático todos los días a las 8:00 AM (Zona horaria: America/Bogota)');
-  
+
   // Verificar estado al iniciar
   setTimeout(() => {
     verificarEstadoCron();
     probarConexionDB();
-    
-    // Opcional: Ejecutar prueba de cron job (comentar en producción)
-    // probarCronJob();
+
+    // Habilitado para la prueba de 30 segundos
+    probarCronJob(); 
   }, 2000);
-  
+
   // Verificar estado cada hora para asegurar que el cron sigue activo
   cron.schedule('0 0 * * * *', () => {
     console.log(`💓 [${new Date().toLocaleString('es-CO')}] Sistema de inventario automático activo - Heartbeat`);
@@ -299,7 +299,7 @@ if (cronJob) {
     scheduled: true,
     timezone: "America/Bogota"
   });
-  
+
 } else {
   console.error('❌ Error: No se pudo configurar el cron job');
 }
@@ -326,7 +326,5 @@ process.on('SIGTERM', () => {
 module.exports = { 
   GenerarInventario,
   GenerarInventarioAutomatico,
-  verificarEstadoCron,
-  probarConexionDB,
   probarCronJob  // Exportar la función de prueba
 };
