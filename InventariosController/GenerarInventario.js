@@ -115,9 +115,6 @@ async function GenerarInventarioAutomatico() {
     const fechaHoy = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
     console.log(`🕐 [${new Date().toLocaleString('es-CO')}] Iniciando generación automática de inventario...`);
 
-    // *** MODIFICACIÓN: Se eliminó la verificación de existencia de inventario para hoy ***
-    // Esto asegura que el inventario se genere siempre, incluso si ya hay uno para el día.
-
     // Obtener todos los productos activos con stock
     const [productos] = await connection.execute(`
       SELECT 
@@ -145,7 +142,7 @@ async function GenerarInventarioAutomatico() {
     // Crear registro principal de inventario
     const [inventarioResult] = await connection.execute(`
       INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, valor_total, responsable)
-      VALUES (NOW(), ?, ?, 0, 'Sistema Automático')
+      VALUES (NOW(), ?, ?, 0, 'Sistema')
     `, [cantidad_productos, cantidad_unidades]);
 
     const id_inventario = inventarioResult.insertId;
