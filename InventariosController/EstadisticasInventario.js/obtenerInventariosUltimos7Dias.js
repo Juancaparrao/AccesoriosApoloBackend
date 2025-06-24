@@ -14,9 +14,28 @@ const obtenerInventariosUltimos7Dias = async (req, res) => {
         `;
 
         const resultado = await pool.query(query);
+        
+        // Extraer las filas correctamente - para MySQL con mysql2 generalmente es resultado[0]
+        let inventarios;
+        if (Array.isArray(resultado[0])) {
+            inventarios = resultado[0];
+        } else if (Array.isArray(resultado)) {
+            inventarios = resultado;
+        } else {
+            inventarios = [];
+        }
 
-        // Formatear respuesta ordenando del más antiguo al más reciente para mejor visualización
-        const inventarios = resultado.reverse().map(inventario => ({
+        // Verificar si hay datos
+        if (!inventarios || inventarios.length === 0) {
+            return res.status(200).json({
+                success: true,
+                message: 'No se encontraron inventarios del sistema',
+                data: []
+            });
+        }
+
+        // Formatear respuesta - mantener orden descendente (más reciente primero)
+        const inventariosFormateados = inventarios.map(inventario => ({
             fecha: inventario.fecha_creacion,
             cantidad_unidades: inventario.cantidad_unidades
         }));
@@ -24,7 +43,7 @@ const obtenerInventariosUltimos7Dias = async (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Inventarios de los últimos 7 días obtenidos exitosamente',
-            data: inventarios
+            data: inventariosFormateados
         });
 
     } catch (error) {
