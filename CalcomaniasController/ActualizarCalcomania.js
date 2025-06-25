@@ -1,14 +1,10 @@
 const pool = require('../db');
 const cloudinary = require('../cloudinary'); // Asegúrate de que esta línea sea necesaria y que cloudinary esté configurado
 
-
 async function ObtenerDatosCalcomania(req, res) {
-  // Asegúrate de que id_calcomania venga del cuerpo si es un POST, o de los parámetros si es un GET.
-  // Para este ejemplo, se mantiene como req.body.
-  const { id_calcomania } = req.body; 
+  const { id_calcomania } = req.body;
 
   try {
-    // Validar que el id_calcomania es proporcionado
     if (!id_calcomania) {
       return res.status(400).json({
         success: false,
@@ -16,7 +12,6 @@ async function ObtenerDatosCalcomania(req, res) {
       });
     }
 
-    // Obtener datos de la calcomanía, incluyendo el usuario relacionado, precios, dimensiones y stock
     const [[calcomania]] = await pool.execute(
       `SELECT c.id_calcomania, c.nombre, c.formato, c.tamano_archivo,
                c.fecha_subida, c.url_archivo, c.fk_id_usuario, u.nombre AS nombre_usuario,
@@ -35,15 +30,33 @@ async function ObtenerDatosCalcomania(req, res) {
       });
     }
 
-    // Obtener todos los usuarios activos para un posible selector en el frontend
+    // --- INICIO DE LOS CAMBIOS PARA FORMATEAR PRECIOS ---
+
+    // Crear un formateador de moneda para pesos colombianos (COP)
+    const formatter = new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0, // No mostrar decimales si son .00
+      maximumFractionDigits: 0, // No mostrar decimales si son .00
+    });
+
+    // Formatear precio_unidad y precio_descuento
+    const formattedCalcomania = {
+      ...calcomania, // Copia todas las propiedades existentes
+      precio_unidad: formatter.format(calcomania.precio_unidad),
+      precio_descuento: formatter.format(calcomania.precio_descuento)
+    };
+
+   
+
     const [usuarios] = await pool.execute(
       `SELECT id_usuario, nombre FROM usuario WHERE estado = 1`
     );
 
     return res.status(200).json({
       success: true,
-      calcomania,
-      usuarios // Retorna todos los usuarios para llenar un <select> en el front-end
+      calcomania: formattedCalcomania, // ¡Ahora enviamos la calcomanía formateada!
+      usuarios
     });
 
   } catch (error) {
@@ -55,8 +68,8 @@ async function ObtenerDatosCalcomania(req, res) {
   }
 }
 
-
 async function ActualizarCalcomania(req, res) {
+  // ... (tu código de ActualizarCalcomania no necesita cambios para esto) ...
   try {
     const {
       id_calcomania,
