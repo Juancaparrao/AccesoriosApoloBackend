@@ -111,8 +111,7 @@ async function BuscarProductoVentaPorReferencia(req, res) {
     }
 }
 
-// Controlador para buscar calcomanía por ID (para ventas) (MODIFICADO SIGNIFICATIVAMENTE)
-// Ahora `precio_descuento` de la DB es el precio final, y calculamos el porcentaje si es necesario.
+
 async function BuscarCalcomaniaVentaPorId(req, res) {
     try {
         const { id, tamano, cantidad } = req.query;
@@ -145,7 +144,7 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
                 id_calcomania,
                 nombre,
                 precio_unidad,
-                precio_descuento, /* ESTE ES AHORA EL PRECIO FINAL CON DESCUENTO APLICADO */
+                precio_descuento, /* ESTE ES EL PRECIO FINAL CON DESCUENTO APLICADO EN LA DB */
                 stock_pequeno,
                 stock_mediano,
                 stock_grande,
@@ -167,7 +166,7 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
         let precio_base_original_sin_descuento = parseFloat(calcomania.precio_unidad); // Precio base de la DB
         let stock_disponible;
 
-        // Calcula el precio base POR TAMAÑO (antes de cualquier descuento)
+        // Calcula el precio base POR TAMAÑO (antes de cualquier descuento específico de la calcomanía)
         let precio_por_tamano = precio_base_original_sin_descuento; // Este será el "precio original" para este tamaño
 
         switch (tamano) {
@@ -195,24 +194,27 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
 
         let precio_final_aplicado;
         let descuento_porcentaje_calculado = null;
-        let tiene_descuento = false;
+        // let tiene_descuento = false; // Ya no es estrictamente necesario enviarlo si el front solo mira 0 o > 0
 
-        // Si existe un precio_descuento en la DB para la calcomanía y es válido
+        // Si existe un precio_descuento en la DB para la calcomanía y es válido (menor que el precio por tamaño)
         if (calcomania.precio_descuento !== null && parseFloat(calcomania.precio_descuento) > 0) {
             const precio_descuento_db = parseFloat(calcomania.precio_descuento);
 
-            // Validar que el precio de descuento no sea mayor al precio_por_tamano
+            // Validar que el precio de descuento NO sea mayor o igual al precio_por_tamano
             if (precio_descuento_db < precio_por_tamano) {
                 precio_final_aplicado = precio_descuento_db;
-                tiene_descuento = true;
+                // tiene_descuento = true; // Ya no es estrictamente necesario
                 // Calcular el porcentaje de descuento
                 descuento_porcentaje_calculado = ((precio_por_tamano - precio_descuento_db) / precio_por_tamano) * 100;
             } else {
-                // Si el precio de descuento de DB es mayor o igual al precio por tamaño, no hay descuento efectivo
+                // Si el precio de descuento de DB es mayor o igual al precio por tamaño,
+                // no se considera un descuento efectivo. Se usa el precio sin descuento.
+                // Y el precio_descuento_en_respuesta será 0.
                 precio_final_aplicado = precio_por_tamano;
             }
         } else {
-            // No hay precio de descuento en DB, usar el precio calculado por tamaño
+            // No hay precio de descuento en DB, usar el precio calculado por tamaño.
+            // Y el precio_descuento_en_respuesta será 0.
             precio_final_aplicado = precio_por_tamano;
         }
 
@@ -223,12 +225,12 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
         const calcomaniaInfo = {
             id_calcomania: calcomania.id_calcomania,
             nombre: calcomania.nombre,
-            // precio_original_por_tamano: Precio antes de aplicar el descuento de la DB, solo afectado por tamaño.
-            precio_original_por_tamano: parseFloat(precio_por_tamano.toFixed(2)),
-            // precio_final_con_descuento: El precio final que se usará para la venta (si hay descuento, será el de la DB, si no, será precio_original_por_tamano)
-            precio_final_con_descuento: parseFloat(precio_final_aplicado.toFixed(2)),
+            // 'precio_unidad' es el precio original por tamaño (sin el descuento específico de calcomanía)
+            precio_unidad: parseFloat(precio_por_tamano.toFixed(2)),
+            // 'precio_descuento' es el precio final con descuento si aplica, O 0 si no hay descuento efectivo
+            precio_descuento: (precio_final_aplicado < precio_por_tamano) ? parseFloat(precio_final_aplicado.toFixed(2)) : 0,
             descuento_porcentaje_calculado: descuento_porcentaje_calculado ? parseFloat(descuento_porcentaje_calculado.toFixed(2)) : null,
-            tiene_descuento: tiene_descuento,
+            // tiene_descuento ya no es necesario si el front solo evalúa si precio_descuento es > 0
             subtotal: parseFloat(subtotal.toFixed(2)) // Subtotal calculado
         };
 
