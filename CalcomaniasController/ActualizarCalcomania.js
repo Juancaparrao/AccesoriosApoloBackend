@@ -30,24 +30,33 @@ async function ObtenerDatosCalcomania(req, res) {
       });
     }
 
-    // --- INICIO DE LOS CAMBIOS PARA FORMATEAR PRECIOS ---
+    // --- CÁLCULO Y FORMATO DE PRECIOS Y PORCENTAJE DE DESCUENTO ---
 
-    // Crear un formateador de moneda para pesos colombianos (COP)
     const formatter = new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
-      minimumFractionDigits: 0, // No mostrar decimales si son .00
-      maximumFractionDigits: 0, // No mostrar decimales si son .00
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     });
 
-    // Formatear precio_unidad y precio_descuento
+    let porcentaje_descuento = 0;
+    // Calcula el porcentaje de descuento solo si precio_unidad es mayor que 0
+    // y precio_descuento es menor que precio_unidad
+    if (calcomania.precio_unidad > 0 && calcomania.precio_descuento < calcomania.precio_unidad) {
+      porcentaje_descuento = ((calcomania.precio_unidad - calcomania.precio_descuento) / calcomania.precio_unidad) * 100;
+      // Puedes redondear el porcentaje si lo deseas, por ejemplo, a 2 decimales
+      porcentaje_descuento = parseFloat(porcentaje_descuento.toFixed(2));
+    }
+
+
     const formattedCalcomania = {
       ...calcomania, // Copia todas las propiedades existentes
       precio_unidad: formatter.format(calcomania.precio_unidad),
-      precio_descuento: formatter.format(calcomania.precio_descuento)
+      precio_descuento: formatter.format(calcomania.precio_descuento),
+      porcentaje_descuento: porcentaje_descuento // Añade el porcentaje de descuento
     };
 
-   
+    // --- FIN DEL CÁLCULO Y FORMATO ---
 
     const [usuarios] = await pool.execute(
       `SELECT id_usuario, nombre FROM usuario WHERE estado = 1`
@@ -55,7 +64,7 @@ async function ObtenerDatosCalcomania(req, res) {
 
     return res.status(200).json({
       success: true,
-      calcomania: formattedCalcomania, // ¡Ahora enviamos la calcomanía formateada!
+      calcomania: formattedCalcomania,
       usuarios
     });
 
@@ -68,8 +77,8 @@ async function ObtenerDatosCalcomania(req, res) {
   }
 }
 
+// ... (tu función ActualizarCalcomania se mantiene igual) ...
 async function ActualizarCalcomania(req, res) {
-  // ... (tu código de ActualizarCalcomania no necesita cambios para esto) ...
   try {
     const {
       id_calcomania,
@@ -80,10 +89,9 @@ async function ActualizarCalcomania(req, res) {
       stock_pequeno,
       stock_mediano,
       stock_grande,
-      estado // Se añade 'estado' para permitir su actualización
+      estado
     } = req.body;
 
-    // Validar que el ID de calcomanía es requerido
     if (!id_calcomania) {
       return res.status(400).json({
         success: false,
@@ -91,7 +99,6 @@ async function ActualizarCalcomania(req, res) {
       });
     }
 
-    // Obtener la calcomanía actual para comparar y mantener valores si no se proporcionan nuevos
     const [resultado] = await pool.execute(`
       SELECT * FROM calcomania WHERE id_calcomania = ?
     `, [id_calcomania]);
@@ -105,7 +112,6 @@ async function ActualizarCalcomania(req, res) {
 
     const calcomaniaActual = resultado[0];
 
-    // Variables a actualizar, inicializadas con los valores actuales o los proporcionados en la solicitud
     let updatedNombre = nombre !== undefined ? nombre : calcomaniaActual.nombre;
     let updatedFkIdUsuario = fk_id_usuario !== undefined ? fk_id_usuario : calcomaniaActual.fk_id_usuario;
     let updatedUrlArchivo = calcomaniaActual.url_archivo;
@@ -117,21 +123,18 @@ async function ActualizarCalcomania(req, res) {
     let updatedStockPequeno = stock_pequeno !== undefined ? stock_pequeno : calcomaniaActual.stock_pequeno;
     let updatedStockMediano = stock_mediano !== undefined ? stock_mediano : calcomaniaActual.stock_mediano;
     let updatedStockGrande = stock_grande !== undefined ? stock_grande : calcomaniaActual.stock_grande;
-    let updatedEstado = estado !== undefined ? estado : calcomaniaActual.estado; // Actualizar el estado
+    let updatedEstado = estado !== undefined ? estado : calcomaniaActual.estado;
 
-    // tamano_x y tamano_y siempre deben ser '5'. Si no se envían, mantienen su valor actual ('5').
     const updatedTamanoX = '5';
     const updatedTamanoY = '5';
 
-    // Si viene una imagen nueva, la sube a Cloudinary y actualiza metadatos
     if (req.file?.path) {
       updatedUrlArchivo = req.file.path;
-      updatedFormato = req.file.mimetype.split('/')[1]; // Extrae 'jpg', 'png', etc.
-      updatedTamanoArchivo = `${(req.file.size / 1024).toFixed(2)} KB`; // Convierte bytes a KB
-      updatedFechaSubida = new Date().toISOString().split('T')[0]; // Nueva fecha de subida
+      updatedFormato = req.file.mimetype.split('/')[1];
+      updatedTamanoArchivo = `${(req.file.size / 1024).toFixed(2)} KB`;
+      updatedFechaSubida = new Date().toISOString().split('T')[0];
     }
 
-    // Verificar que el usuario existe si se está cambiando
     if (fk_id_usuario !== undefined && fk_id_usuario !== calcomaniaActual.fk_id_usuario) {
       const [usuario] = await pool.execute(
         'SELECT id_usuario FROM usuario WHERE id_usuario = ? AND estado = 1',
@@ -146,7 +149,6 @@ async function ActualizarCalcomania(req, res) {
       }
     }
 
-    // Actualizar la calcomanía en la base de datos con todos los campos relevantes
     await pool.execute(`
       UPDATE calcomania
       SET
@@ -179,7 +181,7 @@ async function ActualizarCalcomania(req, res) {
       updatedStockPequeno,
       updatedStockMediano,
       updatedStockGrande,
-      updatedEstado, // Agregado el estado a la actualización
+      updatedEstado,
       id_calcomania
     ]);
 
