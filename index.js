@@ -53,7 +53,7 @@ const { ActualizarCalcomania, ObtenerDatosCalcomania } = require('./CalcomaniasC
 const { EliminarCalcomania } = require('./CalcomaniasController/EliminarCalcomania');
 const { ReactivarCalcomania } = require('./CalcomaniasController/ReactivarCalcomania');
 const { BuscarCalcomaniaPorNombre } = require('./CalcomaniasController/BuscarCalcomaniaPorNombre');
-const { RegistrarVenta, ValidarClientePorCedula, BuscarProductoVentaPorReferencia } = require('./VentasController/RegistrarVenta');
+const { RegistrarVenta, ValidarClientePorCedula, BuscarProductoVentaPorReferencia, BuscarCalcomaniaVentaPorId } = require('./VentasController/RegistrarVenta');
 const { ConsultarVenta } = require('./VentasController/ConsultarVenta');
 const { ConsultarDetalleVenta } = require('./VentasController/ConsultarDetalleVenta');
 const { ConsultarInventario } = require('./InventariosController/ConsultarInventario');
@@ -179,6 +179,7 @@ app.put('/editar-nombre-calcomanias/:id_calcomania', EditarNombreCalcomania);
 app.post('/registrar-venta',  RegistrarVenta);
 app.get('/validar-cliente-venta', ValidarClientePorCedula);
 app.get('/buscar-producto-venta-referencia', BuscarProductoVentaPorReferencia);
+app.get('/buscar-calcomania-venta-id', BuscarCalcomaniaVentaPorId); // Asumiendo que esta ruta es para buscar calcomanías por referencia
 app.get('/Consultar-ventas', ConsultarVenta);
 app.get('/Consultar-detalle-venta/:id_factura', ConsultarDetalleVenta);
 app.get('/Consultar-venta-especifica', ConsultarVentaEspecifica);
