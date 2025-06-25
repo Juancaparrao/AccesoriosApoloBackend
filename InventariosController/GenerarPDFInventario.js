@@ -233,8 +233,8 @@ async function GenerarPDFInventario(req, res) {
         { text: 'STOCK MED.', x: 265, width: 60 },
         { text: 'STOCK GDE.', x: 330, width: 60 },
         { text: 'TOTAL UNID.', x: 395, width: 60 },
-        { text: 'PRECIO', x: 460, width: 60 },
-        { text: 'SUBTOTAL', x: 525, width: 60 }
+        { text: 'PRECIO', x: 460, width: 40 },
+        { text: 'SUBTOTAL', x: 525, width: 70 }
       ];
 
       doc.fontSize(9).font('Helvetica-Bold');
