@@ -15,6 +15,24 @@ async function RegistrarCalcomania(req, res) {
       });
     }
 
+    // Parsear los valores numéricos de string a number
+    // parseFloat se usa para precios que pueden tener decimales
+    const parsed_precio_unidad = parseFloat(precio_unidad);
+    const parsed_precio_descuento = parseFloat(precio_descuento);
+    // parseInt se usa para stock que son números enteros, con base 10
+    const parsed_stock_pequeño = parseInt(stock_pequeño, 10);
+    const parsed_stock_mediano = parseInt(stock_mediano, 10);
+    const parsed_stock_grande = parseInt(stock_grande, 10);
+
+    // Validar que los valores parseados sean números válidos
+    if (isNaN(parsed_precio_unidad) || isNaN(parsed_precio_descuento) ||
+        isNaN(parsed_stock_pequeño) || isNaN(parsed_stock_mediano) || isNaN(parsed_stock_grande)) {
+      return res.status(400).json({
+        success: false,
+        mensaje: 'Los valores de precio y stock deben ser números válidos.'
+      });
+    }
+
     // Verificar que el usuario del token existe y está activo
     const [usuario] = await pool.execute(
       'SELECT id_usuario FROM usuario WHERE id_usuario = ? AND estado = 1',
@@ -38,11 +56,11 @@ async function RegistrarCalcomania(req, res) {
     const tamano_x = '5';
     const tamano_y = '5';
 
-    // Insertar la calcomanía en la base de datos
+    // Insertar la calcomanía en la base de datos, usando los valores parseados
     const [result] = await pool.execute(
       `INSERT INTO calcomania (nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario, estado, precio_unidad, precio_descuento, tamano_x, tamano_y, stock_pequeño, stock_mediano, stock_grande)
-       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
-      [nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario, precio_unidad, precio_descuento, tamano_x, tamano_y, stock_pequeño, stock_mediano, stock_grande]
+        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
+      [nombre, formato, tamano_archivo, fecha_subida, url_archivo, fk_id_usuario, parsed_precio_unidad, parsed_precio_descuento, tamano_x, tamano_y, parsed_stock_pequeño, parsed_stock_mediano, parsed_stock_grande]
     );
 
     return res.status(201).json({
@@ -57,13 +75,13 @@ async function RegistrarCalcomania(req, res) {
         url_archivo,
         fk_id_usuario,
         estado: true,
-        precio_unidad,
-        precio_descuento,
+        precio_unidad: parsed_precio_unidad, // Devolver los valores parseados
+        precio_descuento: parsed_precio_descuento, // Devolver los valores parseados
         tamano_x,
         tamano_y,
-        stock_pequeño,
-        stock_mediano,
-        stock_grande
+        stock_pequeño: parsed_stock_pequeño, // Devolver los valores parseados
+        stock_mediano: parsed_stock_mediano, // Devolver los valores parseados
+        stock_grande: parsed_stock_grande // Devolver los valores parseados
       }
     });
 
@@ -76,39 +94,6 @@ async function RegistrarCalcomania(req, res) {
   }
 }
 
-/**
- * Obtiene todas las calcomanías de la base de datos.
- * @param {Object} req - El objeto de solicitud HTTP.
- * @param {Object} res - El objeto de respuesta HTTP.
- */
-async function ObtenerCalcomanias(req, res) {
-  try {
-    // Consultar todas las calcomanías
-    const [calcomanias] = await pool.execute('SELECT * FROM calcomania WHERE estado = 1');
-
-    if (calcomanias.length === 0) {
-      return res.status(404).json({
-        success: false,
-        mensaje: 'No se encontraron calcomanías activas.'
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      mensaje: 'Calcomanías obtenidas exitosamente.',
-      calcomanias: calcomanias
-    });
-
-  } catch (error) {
-    console.error('Error obteniendo calcomanías:', error);
-    res.status(500).json({
-      success: false,
-      mensaje: 'Error interno del servidor al obtener las calcomanías.'
-    });
-  }
-}
-
 module.exports = {
-  RegistrarCalcomania,
-  ObtenerCalcomanias
+  RegistrarCalcomania
 };
