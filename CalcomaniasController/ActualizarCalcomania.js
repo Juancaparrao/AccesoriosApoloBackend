@@ -16,8 +16,7 @@ async function ObtenerDatosCalcomania(req, res) {
       `SELECT c.id_calcomania, c.nombre, c.formato, c.tamano_archivo,
                c.fecha_subida, c.url_archivo, c.fk_id_usuario, u.nombre AS nombre_usuario,
                c.precio_unidad, c.precio_descuento, c.tamano_x, c.tamano_y,
-               c.stock_pequeno, c.stock_mediano, c.stock_grande, c.estado,
-               c.porcentaje_descuento
+               c.stock_pequeno, c.stock_mediano, c.stock_grande, c.estado
          FROM calcomania c
          JOIN usuario u ON c.fk_id_usuario = u.id_usuario
          WHERE c.id_calcomania = ?`,
@@ -40,34 +39,31 @@ async function ObtenerDatosCalcomania(req, res) {
       maximumFractionDigits: 0,
     });
 
-    let porcentaje_descuento = calcomania.porcentaje_descuento || 0;
-    
-    // Si no hay porcentaje almacenado en la BD, calcularlo
-    if (!porcentaje_descuento && calcomania.precio_unidad > 0 && calcomania.precio_descuento !== calcomania.precio_unidad) {
-      if (calcomania.precio_descuento < calcomania.precio_unidad) {
-        porcentaje_descuento = ((calcomania.precio_unidad - calcomania.precio_descuento) / calcomania.precio_unidad) * 100;
-        porcentaje_descuento = parseFloat(porcentaje_descuento.toFixed(2));
-      }
+    // ¡CAMBIO CLAVE AQUÍ! Asegurarse de que los precios sean números antes del cálculo
+    const precioUnidadNum = parseFloat(calcomania.precio_unidad);
+    const precioDescuentoNum = parseFloat(calcomania.precio_descuento);
+
+    let porcentaje_descuento = 0;
+    // Realiza el cálculo solo si precioUnidadNum es un número válido y mayor que 0,
+    // y precioDescuentoNum es un número válido y menor que precioUnidadNum
+    if (
+        !isNaN(precioUnidadNum) && precioUnidadNum > 0 &&
+        !isNaN(precioDescuentoNum) && precioDescuentoNum < precioUnidadNum
+    ) {
+      porcentaje_descuento = ((precioUnidadNum - precioDescuentoNum) / precioUnidadNum) * 100;
+      porcentaje_descuento = parseFloat(porcentaje_descuento.toFixed(2));
     }
 
-    console.log('Datos originales de BD:', {
-      precio_unidad: calcomania.precio_unidad,
-      precio_descuento: calcomania.precio_descuento,
-      porcentaje_descuento: porcentaje_descuento
-    });
 
     const formattedCalcomania = {
       ...calcomania,
-      precio_unidad: formatter.format(calcomania.precio_unidad),
-      precio_descuento: formatter.format(calcomania.precio_descuento),
+      // Formatear las versiones numéricas para la salida
+      precio_unidad: formatter.format(precioUnidadNum),
+      precio_descuento: formatter.format(precioDescuentoNum),
       porcentaje_descuento: porcentaje_descuento
     };
 
-    console.log('Datos formateados enviados:', {
-      precio_unidad: formattedCalcomania.precio_unidad,
-      precio_descuento: formattedCalcomania.precio_descuento,
-      porcentaje_descuento: formattedCalcomania.porcentaje_descuento
-    });
+    // --- FIN DEL CÁLCULO Y FORMATO ---
 
     const [usuarios] = await pool.execute(
       `SELECT id_usuario, nombre FROM usuario WHERE estado = 1`
@@ -88,6 +84,7 @@ async function ObtenerDatosCalcomania(req, res) {
   }
 }
 
+// ... (tu función ActualizarCalcomania se mantiene igual) ...
 async function ActualizarCalcomania(req, res) {
   try {
     const {
@@ -96,19 +93,11 @@ async function ActualizarCalcomania(req, res) {
       fk_id_usuario,
       precio_unidad,
       precio_descuento,
-      porcentaje_descuento, // Agregar porcentaje_descuento
       stock_pequeno,
       stock_mediano,
       stock_grande,
       estado
     } = req.body;
-
-    console.log('Datos recibidos para actualizar:', {
-      id_calcomania,
-      precio_unidad,
-      precio_descuento,
-      porcentaje_descuento
-    });
 
     if (!id_calcomania) {
       return res.status(400).json({
@@ -138,7 +127,6 @@ async function ActualizarCalcomania(req, res) {
     let updatedFechaSubida = calcomaniaActual.fecha_subida;
     let updatedPrecioUnidad = precio_unidad !== undefined ? precio_unidad : calcomaniaActual.precio_unidad;
     let updatedPrecioDescuento = precio_descuento !== undefined ? precio_descuento : calcomaniaActual.precio_descuento;
-    let updatedPorcentajeDescuento = porcentaje_descuento !== undefined ? porcentaje_descuento : calcomaniaActual.porcentaje_descuento;
     let updatedStockPequeno = stock_pequeno !== undefined ? stock_pequeno : calcomaniaActual.stock_pequeno;
     let updatedStockMediano = stock_mediano !== undefined ? stock_mediano : calcomaniaActual.stock_mediano;
     let updatedStockGrande = stock_grande !== undefined ? stock_grande : calcomaniaActual.stock_grande;
@@ -168,12 +156,6 @@ async function ActualizarCalcomania(req, res) {
       }
     }
 
-    console.log('Valores finales para actualizar:', {
-      updatedPrecioUnidad,
-      updatedPrecioDescuento,
-      updatedPorcentajeDescuento
-    });
-
     await pool.execute(`
       UPDATE calcomania
       SET
@@ -185,7 +167,6 @@ async function ActualizarCalcomania(req, res) {
         fk_id_usuario = ?,
         precio_unidad = ?,
         precio_descuento = ?,
-        porcentaje_descuento = ?,
         tamano_x = ?,
         tamano_y = ?,
         stock_pequeno = ?,
@@ -202,7 +183,6 @@ async function ActualizarCalcomania(req, res) {
       updatedFkIdUsuario,
       updatedPrecioUnidad,
       updatedPrecioDescuento,
-      updatedPorcentajeDescuento, // Agregar porcentaje a la actualización
       updatedTamanoX,
       updatedTamanoY,
       updatedStockPequeno,
@@ -225,7 +205,6 @@ async function ActualizarCalcomania(req, res) {
         fk_id_usuario: updatedFkIdUsuario,
         precio_unidad: updatedPrecioUnidad,
         precio_descuento: updatedPrecioDescuento,
-        porcentaje_descuento: updatedPorcentajeDescuento,
         tamano_x: updatedTamanoX,
         tamano_y: updatedTamanoY,
         stock_pequeno: updatedStockPequeno,
@@ -243,6 +222,7 @@ async function ActualizarCalcomania(req, res) {
     });
   }
 }
+
 module.exports = {
   ObtenerDatosCalcomania,
   ActualizarCalcomania
