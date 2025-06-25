@@ -148,7 +148,7 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
          stock_mediano,
          stock_grande,
          estado
-       FROM CALCOMANIA
+       FROM calcomania
        WHERE id_calcomania = ? AND estado = 1`,
       [id]
     );
@@ -442,7 +442,7 @@ async function RegistrarVenta(req, res) {
            stock_mediano,
            stock_grande,
            estado
-         FROM CALCOMANIA
+         FROM calcomania
          WHERE id_calcomania = ?`,
         [idCalcomaniaLimpia]
       );
@@ -570,13 +570,13 @@ async function RegistrarVenta(req, res) {
       let updateQuery;
       switch (calcomania.tamano) {
         case 'pequeno':
-          updateQuery = `UPDATE CALCOMANIA SET stock_pequeno = stock_pequeno - ? WHERE id_calcomania = ?`;
+          updateQuery = `UPDATE calcomania SET stock_pequeno = stock_pequeno - ? WHERE id_calcomania = ?`;
           break;
         case 'mediano':
-          updateQuery = `UPDATE CALCOMANIA SET stock_mediano = stock_mediano - ? WHERE id_calcomania = ?`;
+          updateQuery = `UPDATE calcomania SET stock_mediano = stock_mediano - ? WHERE id_calcomania = ?`;
           break;
         case 'grande':
-          updateQuery = `UPDATE CALCOMANIA SET stock_grande = stock_grande - ? WHERE id_calcomania = ?`;
+          updateQuery = `UPDATE calcomania SET stock_grande = stock_grande - ? WHERE id_calcomania = ?`;
           break;
       }
       await connection.execute(updateQuery, [calcomania.cantidad, calcomania.id_calcomania]);
