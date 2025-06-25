@@ -21,58 +21,113 @@ async function GenerarInventario(req, res) {
       }
     }
 
-    // Obtener todos los productos activos con stock
+    // 1. Obtener todos los productos activos con stock
     const [productos] = await connection.execute(`
-      SELECT 
+      SELECT
         referencia,
         nombre,
         stock,
         precio_unidad,
         marca
-      FROM producto 
+      FROM producto
       WHERE estado = 1 AND stock > 0
       ORDER BY nombre
     `);
 
-    if (productos.length === 0) {
-      await connection.rollback(); // Revierte la transacción si no hay productos
+    // 2. Obtener todas las calcomanías activas con stock
+    const [calcomanias] = await connection.execute(`
+      SELECT
+        id_calcomania,
+        nombre,
+        stock_pequeno,
+        stock_mediano,
+        stock_grande,
+        precio_unidad,
+        precio_descuento
+      FROM calcomania
+      WHERE estado = 1 AND (stock_pequeno > 0 OR stock_mediano > 0 OR stock_grande > 0)
+      ORDER BY nombre
+    `);
+
+    if (productos.length === 0 && calcomanias.length === 0) {
+      await connection.rollback(); // Revierte la transacción si no hay productos ni calcomanías
       return res.status(400).json({
         success: false,
-        mensaje: 'No hay productos disponibles para generar inventario.'
+        mensaje: 'No hay productos ni calcomanías disponibles para generar inventario.'
       });
     }
 
-    // Calcular totales
-    const cantidad_productos = productos.length;
-    const cantidad_unidades = productos.reduce((total, producto) => total + producto.stock, 0);
-    let valor_total = 0;
+    // 3. Calcular totales combinados
+    const cantidad_productos_reales = productos.length;
+    const cantidad_calcomanias_reales = calcomanias.length;
 
-    // Crear registro principal de inventario
+    const cantidad_unidades_productos = productos.reduce((total, p) => total + p.stock, 0);
+    const cantidad_unidades_calcomanias = calcomanias.reduce((total, c) => total + c.stock_pequeno + c.stock_mediano + c.stock_grande, 0);
+
+    const cantidad_productos_inventario = cantidad_productos_reales; // Conteo de ítems de tipo producto
+    const cantidad_calcomanias_inventario = cantidad_calcomanias_reales; // Conteo de ítems de tipo calcomanía
+
+    const cantidad_unidades_total = cantidad_unidades_productos + cantidad_unidades_calcomanias;
+
+    let valor_total_inventario = 0;
+
+    // 4. Crear registro principal de inventario
     const [inventarioResult] = await connection.execute(`
-      INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, valor_total, responsable)
-      VALUES (CURDATE(), ?, ?, 0, ?)
-    `, [cantidad_productos, cantidad_unidades, responsable]);
+      INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, cantidad_calcomanias, cantidad_unidades_calcomanias, valor_total, responsable)
+      VALUES (CURDATE(), ?, ?, ?, ?, 0, ?)
+    `, [
+      cantidad_productos_inventario,
+      cantidad_unidades_productos, // Unidades de productos
+      cantidad_calcomanias_inventario,
+      cantidad_unidades_calcomanias, // Unidades de calcomanías
+      responsable
+    ]);
 
     const id_inventario = inventarioResult.insertId;
 
-    // Insertar detalles del inventario y calcular valor total
+    // 5. Insertar detalles de productos y calcular valor total
     for (const producto of productos) {
       const subtotal = producto.stock * producto.precio_unidad;
-      valor_total += subtotal;
+      valor_total_inventario += subtotal;
 
       await connection.execute(`
-        INSERT INTO detalle_inventario 
-        (FK_id_inventario, FK_referencia_producto, cantidad, precio_unitario, subtotal)
-        VALUES (?, ?, ?, ?, ?)
-      `, [id_inventario, producto.referencia, producto.stock, producto.precio_unidad, subtotal]);
+        INSERT INTO detalle_inventario
+        (FK_id_inventario, FK_referencia_producto, cantidad, precio_unitario, stock_general, subtotal)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [id_inventario, producto.referencia, producto.stock, producto.precio_unidad, producto.stock, subtotal]);
     }
 
-    // Actualizar el valor total en la tabla inventario
+    // 6. Insertar detalles de calcomanías y calcular valor total
+    for (const calcomania of calcomanias) {
+      const stock_general_calcomania = calcomania.stock_pequeno + calcomania.stock_mediano + calcomania.stock_grande;
+      // Usar precio_descuento si existe, de lo contrario precio_unidad
+      const precio_a_usar = calcomania.precio_descuento !== null && calcomania.precio_descuento !== undefined ? calcomania.precio_descuento : calcomania.precio_unidad;
+      const subtotal = stock_general_calcomania * precio_a_usar;
+      valor_total_inventario += subtotal;
+
+      await connection.execute(`
+        INSERT INTO detalle_inventario
+        (FK_id_inventario, FK_id_calcomania, cantidad, precio_unitario, stock_pequeno, stock_mediano, stock_grande, stock_general, subtotal)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        id_inventario,
+        calcomania.id_calcomania,
+        stock_general_calcomania,
+        precio_a_usar,
+        calcomania.stock_pequeno,
+        calcomania.stock_mediano,
+        calcomania.stock_grande,
+        stock_general_calcomania,
+        subtotal
+      ]);
+    }
+
+    // 7. Actualizar el valor total en la tabla inventario
     await connection.execute(`
-      UPDATE inventario 
-      SET valor_total = ? 
+      UPDATE inventario
+      SET valor_total = ?
       WHERE id_inventario = ?
-    `, [valor_total, id_inventario]);
+    `, [valor_total_inventario, id_inventario]);
 
     await connection.commit(); // Confirma la transacción
 
@@ -80,15 +135,26 @@ async function GenerarInventario(req, res) {
       return new Intl.NumberFormat('es-CO').format(Number(valor));
     };
 
+    const formatearMoneda = (valor) => {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(Number(valor));
+    };
+
     return res.status(201).json({
       success: true,
-      mensaje: 'Inventario generado exitosamente',
+      mensaje: 'Inventario generado exitosamente (Productos y Calcomanías).',
       inventario: {
         id: id_inventario,
         fecha_creacion: new Date().toLocaleDateString('es-CO'),
-        cantidad_productos: formatearNumero(cantidad_productos),
-        cantidad_unidades: formatearNumero(cantidad_unidades),
-        valor_total: formatearNumero(valor_total),
+        cantidad_productos: formatearNumero(cantidad_productos_inventario),
+        cantidad_unidades_productos: formatearNumero(cantidad_unidades_productos),
+        cantidad_calcomanias: formatearNumero(cantidad_calcomanias_inventario),
+        cantidad_unidades_calcomanias: formatearNumero(cantidad_unidades_calcomanias),
+        valor_total: formatearMoneda(valor_total_inventario),
         responsable: responsable
       }
     });
@@ -112,76 +178,130 @@ async function GenerarInventarioAutomatico() {
   try {
     await connection.beginTransaction(); // Inicia una transacción de base de datos
 
-    const fechaHoy = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
     console.log(`🕐 [${new Date().toLocaleString('es-CO')}] Iniciando generación automática de inventario...`);
 
-    // Obtener todos los productos activos con stock
+    // 1. Obtener todos los productos activos con stock
     const [productos] = await connection.execute(`
-      SELECT 
+      SELECT
         referencia,
         nombre,
         stock,
         precio_unidad,
         marca
-      FROM producto 
+      FROM producto
       WHERE estado = 1 AND stock > 0
       ORDER BY nombre
     `);
 
-    if (productos.length === 0) {
-      console.log(`⚠️ [${new Date().toLocaleString('es-CO')}] No hay productos disponibles para generar inventario automático.`);
+    // 2. Obtener todas las calcomanías activas con stock
+    const [calcomanias] = await connection.execute(`
+      SELECT
+        id_calcomania,
+        nombre,
+        stock_pequeno,
+        stock_mediano,
+        stock_grande,
+        precio_unidad,
+        precio_descuento
+      FROM calcomania
+      WHERE estado = 1 AND (stock_pequeno > 0 OR stock_mediano > 0 OR stock_grande > 0)
+      ORDER BY nombre
+    `);
+
+    if (productos.length === 0 && calcomanias.length === 0) {
+      console.log(`⚠️ [${new Date().toLocaleString('es-CO')}] No hay productos ni calcomanías disponibles para generar inventario automático.`);
       await connection.rollback(); // Revierte la transacción
-      return { success: false, message: 'No hay productos disponibles' };
+      return { success: false, message: 'No hay productos ni calcomanías disponibles' };
     }
 
-    // Calcular totales
-    const cantidad_productos = productos.length;
-    const cantidad_unidades = productos.reduce((total, producto) => total + producto.stock, 0);
-    let valor_total = 0;
+    // 3. Calcular totales combinados
+    const cantidad_productos_reales = productos.length;
+    const cantidad_calcomanias_reales = calcomanias.length;
 
-    // Crear registro principal de inventario
+    const cantidad_unidades_productos = productos.reduce((total, p) => total + p.stock, 0);
+    const cantidad_unidades_calcomanias = calcomanias.reduce((total, c) => total + c.stock_pequeno + c.stock_mediano + c.stock_grande, 0);
+
+    const cantidad_productos_inventario = cantidad_productos_reales;
+    const cantidad_calcomanias_inventario = cantidad_calcomanias_reales;
+
+    const cantidad_unidades_total = cantidad_unidades_productos + cantidad_unidades_calcomanias;
+
+    let valor_total_inventario = 0;
+
+    // 4. Crear registro principal de inventario
     const [inventarioResult] = await connection.execute(`
-      INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, valor_total, responsable)
-      VALUES (NOW(), ?, ?, 0, 'Sistema')
-    `, [cantidad_productos, cantidad_unidades]);
+      INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, cantidad_calcomanias, cantidad_unidades_calcomanias, valor_total, responsable)
+      VALUES (NOW(), ?, ?, ?, ?, 0, 'Sistema')
+    `, [
+      cantidad_productos_inventario,
+      cantidad_unidades_productos,
+      cantidad_calcomanias_inventario,
+      cantidad_unidades_calcomanias
+    ]);
 
     const id_inventario = inventarioResult.insertId;
 
-    // Insertar detalles del inventario y calcular valor total
+    // 5. Insertar detalles de productos y calcular valor total
     for (const producto of productos) {
       const subtotal = producto.stock * producto.precio_unidad;
-      valor_total += subtotal;
+      valor_total_inventario += subtotal;
 
       await connection.execute(`
-        INSERT INTO detalle_inventario 
-        (FK_id_inventario, FK_referencia_producto, cantidad, precio_unitario, subtotal)
-        VALUES (?, ?, ?, ?, ?)
-      `, [id_inventario, producto.referencia, producto.stock, producto.precio_unidad, subtotal]);
+        INSERT INTO detalle_inventario
+        (FK_id_inventario, FK_referencia_producto, cantidad, precio_unitario, stock_general, subtotal)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [id_inventario, producto.referencia, producto.stock, producto.precio_unidad, producto.stock, subtotal]);
     }
 
-    // Actualizar el valor total en la tabla inventario
+    // 6. Insertar detalles de calcomanías y calcular valor total
+    for (const calcomania of calcomanias) {
+      const stock_general_calcomania = calcomania.stock_pequeno + calcomania.stock_mediano + calcomania.stock_grande;
+      const precio_a_usar = calcomania.precio_descuento !== null && calcomania.precio_descuento !== undefined ? calcomania.precio_descuento : calcomania.precio_unidad;
+      const subtotal = stock_general_calcomania * precio_a_usar;
+      valor_total_inventario += subtotal;
+
+      await connection.execute(`
+        INSERT INTO detalle_inventario
+        (FK_id_inventario, FK_id_calcomania, cantidad, precio_unitario, stock_pequeno, stock_mediano, stock_grande, stock_general, subtotal)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        id_inventario,
+        calcomania.id_calcomania,
+        stock_general_calcomania,
+        precio_a_usar,
+        calcomania.stock_pequeno,
+        calcomania.stock_mediano,
+        calcomania.stock_grande,
+        stock_general_calcomania,
+        subtotal
+      ]);
+    }
+
+    // 7. Actualizar el valor total en la tabla inventario
     await connection.execute(`
-      UPDATE inventario 
-      SET valor_total = ? 
+      UPDATE inventario
+      SET valor_total = ?
       WHERE id_inventario = ?
-    `, [valor_total, id_inventario]);
+    `, [valor_total_inventario, id_inventario]);
 
     await connection.commit(); // Confirma la transacción
 
-    const mensaje = `✅ [${new Date().toLocaleString('es-CO')}] Inventario automático generado exitosamente - ID: ${id_inventario}`;
-    const estadisticas = `📊 Productos: ${cantidad_productos.toLocaleString('es-CO')}, Unidades: ${cantidad_unidades.toLocaleString('es-CO')}, Valor: $${valor_total.toLocaleString('es-CO')}`;
+    const mensaje = `✅ [${new Date().toLocaleString('es-CO')}] Inventario automático completado exitosamente - ID: ${id_inventario}`;
+    const estadisticas = `📊 Ítems Productos: ${cantidad_productos_inventario.toLocaleString('es-CO')}, Unidades Productos: ${cantidad_unidades_productos.toLocaleString('es-CO')}, Ítems Calcomanías: ${cantidad_calcomanias_inventario.toLocaleString('es-CO')}, Unidades Calcomanías: ${cantidad_unidades_calcomanias.toLocaleString('es-CO')}, Valor Total: $${valor_total_inventario.toLocaleString('es-CO')}`;
 
     console.log(mensaje);
     console.log(estadisticas);
 
-    return { 
-      success: true, 
-      message: 'Inventario generado exitosamente',
+    return {
+      success: true,
+      message: 'Inventario generado exitosamente (Productos y Calcomanías).',
       data: {
         id: id_inventario,
-        productos: cantidad_productos,
-        unidades: cantidad_unidades,
-        valor: valor_total
+        cantidad_productos: cantidad_productos_inventario,
+        cantidad_unidades_productos: cantidad_unidades_productos,
+        cantidad_calcomanias: cantidad_calcomanias_inventario,
+        cantidad_unidades_calcomanias: cantidad_unidades_calcomanias,
+        valor_total: valor_total_inventario
       }
     };
 
@@ -275,7 +395,7 @@ if (cronJob) {
     probarConexionDB();
 
     // Habilitado para la prueba de 30 segundos
-    probarCronJob(); 
+    probarCronJob();
   }, 2000);
 
   // Verificar estado cada hora para asegurar que el cron sigue activo
@@ -309,8 +429,8 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-module.exports = { 
+module.exports = {
   GenerarInventario,
   GenerarInventarioAutomatico,
-  probarCronJob  // Exportar la función de prueba
+  probarCronJob
 };

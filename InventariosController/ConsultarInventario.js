@@ -3,11 +3,13 @@ const pool = require('../db');
 async function ConsultarInventario(req, res) {
   try {
     const [inventarios] = await pool.execute(`
-      SELECT 
+      SELECT
         id_inventario,
         fecha_creacion,
         cantidad_productos,
         cantidad_unidades,
+        cantidad_calcomanias,       
+        cantidad_unidades_calcomanias, 
         valor_total,
         responsable
       FROM inventario
@@ -16,6 +18,15 @@ async function ConsultarInventario(req, res) {
 
     const formatearNumero = (valor) => {
       return new Intl.NumberFormat('es-CO').format(Number(valor));
+    };
+
+    const formatearMoneda = (valor) => {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(Number(valor));
     };
 
     const formatearFecha = (fecha) => {
@@ -27,7 +38,9 @@ async function ConsultarInventario(req, res) {
       fecha_creacion: formatearFecha(inventario.fecha_creacion),
       cantidad_productos: formatearNumero(inventario.cantidad_productos),
       cantidad_unidades: formatearNumero(inventario.cantidad_unidades),
-      valor_total: formatearNumero(inventario.valor_total),
+      cantidad_calcomanias: formatearNumero(inventario.cantidad_calcomanias),        // Agregado y formateado
+      cantidad_unidades_calcomanias: formatearNumero(inventario.cantidad_unidades_calcomanias), // Agregado y formateado
+      valor_total: formatearMoneda(inventario.valor_total), // Usar formatearMoneda
       responsable: inventario.responsable
     }));
 

@@ -22,11 +22,13 @@ async function ConsultarInventarioPorFecha(req, res) {
 
     // Buscar inventarios por fecha específica
     const [inventarios] = await pool.execute(`
-      SELECT 
+      SELECT
         id_inventario,
         fecha_creacion,
         cantidad_productos,
         cantidad_unidades,
+        cantidad_calcomanias,        
+        cantidad_unidades_calcomanias, 8
         valor_total,
         responsable
       FROM inventario
@@ -38,6 +40,15 @@ async function ConsultarInventarioPorFecha(req, res) {
       return new Intl.NumberFormat('es-CO').format(Number(valor));
     };
 
+    const formatearMoneda = (valor) => {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(Number(valor));
+    };
+
     const formatearFecha = (fecha) => {
       return new Date(fecha).toLocaleDateString('es-CO');
     };
@@ -47,7 +58,9 @@ async function ConsultarInventarioPorFecha(req, res) {
       fecha_creacion: formatearFecha(inventario.fecha_creacion),
       cantidad_productos: formatearNumero(inventario.cantidad_productos),
       cantidad_unidades: formatearNumero(inventario.cantidad_unidades),
-      valor_total: formatearNumero(inventario.valor_total),
+      cantidad_calcomanias: formatearNumero(inventario.cantidad_calcomanias),        // Agregado y formateado
+      cantidad_unidades_calcomanias: formatearNumero(inventario.cantidad_unidades_calcomanias), // Agregado y formateado
+      valor_total: formatearMoneda(inventario.valor_total), // Usar formatearMoneda
       responsable: inventario.responsable
     }));
 
