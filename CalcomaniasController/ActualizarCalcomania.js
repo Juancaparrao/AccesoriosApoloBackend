@@ -21,7 +21,7 @@ async function ObtenerDatosCalcomania(req, res) {
       `SELECT c.id_calcomania, c.nombre, c.formato, c.tamano_archivo,
                c.fecha_subida, c.url_archivo, c.fk_id_usuario, u.nombre AS nombre_usuario,
                c.precio_unidad, c.precio_descuento, c.tamano_x, c.tamano_y,
-               c.stock_pequeño, c.stock_mediano, c.stock_grande, c.estado
+               c.stock_pequeno, c.stock_mediano, c.stock_grande, c.estado
          FROM calcomania c
          JOIN usuario u ON c.fk_id_usuario = u.id_usuario
          WHERE c.id_calcomania = ?`,
@@ -64,7 +64,7 @@ async function ActualizarCalcomania(req, res) {
       fk_id_usuario,
       precio_unidad,
       precio_descuento,
-      stock_pequeño,
+      stock_pequeno,
       stock_mediano,
       stock_grande,
       estado // Se añade 'estado' para permitir su actualización
@@ -101,7 +101,7 @@ async function ActualizarCalcomania(req, res) {
     let updatedFechaSubida = calcomaniaActual.fecha_subida;
     let updatedPrecioUnidad = precio_unidad !== undefined ? precio_unidad : calcomaniaActual.precio_unidad;
     let updatedPrecioDescuento = precio_descuento !== undefined ? precio_descuento : calcomaniaActual.precio_descuento;
-    let updatedStockPequeno = stock_pequeño !== undefined ? stock_pequeño : calcomaniaActual.stock_pequeño;
+    let updatedStockPequeno = stock_pequeno !== undefined ? stock_pequeno : calcomaniaActual.stock_pequeno;
     let updatedStockMediano = stock_mediano !== undefined ? stock_mediano : calcomaniaActual.stock_mediano;
     let updatedStockGrande = stock_grande !== undefined ? stock_grande : calcomaniaActual.stock_grande;
     let updatedEstado = estado !== undefined ? estado : calcomaniaActual.estado; // Actualizar el estado
@@ -147,7 +147,7 @@ async function ActualizarCalcomania(req, res) {
         precio_descuento = ?,
         tamano_x = ?,
         tamano_y = ?,
-        stock_pequeño = ?,
+        stock_pequeno = ?,
         stock_mediano = ?,
         stock_grande = ?,
         estado = ?
@@ -185,7 +185,7 @@ async function ActualizarCalcomania(req, res) {
         precio_descuento: updatedPrecioDescuento,
         tamano_x: updatedTamanoX,
         tamano_y: updatedTamanoY,
-        stock_pequeño: updatedStockPequeno,
+        stock_pequeno: updatedStockPequeno,
         stock_mediano: updatedStockMediano,
         stock_grande: updatedStockGrande,
         estado: updatedEstado
