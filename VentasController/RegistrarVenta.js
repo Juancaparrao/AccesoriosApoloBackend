@@ -53,7 +53,8 @@ async function ValidarClientePorCedula(req, res) {
     }
 }
 
-// Controlador para buscar producto por referencia (para ventas) (SIN CAMBIOS)
+// Controlador para buscar producto por referencia (para ventas) (MODIFICADO LEVE)
+// Asegura que `descuento` sea el porcentaje y `precio_descuento` el precio final
 async function BuscarProductoVentaPorReferencia(req, res) {
     try {
         const { referencia } = req.query;
@@ -91,9 +92,9 @@ async function BuscarProductoVentaPorReferencia(req, res) {
             referencia: producto[0].referencia,
             nombre: producto[0].nombre,
             stock: producto[0].stock,
-            precio_unidad: parseFloat(producto[0].precio_unidad),
-            descuento: producto[0].descuento,
-            precio_descuento: producto[0].precio_descuento ? parseFloat(producto[0].precio_descuento) : null
+            precio_unidad: parseFloat(producto[0].precio_unidad), // Precio original
+            descuento_porcentaje: producto[0].descuento ? parseFloat(producto[0].descuento) : null, // Porcentaje de descuento
+            precio_final_con_descuento: producto[0].precio_descuento ? parseFloat(producto[0].precio_descuento) : null // Precio final ya con descuento
         };
 
         return res.status(200).json({
@@ -110,7 +111,8 @@ async function BuscarProductoVentaPorReferencia(req, res) {
     }
 }
 
-// Controlador para buscar calcomanía por ID (para ventas) (MODIFICADO)
+// Controlador para buscar calcomanía por ID (para ventas) (MODIFICADO SIGNIFICATIVAMENTE)
+// Ahora `precio_descuento` de la DB es el precio final, y calculamos el porcentaje si es necesario.
 async function BuscarCalcomaniaVentaPorId(req, res) {
     try {
         const { id, tamano, cantidad } = req.query;
@@ -143,7 +145,7 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
                 id_calcomania,
                 nombre,
                 precio_unidad,
-                precio_descuento,
+                precio_descuento, /* ESTE ES AHORA EL PRECIO FINAL CON DESCUENTO APLICADO */
                 stock_pequeno,
                 stock_mediano,
                 stock_grande,
@@ -162,21 +164,23 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
         }
 
         const calcomania = calcomaniaRows[0];
-        let precio_base_por_tamano = parseFloat(calcomania.precio_unidad); // Precio base que se ajustará por tamaño
+        let precio_base_original_sin_descuento = parseFloat(calcomania.precio_unidad); // Precio base de la DB
         let stock_disponible;
 
-        // Calcula el precio actualizado y verifica el stock según el tamaño
+        // Calcula el precio base POR TAMAÑO (antes de cualquier descuento)
+        let precio_por_tamano = precio_base_original_sin_descuento; // Este será el "precio original" para este tamaño
+
         switch (tamano) {
             case 'pequeno':
                 stock_disponible = calcomania.stock_pequeno;
-                // El precio_base_por_tamano se mantiene igual para 'pequeno'
+                // precio_por_tamano se mantiene igual
                 break;
             case 'mediano':
-                precio_base_por_tamano += precio_base_por_tamano * 1.25; // Se le suma el 125%
+                precio_por_tamano += precio_base_original_sin_descuento * 1.25; // Se le suma el 125%
                 stock_disponible = calcomania.stock_mediano;
                 break;
             case 'grande':
-                precio_base_por_tamano += precio_base_por_tamano * 3.00; // Se le suma el 300%
+                precio_por_tamano += precio_base_original_sin_descuento * 3.00; // Se le suma el 300%
                 stock_disponible = calcomania.stock_grande;
                 break;
         }
@@ -189,31 +193,42 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
             });
         }
 
-        let precio_final_con_descuento = null;
-        let precio_usado_para_calculo = precio_base_por_tamano; // Por defecto es el precio sin descuento
+        let precio_final_aplicado;
+        let descuento_porcentaje_calculado = null;
+        let tiene_descuento = false;
 
-        // Aplica el descuento si existe en la base de datos para la calcomanía
+        // Si existe un precio_descuento en la DB para la calcomanía y es válido
         if (calcomania.precio_descuento !== null && parseFloat(calcomania.precio_descuento) > 0) {
-            const descuento_percent = parseFloat(calcomania.precio_descuento);
-            // Asegúrate de que el descuento sea un porcentaje válido (0-100)
-            if (descuento_percent > 0 && descuento_percent <= 100) {
-                precio_final_con_descuento = precio_base_por_tamano * (1 - (descuento_percent / 100));
-                precio_usado_para_calculo = precio_final_con_descuento; // Si hay descuento, este es el precio para cálculos
+            const precio_descuento_db = parseFloat(calcomania.precio_descuento);
+
+            // Validar que el precio de descuento no sea mayor al precio_por_tamano
+            if (precio_descuento_db < precio_por_tamano) {
+                precio_final_aplicado = precio_descuento_db;
+                tiene_descuento = true;
+                // Calcular el porcentaje de descuento
+                descuento_porcentaje_calculado = ((precio_por_tamano - precio_descuento_db) / precio_por_tamano) * 100;
+            } else {
+                // Si el precio de descuento de DB es mayor o igual al precio por tamaño, no hay descuento efectivo
+                precio_final_aplicado = precio_por_tamano;
             }
+        } else {
+            // No hay precio de descuento en DB, usar el precio calculado por tamaño
+            precio_final_aplicado = precio_por_tamano;
         }
 
-        // Calcula el subtotal con el precio final (con o sin descuento)
-        const subtotal = precio_usado_para_calculo * parseInt(cantidad);
+        // Calcula el subtotal con el precio final aplicado
+        const subtotal = precio_final_aplicado * parseInt(cantidad);
 
         // Prepara la información de la calcomanía para la respuesta
         const calcomaniaInfo = {
             id_calcomania: calcomania.id_calcomania,
             nombre: calcomania.nombre,
-            // precio_unidad: Es el precio afectado por el tamaño, antes de cualquier descuento.
-            precio_unidad: parseFloat(precio_base_por_tamano.toFixed(2)),
-            // precio_descuento: Es el precio final que se aplicaría después del descuento (si existe).
-            // Si no hay descuento, será null.
-            precio_descuento: precio_final_con_descuento ? parseFloat(precio_final_con_descuento.toFixed(2)) : null,
+            // precio_original_por_tamano: Precio antes de aplicar el descuento de la DB, solo afectado por tamaño.
+            precio_original_por_tamano: parseFloat(precio_por_tamano.toFixed(2)),
+            // precio_final_con_descuento: El precio final que se usará para la venta (si hay descuento, será el de la DB, si no, será precio_original_por_tamano)
+            precio_final_con_descuento: parseFloat(precio_final_aplicado.toFixed(2)),
+            descuento_porcentaje_calculado: descuento_porcentaje_calculado ? parseFloat(descuento_porcentaje_calculado.toFixed(2)) : null,
+            tiene_descuento: tiene_descuento,
             subtotal: parseFloat(subtotal.toFixed(2)) // Subtotal calculado
         };
 
@@ -338,7 +353,7 @@ async function RegistrarVenta(req, res) {
             }
 
             const [productoExistente] = await connection.execute(
-                'SELECT referencia, nombre, stock, precio_unidad, precio_descuento, estado FROM producto WHERE TRIM(referencia) = TRIM(?)',
+                'SELECT referencia, nombre, stock, precio_unidad, descuento, precio_descuento, estado FROM producto WHERE TRIM(referencia) = TRIM(?)',
                 [referenciaLimpia]
             );
 
@@ -366,28 +381,50 @@ async function RegistrarVenta(req, res) {
                 });
             }
 
-            // **Validar que el precio_usado del frontend sea coherente con la BD**
-            let precio_esperado;
-            if (productoExistente[0].precio_descuento && parseFloat(productoExistente[0].precio_descuento) > 0) {
-                precio_esperado = parseFloat(productoExistente[0].precio_descuento);
-            } else {
-                precio_esperado = parseFloat(productoExistente[0].precio_unidad);
+            // **Validar y determinar precios para productos**
+            let precio_original_producto = parseFloat(productoExistente[0].precio_unidad);
+            let precio_esperado_bd_producto = precio_original_producto; // Por defecto, el precio sin descuento
+            let tiene_descuento_producto = false;
+            let porcentaje_descuento_producto = null;
+
+            // Si hay un porcentaje de descuento en la DB y es válido
+            if (productoExistente[0].descuento !== null && parseFloat(productoExistente[0].descuento) > 0 && parseFloat(productoExistente[0].descuento) <= 100) {
+                porcentaje_descuento_producto = parseFloat(productoExistente[0].descuento);
+                // Si también hay un precio_descuento (precio final), usaremos ese para la validación
+                if (productoExistente[0].precio_descuento !== null && parseFloat(productoExistente[0].precio_descuento) > 0 && parseFloat(productoExistente[0].precio_descuento) < precio_original_producto) {
+                    precio_esperado_bd_producto = parseFloat(productoExistente[0].precio_descuento);
+                    tiene_descuento_producto = true;
+                } else {
+                    // Si el precio_descuento no es válido o no existe, calcularlo a partir del porcentaje
+                    precio_esperado_bd_producto = precio_original_producto * (1 - (porcentaje_descuento_producto / 100));
+                    tiene_descuento_producto = true;
+                }
+            } else if (productoExistente[0].precio_descuento !== null && parseFloat(productoExistente[0].precio_descuento) > 0 && parseFloat(productoExistente[0].precio_descuento) < precio_original_producto) {
+                // Si no hay porcentaje pero sí un precio_descuento (precio final) válido
+                precio_esperado_bd_producto = parseFloat(productoExistente[0].precio_descuento);
+                tiene_descuento_producto = true;
+                // Calcular el porcentaje de descuento si solo tenemos el precio_descuento
+                porcentaje_descuento_producto = ((precio_original_producto - precio_esperado_bd_producto) / precio_original_producto) * 100;
             }
 
-            // Permitir una pequeña variación por errores de coma flotante si es necesario
-            if (Math.abs(parseFloat(producto.precio_usado) - precio_esperado) > 0.01) {
-                // console.warn(`Advertencia: Precio usado para ${referenciaLimpia} (${producto.precio_usado}) difiere del esperado en BD (${precio_esperado}). Se usará el precio del frontend.`);
-                // O podrías hacer: precio_usado = precio_esperado; para forzar el precio de BD
+
+            // Tolerancia para la validación del precio del frontend
+            if (Math.abs(parseFloat(producto.precio_usado) - precio_esperado_bd_producto) > 0.01) {
+                console.warn(`Advertencia: Precio usado para ${referenciaLimpia} (${producto.precio_usado}) difiere del esperado en BD (${precio_esperado_bd_producto}).`);
+                // Considera si quieres forzar el precio de BD aquí:
+                // producto.precio_usado = precio_esperado_bd_producto;
             }
 
             productosValidados.push({
                 referencia: referenciaLimpia,
                 nombre: productoExistente[0].nombre,
                 cantidad: Number(producto.cantidad),
-                precio_unidad_original: parseFloat(productoExistente[0].precio_unidad), // Para referencia en el email
-                precio_descuento_original: productoExistente[0].precio_descuento ? parseFloat(productoExistente[0].precio_descuento) : null,
-                precio_usado: parseFloat(producto.precio_usado), // Usamos el que viene del frontend (validado para coherencia)
-                stock_disponible_bd: productoExistente[0].stock // Para referencia
+                precio_unidad_base_original: precio_original_producto, // Precio sin descuento de la DB
+                precio_usado: parseFloat(producto.precio_usado), // Precio final que se usará para la venta
+                stock_disponible_bd: productoExistente[0].stock,
+                tiene_descuento: tiene_descuento_producto,
+                descuento_porcentaje: porcentaje_descuento_producto ? parseFloat(porcentaje_descuento_producto.toFixed(2)) : null,
+                precio_con_descuento_aplicado: tiene_descuento_producto ? parseFloat(precio_esperado_bd_producto.toFixed(2)) : null // El precio final que la DB considera con descuento
             });
         }
 
@@ -440,7 +477,7 @@ async function RegistrarVenta(req, res) {
                    id_calcomania,
                    nombre,
                    precio_unidad,
-                   precio_descuento,
+                   precio_descuento, /* ESTE ES EL PRECIO FINAL CON DESCUENTO APLICADO */
                    stock_pequeno,
                    stock_mediano,
                    stock_grande,
@@ -467,20 +504,23 @@ async function RegistrarVenta(req, res) {
             }
 
             let stock_disponible_calcomania;
-            let precio_unidad_base_calcomania = parseFloat(calcomaniaExistente[0].precio_unidad);
-            let precio_calculado_segun_tamano = precio_unidad_base_calcomania;
+            let precio_base_original_calcomania = parseFloat(calcomaniaExistente[0].precio_unidad); // Precio base de la DB
+
+            // Precio de la calcomanía afectado por el tamaño, ANTES de cualquier descuento
+            let precio_por_tamano = precio_base_original_calcomania;
 
             switch (tamanoCalcomania) {
                 case 'pequeno':
                     stock_disponible_calcomania = calcomaniaExistente[0].stock_pequeno;
+                    // precio_por_tamano se mantiene igual
                     break;
                 case 'mediano':
                     stock_disponible_calcomania = calcomaniaExistente[0].stock_mediano;
-                    precio_calculado_segun_tamano += precio_calculado_segun_tamano * 1.25;
+                    precio_por_tamano += precio_base_original_calcomania * 1.25;
                     break;
                 case 'grande':
                     stock_disponible_calcomania = calcomaniaExistente[0].stock_grande;
-                    precio_calculado_segun_tamano += precio_calculado_segun_tamano * 3.00;
+                    precio_por_tamano += precio_base_original_calcomania * 3.00;
                     break;
             }
 
@@ -492,22 +532,24 @@ async function RegistrarVenta(req, res) {
                 });
             }
 
-            // **Validar que el precio_usado del frontend sea coherente con la BD para calcomanías**
-            let precio_esperado_calcomania;
-            let precio_con_descuento_calculado_para_bd = null; // Variable para almacenar el precio con descuento si aplica
+            // **Validar y determinar precios para calcomanías**
+            let precio_esperado_bd_calcomania = parseFloat(precio_por_tamano.toFixed(2)); // Por defecto es el precio por tamaño
+            let tiene_descuento_calcomania = false;
+            let porcentaje_descuento_calcomania = null;
 
-            if (calcomaniaExistente[0].precio_descuento && parseFloat(calcomaniaExistente[0].precio_descuento) > 0) {
-                // Si hay un descuento en la BD, aplicarlo al precio calculado por tamaño
-                const descuento_percent = parseFloat(calcomaniaExistente[0].precio_descuento);
-                precio_con_descuento_calculado_para_bd = precio_calculado_segun_tamano * (1 - (descuento_percent / 100));
-                precio_esperado_calcomania = precio_con_descuento_calculado_para_bd;
-            } else {
-                precio_esperado_calcomania = precio_calculado_segun_tamano;
+            // Si hay un `precio_descuento` (que es el precio final con descuento) en la DB y es válido
+            if (calcomaniaExistente[0].precio_descuento !== null && parseFloat(calcomaniaExistente[0].precio_descuento) > 0 && parseFloat(calcomaniaExistente[0].precio_descuento) < precio_por_tamano) {
+                precio_esperado_bd_calcomania = parseFloat(calcomaniaExistente[0].precio_descuento);
+                tiene_descuento_calcomania = true;
+                // Calcular el porcentaje de descuento, ya que no se guarda en la DB para calcomanías
+                porcentaje_descuento_calcomania = ((precio_por_tamano - precio_esperado_bd_calcomania) / precio_por_tamano) * 100;
             }
 
-            if (Math.abs(parseFloat(calcomania.precio_usado) - precio_esperado_calcomania) > 0.01) {
-                // console.warn(`Advertencia: Precio usado para calcomanía ${idCalcomaniaLimpia} (${calcomania.precio_usado}) difiere del esperado en BD (${precio_esperado_calcomania}). Se usará el precio del frontend.`);
-                // O podrías hacer: calcomania.precio_usado = precio_esperado_calcomania;
+            // Tolerancia para la validación del precio del frontend
+            if (Math.abs(parseFloat(calcomania.precio_usado) - precio_esperado_bd_calcomania) > 0.01) {
+                console.warn(`Advertencia: Precio usado para calcomanía ${idCalcomaniaLimpia} (${calcomania.precio_usado}) difiere del esperado en BD (${precio_esperado_bd_calcomania}).`);
+                // Considera si quieres forzar el precio de BD aquí:
+                // calcomania.precio_usado = precio_esperado_bd_calcomania;
             }
 
             calcomaniasValidadas.push({
@@ -515,12 +557,12 @@ async function RegistrarVenta(req, res) {
                 nombre: calcomaniaExistente[0].nombre,
                 cantidad: Number(calcomania.cantidad),
                 tamano: tamanoCalcomania,
-                precio_unidad_original: precio_unidad_base_calcomania, // Precio base de la BD
-                precio_descuento_db_raw: calcomaniaExistente[0].precio_descuento ? parseFloat(calcomaniaExistente[0].precio_descuento) : null, // Porcentaje de descuento
-                precio_calculado_segun_tamano: parseFloat(precio_calculado_segun_tamano.toFixed(2)), // Precio ya afectado por tamaño
-                precio_con_descuento_aplicado: precio_con_descuento_calculado_para_bd ? parseFloat(precio_con_descuento_calculado_para_bd.toFixed(2)) : null, // Precio ya con descuento aplicado
-                precio_usado: parseFloat(calcomania.precio_usado), // Usamos el que viene del frontend (validado para coherencia)
-                stock_disponible_bd: stock_disponible_calcomania // Para referencia
+                precio_original_por_tamano: parseFloat(precio_por_tamano.toFixed(2)), // Precio antes de descuento, solo afectado por tamaño
+                precio_usado: parseFloat(calcomania.precio_usado), // Precio final que se usará para la venta
+                stock_disponible_bd: stock_disponible_calcomania,
+                tiene_descuento: tiene_descuento_calcomania,
+                descuento_porcentaje: porcentaje_descuento_calcomania ? parseFloat(porcentaje_descuento_calcomania.toFixed(2)) : null,
+                precio_con_descuento_aplicado: tiene_descuento_calcomania ? parseFloat(precio_esperado_bd_calcomania.toFixed(2)) : null // El precio final que la DB considera con descuento
             });
         }
 
@@ -610,11 +652,15 @@ async function RegistrarVenta(req, res) {
                 referencia: p.referencia,
                 nombre: p.nombre,
                 cantidad: p.cantidad,
+                // precio_unitario es el precio FINAL usado en la venta (con descuento si aplicó)
                 precio_unitario: new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(p.precio_usado),
-                // Calcular subtotal del item para el email
+                // subtotal_item: Subtotal calculado del item
                 subtotal_item: new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(p.precio_usado * p.cantidad),
-                tiene_descuento: p.precio_descuento_original !== null && p.precio_descuento_original > 0,
-                precio_original_sin_descuento: p.precio_descuento_original ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(p.precio_unidad_original) : null
+                tiene_descuento: p.tiene_descuento,
+                // Si tiene descuento, mostramos el precio original y el porcentaje.
+                // Si no, estos serán null.
+                precio_original_sin_descuento: p.tiene_descuento ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(p.precio_unidad_base_original) : null,
+                porcentaje_descuento: p.tiene_descuento ? `${p.descuento_porcentaje}%` : null
             })),
             // Formatear calcomanías para el email/respuesta
             calcomanias: calcomaniasValidadas.map(c => ({
@@ -622,15 +668,15 @@ async function RegistrarVenta(req, res) {
                 nombre: c.nombre,
                 cantidad: c.cantidad,
                 tamano: c.tamano,
-                // precio_unitario: Ahora este es el precio que se usó en la venta (con descuento si aplicó)
+                // precio_unitario: Es el precio FINAL usado en la venta (con descuento si aplicó)
                 precio_unitario: new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(c.precio_usado),
-                // precio_descuento: Si hubo un descuento, este sería el precio con descuento. Si no, null.
-                precio_descuento: c.precio_con_descuento_aplicado ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(c.precio_con_descuento_aplicado) : null,
                 // subtotal_item: Subtotal del item ya calculado
                 subtotal_item: new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(c.precio_usado * c.cantidad),
-                tiene_descuento: c.precio_descuento_db_raw !== null && c.precio_descuento_db_raw > 0,
-                // precio_original_sin_descuento_base: Este sería el precio base original para el tamaño antes de cualquier descuento
-                precio_original_sin_descuento_base: c.precio_descuento_db_raw ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(c.precio_calculado_segun_tamano) : null
+                tiene_descuento: c.tiene_descuento,
+                // Si tiene descuento, mostramos el precio original (por tamaño) y el porcentaje calculado.
+                // Si no, estos serán null.
+                precio_original_sin_descuento: c.tiene_descuento ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(c.precio_original_por_tamano) : null,
+                porcentaje_descuento: c.tiene_descuento ? `${c.descuento_porcentaje}%` : null
             })),
             valor_total: new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(Number(valor_total)),
             total_items: productosValidados.length + calcomaniasValidadas.length
