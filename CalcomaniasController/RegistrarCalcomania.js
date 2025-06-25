@@ -2,10 +2,25 @@ const pool = require('../db');
 
 async function RegistrarCalcomania(req, res) {
   try {
+    console.log("=== DEBUG BACKEND ===");
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
+    console.log("req.user:", req.user);
+
     // Extraer datos del cuerpo de la solicitud
     const { nombre, precio_unidad, precio_descuento, stock_pequeño, stock_mediano, stock_grande } = req.body;
-    const fk_id_usuario = req.user.id_usuario; // Obtener ID del usuario del token
+    const fk_id_usuario = req.user.id_usuario;
 
+    console.log("=== DATOS EXTRAÍDOS ===");
+    console.log("nombre:", nombre, "tipo:", typeof nombre);
+    console.log("precio_unidad:", precio_unidad, "tipo:", typeof precio_unidad);
+    console.log("precio_descuento:", precio_descuento, "tipo:", typeof precio_descuento);
+    console.log("stock_pequeño:", stock_pequeño, "tipo:", typeof stock_pequeño);
+    console.log("stock_mediano:", stock_mediano, "tipo:", typeof stock_mediano);
+    console.log("stock_grande:", stock_grande, "tipo:", typeof stock_grande);
+    console.log("fk_id_usuario:", fk_id_usuario);
+    console.log("req.file?.path:", req.file?.path);
+    
     // Validar datos requeridos
     if (!nombre || !req.file?.path || precio_unidad === undefined || precio_descuento === undefined ||
         stock_pequeño === undefined || stock_mediano === undefined || stock_grande === undefined) {
