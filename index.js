@@ -249,6 +249,9 @@ app.get('/productos/mas-stock', obtenerTopProductosMasStock);
 app.get('/productos/menos-stock', obtenerTopProductosMenosStock);
 app.get('/inventarios-ultimos-7-dias', obtenerInventariosUltimos7Dias);
 
+// Carrito de compras
+app.get('/consultar-carrito-usuario', verificarToken, ConsultarCalcomaniasPorUsuario);
+
 // Formulario de contacto
 app.post('/contacto', handleContactForm);
 
