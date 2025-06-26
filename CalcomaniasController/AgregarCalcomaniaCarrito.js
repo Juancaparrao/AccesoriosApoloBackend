@@ -63,12 +63,16 @@ async function AgregarCalcomaniaCarrito(req, res) {
     // 5. Agregar la calcomanía al 'carrito_compras'
     const fecha_adicion = new Date().toISOString().split('T')[0]; // Fecha actual
     const cantidad = 1; // Cantidad fija a 1 para esta operación
-    const fk_id_producto = 0; // Como no es un producto, se guarda como 0
+
+    // ¡CAMBIO CLAVE AQUÍ!
+    // Usamos 'FK_referencia_producto' como en tu tabla
+    // Y el valor '0' se envía como STRING porque la columna es VARCHAR.
+    const FK_referencia_producto = '0';
 
     const [carritoResult] = await pool.execute(
-      `INSERT INTO carrito_compras (fk_id_usuario, fk_id_producto, fk_id_calcomania, cantidad, fecha_adicion)
+      `INSERT INTO carrito_compras (fk_id_usuario, FK_referencia_producto, fk_id_calcomania, cantidad, fecha_adicion)
        VALUES (?, ?, ?, ?, ?)`,
-      [fk_id_usuario, fk_id_producto, id_calcomania, cantidad, fecha_adicion]
+      [fk_id_usuario, FK_referencia_producto, id_calcomania, cantidad, fecha_adicion]
     );
 
     return res.status(200).json({
@@ -83,6 +87,7 @@ async function AgregarCalcomaniaCarrito(req, res) {
       carrito_item: {
         id_carrito_item: carritoResult.insertId,
         fk_id_usuario: fk_id_usuario,
+        FK_referencia_producto: FK_referencia_producto, // Devolvemos el valor usado
         fk_id_calcomania: id_calcomania,
         cantidad: cantidad,
         fecha_adicion: fecha_adicion
