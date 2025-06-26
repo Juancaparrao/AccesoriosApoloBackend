@@ -154,7 +154,7 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
             [id]
         );
 
-        // Verifica si la calcomanía existe y está activa
+        // Verifica si la calcomania existe y está activa
         if (calcomaniaRows.length === 0) {
             return res.status(404).json({
                 success: false,
@@ -163,7 +163,7 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
         }
 
         const calcomania = calcomaniaRows[0];
-        let precio_base_original_sin_descuento = parseFloat(calcomania.precio_unidad); // Precio base de la DB
+        const precio_base_original_sin_descuento = parseFloat(calcomania.precio_unidad); // Precio base de la DB (para el tamaño 'pequeno')
         let stock_disponible;
 
         // Calcula el precio base POR TAMAÑO (antes de cualquier descuento específico de la calcomanía)
@@ -194,27 +194,20 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
 
         let precio_final_aplicado;
         let descuento_porcentaje_calculado = null;
-        // let tiene_descuento = false; // Ya no es estrictamente necesario enviarlo si el front solo mira 0 o > 0
 
-        // Si existe un precio_descuento en la DB para la calcomanía y es válido (menor que el precio por tamaño)
-        if (calcomania.precio_descuento !== null && parseFloat(calcomania.precio_descuento) > 0) {
-            const precio_descuento_db = parseFloat(calcomania.precio_descuento);
+        // Calcula el descuento porcentual basado en el precio unitario base (precio_unidad)
+        // Si precio_descuento en la DB es válido y menor que precio_unidad
+        if (calcomania.precio_descuento !== null && parseFloat(calcomania.precio_descuento) > 0 && parseFloat(calcomania.precio_descuento) < precio_base_original_sin_descuento) {
+            const precio_descuento_db_base = parseFloat(calcomania.precio_descuento);
+            // Calcula la diferencia porcentual entre el precio unitario base y su descuento
+            const percentage_discount_from_base = ((precio_base_original_sin_descuento - precio_descuento_db_base) / precio_base_original_sin_descuento);
 
-            // Validar que el precio de descuento NO sea mayor o igual al precio_por_tamano
-            if (precio_descuento_db < precio_por_tamano) {
-                precio_final_aplicado = precio_descuento_db;
-                // tiene_descuento = true; // Ya no es estrictamente necesario
-                // Calcular el porcentaje de descuento
-                descuento_porcentaje_calculado = ((precio_por_tamano - precio_descuento_db) / precio_por_tamano) * 100;
-            } else {
-                // Si el precio de descuento de DB es mayor o igual al precio por tamaño,
-                // no se considera un descuento efectivo. Se usa el precio sin descuento.
-                // Y el precio_descuento_en_respuesta será 0.
-                precio_final_aplicado = precio_por_tamano;
-            }
+            // Aplica este descuento porcentual al precio calculado *por tamaño*
+            precio_final_aplicado = precio_por_tamano * (1 - percentage_discount_from_base);
+            descuento_porcentaje_calculado = percentage_discount_from_base * 100;
+
         } else {
-            // No hay precio de descuento en DB, usar el precio calculado por tamaño.
-            // Y el precio_descuento_en_respuesta será 0.
+            // No hay un descuento válido en la DB para el precio base, así que usa el precio ajustado por tamaño
             precio_final_aplicado = precio_por_tamano;
         }
 
@@ -230,7 +223,6 @@ async function BuscarCalcomaniaVentaPorId(req, res) {
             // 'precio_descuento' es el precio final con descuento si aplica, O 0 si no hay descuento efectivo
             precio_descuento: (precio_final_aplicado < precio_por_tamano) ? parseFloat(precio_final_aplicado.toFixed(2)) : 0,
             descuento_porcentaje_calculado: descuento_porcentaje_calculado ? parseFloat(descuento_porcentaje_calculado.toFixed(2)) : null,
-            // tiene_descuento ya no es necesario si el front solo evalúa si precio_descuento es > 0
             subtotal: parseFloat(subtotal.toFixed(2)) // Subtotal calculado
         };
 
