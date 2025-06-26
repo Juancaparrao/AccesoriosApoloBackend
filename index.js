@@ -71,6 +71,7 @@ const { EditarNombreCalcomania } = require('./CalcomaniasController/EditarNombre
 const { EliminarCalcomaniaUsuario } = require('./CalcomaniasController/EliminarCalcomaniasUsuario');
 const { RegistrarCalcomaniaUsuario } = require('./CalcomaniasController/RegistrarCalcomaniaUsuario');
 const { AgregarCalcomaniaCarrito } = require('./CalcomaniasController/AgregarCalcomaniaCarrito');
+const { ConsultarCarrito } = require('./CarritoController/ConsultarCarrito');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -250,7 +251,7 @@ app.get('/productos/menos-stock', obtenerTopProductosMenosStock);
 app.get('/inventarios-ultimos-7-dias', obtenerInventariosUltimos7Dias);
 
 // Carrito de compras
-app.get('/consultar-carrito-usuario', verificarToken, ConsultarCalcomaniasPorUsuario);
+app.get('/consultar-carrito-usuario', verificarToken, ConsultarCarrito);
 
 // Formulario de contacto
 app.post('/contacto', handleContactForm);
