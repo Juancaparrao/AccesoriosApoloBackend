@@ -64,7 +64,7 @@ async function AgregarCalcomaniaCarrito(req, res) {
     // 5. Verificar si la calcomanía ya existe en el carrito del usuario con los mismos atributos
     const [existingItem] = await pool.execute(
       `SELECT id_carrito, cantidad
-       FROM CARRITO_COMPRAS
+       FROM carrito_compras
        WHERE FK_id_usuario = ?
        AND FK_id_calcomania = ?
        AND FK_referencia_producto IS NULL`, // Importante: Aseguramos que sea el registro de la calcomanía
@@ -81,7 +81,7 @@ async function AgregarCalcomaniaCarrito(req, res) {
       const newQuantity = currentQuantity + 1;
 
       [carritoResult] = await pool.execute(
-        `UPDATE CARRITO_COMPRAS
+        `UPDATE carrito_compras
          SET cantidad = ?
          WHERE id_carrito = ?`,
         [newQuantity, id_carrito_existente]
