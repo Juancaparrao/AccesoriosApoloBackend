@@ -365,26 +365,6 @@ const cronJob = cron.schedule('0 0 8 * * *', async () => {
   timezone: "America/Bogota"
 });
 
-// Función para probar el cron job (ejecutar en los próximos 30 segundos para testing)
-function probarCronJob() {
-  const ahora = new Date();
-  const proximaEjecucion = new Date(ahora.getTime() + 30000); // 30 segundos desde ahora
-  const minutos = proximaEjecucion.getMinutes();
-  const segundos = proximaEjecucion.getSeconds();
-
-  console.log(`🧪 [${new Date().toLocaleString('es-CO')}] Programando prueba de cron job para ${proximaEjecucion.toLocaleTimeString('es-CO')}`);
-
-  // Crear un cron job de prueba que se ejecute una sola vez
-  const cronPrueba = cron.schedule(`${segundos} ${minutos} * * * *`, async () => {
-    console.log(`🎯 [${new Date().toLocaleString('es-CO')}] ¡PRUEBA DE CRON JOB EJECUTADA CORRECTAMENTE!`);
-    await GenerarInventarioAutomatico();
-    cronPrueba.destroy(); // Destruir el cron job de prueba después de ejecutarlo
-  }, {
-    scheduled: true,
-    timezone: "America/Bogota"
-  });
-}
-
 // Verificar que el cron job esté activo
 if (cronJob) {
   console.log('✅ Cron job configurado exitosamente: Inventario automático todos los días a las 8:00 AM (Zona horaria: America/Bogota)');
@@ -431,6 +411,5 @@ process.on('SIGTERM', () => {
 
 module.exports = {
   GenerarInventario,
-  GenerarInventarioAutomatico,
-  probarCronJob
+  GenerarInventarioAutomatico
 };

@@ -223,26 +223,6 @@ app.post('/generar-inventario-automatico', async (req, res) => {
   }
 });
 
-// Ruta para probar el cron job (solo para administradores)
-// Esta ruta activará la función probarCronJob que programará una ejecución en 30 segundos.
-app.post('/probar-cron-job', verificarToken, validarGerente, (req, res) => {
-  try {
-    probarCronJob(); // Llama a la función que programa la prueba
-    
-    return res.status(200).json({
-      success: true,
-      mensaje: 'Prueba de cron job programada para ejecutarse en 30 segundos',
-      timestamp: new Date().toLocaleString('es-CO'),
-      nota: 'Revisa los logs del servidor para ver los resultados de la prueba'
-    });
-  } catch (error) {
-    console.error('Error al programar prueba del cron:', error);
-    return res.status(500).json({
-      success: false,
-      mensaje: 'Error al programar la prueba del cron job'
-    });
-  }
-});
 
 // Estadisticas 
 app.get('/categorias-con-valor', obtenerCategoriasConValor);
