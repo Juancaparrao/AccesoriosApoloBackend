@@ -36,11 +36,11 @@ async function ConsultarCarrito(req, res) {
         c.tamano_y AS calcomania_tamano_y,
         c.precio_unidad AS calcomania_precio_unidad
       FROM
-        CARRITO_COMPRAS cc
+        carrito_compras cc
       LEFT JOIN
-        PRODUCTO p ON cc.FK_referencia_producto = p.referencia
+        producto p ON cc.FK_referencia_producto = p.referencia
       LEFT JOIN
-        CALCOMANIA c ON cc.FK_id_calcomania = c.id_calcomania
+        calcomania c ON cc.FK_id_calcomania = c.id_calcomania
       WHERE
         cc.FK_id_usuario = ?`,
       [fk_id_usuario]
