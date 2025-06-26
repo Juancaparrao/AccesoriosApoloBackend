@@ -73,6 +73,7 @@ const { RegistrarCalcomaniaUsuario } = require('./CalcomaniasController/Registra
 const { AgregarCalcomaniaCarrito } = require('./CalcomaniasController/AgregarCalcomaniaCarrito');
 const { ConsultarCarrito } = require('./CarritoController/ConsultarCarrito');
 const { ActualizarCarrito } = require('./CarritoController/ActualizarCarrito');
+const { EliminarItemCarrito } = require('./CarritoController/EliminarCarrito');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -234,6 +235,7 @@ app.get('/inventarios-ultimos-7-dias', obtenerInventariosUltimos7Dias);
 // Carrito de compras
 app.get('/consultar-carrito-usuario', verificarToken, ConsultarCarrito);
 app.put('/actualizar-cantidad-carrito', verificarToken, ActualizarCarrito);
+app.delete('/carrito/:id_carrito_item', verificarToken, EliminarItemCarrito);
 
 // Formulario de contacto
 app.post('/contacto', handleContactForm);
