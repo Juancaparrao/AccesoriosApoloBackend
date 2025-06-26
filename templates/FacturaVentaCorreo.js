@@ -3,7 +3,6 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-// La función generarPDFFactura (no modificada para esta corrección, solo para contexto)
 function generarPDFFactura(datosFactura) {
   return new Promise((resolve, reject) => {
     try {
@@ -51,37 +50,43 @@ function generarPDFFactura(datosFactura) {
 
       let posicionY = inicioTabla + 25;
 
+      // Helper para extraer y parsear números de forma segura
+      const extraerNumero = (valor, valorPorDefecto = 0) => {
+        if (valor === undefined || valor === null || valor === '') return parseFloat(valorPorDefecto);
+        const numeroString = String(valor).replace(/[^0-9.,-]+/g, '').replace(',', '.'); // Permite comas para decimales y guiones para negativos
+        return parseFloat(numeroString) || parseFloat(valorPorDefecto);
+      };
+
+      // Helper para formatear valores de moneda de forma segura
+      const formatearValor = (valor, esMoneda = false) => {
+        if (valor === undefined || valor === null) return esMoneda ? '$0' : '0';
+        if (esMoneda) {
+          return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(extraerNumero(valor));
+        }
+        return String(valor);
+      };
+
       if (datosFactura.productos && Array.isArray(datosFactura.productos)) {
         datosFactura.productos.forEach((producto, index) => {
           try {
-            const extraerNumero = (valor, valorPorDefecto = '0') => {
-              if (!valor) return parseFloat(valorPorDefecto);
-              const numeroString = typeof valor === 'string' ? valor : String(valor);
-              const numeroExtraido = numeroString.replace(/[^0-9.-]+/g, '');
-              return parseFloat(numeroExtraido) || parseFloat(valorPorDefecto);
-            };
+            const cantidad = extraerNumero(producto.cantidad);
+            const precioUnitario = extraerNumero(producto.precio_unitario);
+            // Calcular subtotal si es 0 o no válido
+            const subtotalCalculado = cantidad * precioUnitario;
+            const subtotalMostrar = (extraerNumero(producto.subtotal) === 0 || isNaN(extraerNumero(producto.subtotal))) ? subtotalCalculado : extraerNumero(producto.subtotal);
 
-            const formatearValor = (valor, esMoneda = false) => {
-              if (!valor) return esMoneda ? '$0' : '0';
-              if (typeof valor === 'string') return valor;
-              return esMoneda ? `$${valor.toLocaleString('es-CO')}` : String(valor);
-            };
-
-            const precioUnitarioNumerico = extraerNumero(producto.precio_unitario);
             let tieneDescuento = false;
-
-            if (producto.precio_descuento && producto.precio_descuento !== '' && producto.precio_descuento !== '0') {
-              const precioOriginalNumerico = extraerNumero(producto.precio_descuento);
-              tieneDescuento = precioOriginalNumerico > precioUnitarioNumerico;
+            if (producto.precio_descuento && extraerNumero(producto.precio_descuento) !== 0) {
+              tieneDescuento = extraerNumero(producto.precio_descuento) > precioUnitario;
             }
 
             doc.fontSize(9).fillColor('#34495e')
               .text(producto.referencia || 'N/A', 50, posicionY)
               .text((producto.nombre || 'Producto sin nombre').substring(0, 25) +
                 ((producto.nombre || '').length > 25 ? '...' : ''), 100, posicionY)
-              .text(String(producto.cantidad || '0'), 300, posicionY)
-              .text(formatearValor(producto.precio_unitario, true), 350, posicionY)
-              .text(formatearValor(producto.subtotal, true), 450, posicionY);
+              .text(String(cantidad), 300, posicionY)
+              .text(formatearValor(precioUnitario, true), 350, posicionY)
+              .text(formatearValor(subtotalMostrar, true), 450, posicionY);
 
             if (tieneDescuento) {
               doc.fontSize(8).fillColor('#e74c3c')
@@ -103,7 +108,6 @@ function generarPDFFactura(datosFactura) {
           }
         });
       }
-
 
       // --- Sección para Calcomanías en el PDF ---
       if (datosFactura.calcomanias && Array.isArray(datosFactura.calcomanias) && datosFactura.calcomanias.length > 0) {
@@ -130,25 +134,15 @@ function generarPDFFactura(datosFactura) {
 
         datosFactura.calcomanias.forEach((calcomania, index) => {
           try {
-            const extraerNumero = (valor, valorPorDefecto = '0') => {
-              if (!valor) return parseFloat(valorPorDefecto);
-              const numeroString = typeof valor === 'string' ? valor : String(valor);
-              const numeroExtraido = numeroString.replace(/[^0-9.-]+/g, '');
-              return parseFloat(numeroExtraido) || parseFloat(valorPorDefecto);
-            };
+            const cantidad = extraerNumero(calcomania.cantidad);
+            const precioUnitario = extraerNumero(calcomania.precio_unitario);
+            // Calcular subtotal si es 0 o no válido
+            const subtotalCalculado = cantidad * precioUnitario;
+            const subtotalMostrar = (extraerNumero(calcomania.subtotal) === 0 || isNaN(extraerNumero(calcomania.subtotal))) ? subtotalCalculado : extraerNumero(calcomania.subtotal);
 
-            const formatearValor = (valor, esMoneda = false) => {
-              if (!valor) return esMoneda ? '$0' : '0';
-              if (typeof valor === 'string') return valor;
-              return esMoneda ? `$${valor.toLocaleString('es-CO')}` : String(valor);
-            };
-
-            const precioUnitarioNumerico = extraerNumero(calcomania.precio_unitario);
             let tieneDescuento = false;
-
-            if (calcomania.precio_descuento && calcomania.precio_descuento !== '' && calcomania.precio_descuento !== '0') {
-              const precioOriginalNumerico = extraerNumero(calcomania.precio_descuento);
-              tieneDescuento = precioOriginalNumerico > precioUnitarioNumerico;
+            if (calcomania.precio_descuento && extraerNumero(calcomania.precio_descuento) !== 0) {
+              tieneDescuento = extraerNumero(calcomania.precio_descuento) > precioUnitario;
             }
 
             doc.fontSize(9).fillColor('#34495e')
@@ -156,9 +150,9 @@ function generarPDFFactura(datosFactura) {
               .text((calcomania.nombre || 'Calcomanía sin nombre').substring(0, 20) +
                 ((calcomania.nombre || '').length > 20 ? '...' : ''), 100, posicionY)
               .text(calcomania.tamano || 'N/A', 250, posicionY)
-              .text(String(calcomania.cantidad || '0'), 350, posicionY)
-              .text(formatearValor(calcomania.precio_unitario, true), 400, posicionY)
-              .text(formatearValor(calcomania.subtotal, true), 500, posicionY);
+              .text(String(cantidad), 350, posicionY)
+              .text(formatearValor(precioUnitario, true), 400, posicionY)
+              .text(formatearValor(subtotalMostrar, true), 500, posicionY);
 
             if (tieneDescuento) {
               doc.fontSize(8).fillColor('#e74c3c')
@@ -181,10 +175,9 @@ function generarPDFFactura(datosFactura) {
         });
       }
 
-
       doc.moveTo(50, posicionY + 10).lineTo(550, posicionY + 10).stroke('#bdc3c7');
       doc.fontSize(14).fillColor('#2c3e50').text('VALOR TOTAL:', 350, posicionY + 25);
-      doc.fontSize(16).fillColor('#014aad').text(datosFactura.valor_total || '$0', 450, posicionY + 25);
+      doc.fontSize(16).fillColor('#014aad').text(formatearValor(datosFactura.valor_total, true) || '$0', 450, posicionY + 25);
       doc.fontSize(10).fillColor('#7f8c8d')
         .text(`Total de productos: ${datosFactura.productos?.length || 0}`, 50, posicionY + 60)
         .text('Gracias por su compra en Accesorios Apolo', 50, posicionY + 80)
@@ -241,17 +234,17 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
 
     const rutaPDF = await generarPDFFactura(datosFactura);
 
+    // Helper para extraer y parsear números de forma segura
+    const extraerNumero = (valor, valorPorDefecto = 0) => {
+      if (valor === undefined || valor === null || valor === '') return parseFloat(valorPorDefecto);
+      const numeroString = String(valor).replace(/[^0-9.,-]+/g, '').replace(',', '.');
+      return parseFloat(numeroString) || parseFloat(valorPorDefecto);
+    };
+
     // Función auxiliar para formatear valores de moneda de forma segura
     const formatearMoneda = (valor) => {
-      if (typeof valor === 'string') {
-        // Intenta parsear el string si no es un número directo (ej: "$1.234,56")
-        const numeroLimpio = valor.replace(/[^0-9,-]+/g, '').replace(',', '.');
-        valor = parseFloat(numeroLimpio);
-      }
-      if (typeof valor !== 'number' || isNaN(valor)) {
-        return '$0'; // Valor por defecto si no es un número válido
-      }
-      return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(valor);
+      if (valor === undefined || valor === null) return '$0';
+      return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(extraerNumero(valor));
     };
 
     // --- HTML para la tabla de productos ---
@@ -272,8 +265,13 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
                 <tbody>
         `;
       datosFactura.productos.forEach(producto => {
+        const cantidad = extraerNumero(producto.cantidad);
+        const precioUnitario = extraerNumero(producto.precio_unitario);
+        const subtotalCalculado = cantidad * precioUnitario;
+        const subtotalMostrar = (extraerNumero(producto.subtotal) === 0 || isNaN(extraerNumero(producto.subtotal))) ? subtotalCalculado : extraerNumero(producto.subtotal);
+
         let precioOriginalDisplay = '';
-        if (producto.precio_descuento && formatearMoneda(producto.precio_descuento) !== formatearMoneda(producto.precio_unitario)) {
+        if (producto.precio_descuento && extraerNumero(producto.precio_descuento) !== 0 && formatearMoneda(producto.precio_descuento) !== formatearMoneda(precioUnitario)) {
           precioOriginalDisplay = `<br><small style="color: #e74c3c;">(Original: ${formatearMoneda(producto.precio_descuento)})</small>`;
         }
 
@@ -281,9 +279,9 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
                 <tr>
                     <td style="padding: 8px; border: 1px solid #ddd;">${producto.referencia || 'N/A'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd;">${producto.nombre || 'Producto sin nombre'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${producto.cantidad || '0'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(producto.precio_unitario)}${precioOriginalDisplay}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(producto.subtotal)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${String(cantidad)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(precioUnitario)}${precioOriginalDisplay}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(subtotalMostrar)}</td>
                 </tr>
             `;
       });
@@ -312,8 +310,13 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
                 <tbody>
         `;
       datosFactura.calcomanias.forEach(calcomania => {
+        const cantidad = extraerNumero(calcomania.cantidad);
+        const precioUnitario = extraerNumero(calcomania.precio_unitario);
+        const subtotalCalculado = cantidad * precioUnitario;
+        const subtotalMostrar = (extraerNumero(calcomania.subtotal) === 0 || isNaN(extraerNumero(calcomania.subtotal))) ? subtotalCalculado : extraerNumero(calcomania.subtotal);
+
         let precioOriginalDisplay = '';
-        if (calcomania.precio_descuento && formatearMoneda(calcomania.precio_descuento) !== formatearMoneda(calcomania.precio_unitario)) {
+        if (calcomania.precio_descuento && extraerNumero(calcomania.precio_descuento) !== 0 && formatearMoneda(calcomania.precio_descuento) !== formatearMoneda(precioUnitario)) {
           precioOriginalDisplay = `<br><small style="color: #e74c3c;">(Original: ${formatearMoneda(calcomania.precio_descuento)})</small>`;
         }
 
@@ -322,9 +325,9 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
                     <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.id || 'N/A'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.nombre || 'Calcomanía sin nombre'}</td>
                     <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.tamano || 'N/A'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.cantidad || '0'}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(calcomania.precio_unitario)}${precioOriginalDisplay}</td>
-                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(calcomania.subtotal)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${String(cantidad)}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(precioUnitario)}${precioOriginalDisplay}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(subtotalMostrar)}</td>
                 </tr>
             `;
       });
@@ -356,8 +359,6 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
                 <p><strong>Teléfono:</strong> ${datosFactura.cliente?.telefono || 'N/A'}</p>
                 <p><strong>Correo:</strong> ${datosFactura.cliente?.correo || 'N/A'}</p>
 
-                ${productosHtml}
-                ${calcomaniasHtml}
 
                 <p style="font-size: 1.2em; font-weight: bold; text-align: right; margin-top: 20px;">
                     VALOR TOTAL: <span style="color: #014aad;">${valorTotalFormatted}</span>
