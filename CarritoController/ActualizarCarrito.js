@@ -30,11 +30,11 @@ async function ActualizarCarrito(req, res) {
         c.stock_mediano,
         c.stock_grande
       FROM
-        CARRITO_COMPRAS cc
+        carrito_compras cc
       LEFT JOIN
-        PRODUCTO p ON cc.FK_referencia_producto = p.referencia
+        producto p ON cc.FK_referencia_producto = p.referencia
       LEFT JOIN
-        CALCOMANIA c ON cc.FK_id_calcomania = c.id_calcomania
+        calcomnia c ON cc.FK_id_calcomania = c.id_calcomania
       WHERE
         cc.id_carrito = ? AND cc.FK_id_usuario = ?`,
       [id_carrito_item, fk_id_usuario]
@@ -55,7 +55,7 @@ async function ActualizarCarrito(req, res) {
     // 3. Lógica para eliminar el ítem si la nueva cantidad es 0
     if (nueva_cantidad === 0) {
       await pool.execute(
-        `DELETE FROM CARRITO_COMPRAS WHERE id_carrito = ? AND FK_id_usuario = ?`,
+        `DELETE FROM carrito_compras WHERE id_carrito = ? AND FK_id_usuario = ?`,
         [id_carrito_item, fk_id_usuario]
       );
       return res.status(200).json({
@@ -110,11 +110,11 @@ async function ActualizarCarrito(req, res) {
           ur.id_rol,
           r.nombre AS rol_nombre
         FROM
-          CALCOMANIA c
+          calcomania c
         JOIN
-          USUARIO_ROL ur ON c.fk_id_usuario = ur.fk_id_usuario
+          usuario_rol ur ON c.fk_id_usuario = ur.fk_id_usuario
         JOIN
-          ROL r ON ur.id_rol = r.id_rol
+          rol r ON ur.id_rol = r.id_rol
         WHERE
           c.id_calcomania = ?`,
         [FK_id_calcomania]
@@ -176,7 +176,7 @@ async function ActualizarCarrito(req, res) {
 
     // 5. Actualizar la cantidad en el carrito
     await pool.execute(
-      `UPDATE CARRITO_COMPRAS
+      `UPDATE carrito_compras
        SET cantidad = ?
        WHERE id_carrito = ? AND FK_id_usuario = ?`,
       [nueva_cantidad, id_carrito_item, fk_id_usuario]
