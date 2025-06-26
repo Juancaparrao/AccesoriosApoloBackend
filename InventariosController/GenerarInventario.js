@@ -375,7 +375,6 @@ if (cronJob) {
     probarConexionDB();
 
     // Habilitado para la prueba de 30 segundos
-    probarCronJob();
   }, 2000);
 
   // Verificar estado cada hora para asegurar que el cron sigue activo
