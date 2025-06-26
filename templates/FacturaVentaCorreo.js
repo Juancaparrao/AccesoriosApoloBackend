@@ -1,419 +1,404 @@
-const transporter = require('../config/mailer'); // Asegúrate de que esta ruta sea correcta
+const transporter = require('../config/mailer');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-/**
- * Genera un archivo PDF para la factura de venta.
- * @param {object} datosFactura - Objeto con todos los datos de la factura (principal, cliente, productos, calcomanías).
- * @returns {Promise<string>} - Promesa que resuelve con la ruta del archivo PDF generado.
- */
+// La función generarPDFFactura (no modificada para esta corrección, solo para contexto)
 function generarPDFFactura(datosFactura) {
-    return new Promise((resolve, reject) => {
-        try {
-            const doc = new PDFDocument({ margin: 50 });
-            // Genera un nombre de archivo único para evitar conflictos
-            const nombreArchivo = `factura_${datosFactura.id_factura}_${Date.now()}.pdf`;
-            // Define la ruta donde se guardará el archivo PDF temporalmente
-            const rutaArchivo = path.join(__dirname, '../temp/', nombreArchivo);
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 50 });
+      const nombreArchivo = `factura_${datosFactura.id_factura}_${Date.now()}.pdf`;
+      const rutaArchivo = path.join(__dirname, '../temp/', nombreArchivo);
 
-            // Crea el directorio 'temp' si no existe
-            if (!fs.existsSync(path.dirname(rutaArchivo))) {
-                fs.mkdirSync(path.dirname(rutaArchivo), { recursive: true });
-            }
+      if (!fs.existsSync(path.dirname(rutaArchivo))) {
+        fs.mkdirSync(path.dirname(rutaArchivo), { recursive: true });
+      }
 
-            // Crea un flujo de escritura para guardar el PDF
-            const stream = fs.createWriteStream(rutaArchivo);
-            doc.pipe(stream);
+      const stream = fs.createWriteStream(rutaArchivo);
+      doc.pipe(stream);
 
-            // --- Encabezado de la Factura: Información de la Empresa ---
-            doc.fontSize(20).fillColor('#2c3e50').text('ACCESORIOS APOLO', 50, 50);
-            doc.fontSize(12).fillColor('#7f8c8d')
-                .text('NIT: 123.456.789-0', 50, 75)
-                .text('Dirección: Calle 123 #45-67', 50, 90)
-                .text('Teléfono: (601) 234-5678', 50, 105)
-                .text('Email: info@accesoriosapolo.com', 50, 120);
-            // Línea separadora
-            doc.moveTo(50, 140).lineTo(550, 140).stroke('#bdc3c7');
+      doc.fontSize(20).fillColor('#2c3e50').text('ACCESORIOS APOLO', 50, 50);
+      doc.fontSize(12).fillColor('#7f8c8d')
+        .text('NIT: 123.456.789-0', 50, 75)
+        .text('Dirección: Calle 123 #45-67', 50, 90)
+        .text('Teléfono: (601) 234-5678', 50, 105)
+        .text('Email: info@accesoriosapolo.com', 50, 120);
+      doc.moveTo(50, 140).lineTo(550, 140).stroke('#bdc3c7');
 
-            // --- Detalles de la Factura ---
-            doc.fontSize(16).fillColor('#2c3e50').text('FACTURA DE VENTA', 50, 160);
-            doc.fontSize(12).fillColor('#34495e')
-                .text(`Factura No: ${datosFactura.id_factura || 'N/A'}`, 50, 190)
-                // Formatea la fecha a un formato legible para Colombia
-                .text(`Fecha: ${new Date(datosFactura.fecha_venta).toLocaleDateString('es-CO') || 'N/A'}`, 50, 205)
-                .text(`Método de Pago: ${datosFactura.metodo_pago || 'N/A'}`, 50, 220);
+      doc.fontSize(16).fillColor('#2c3e50').text('FACTURA DE VENTA', 50, 160);
+      doc.fontSize(12).fillColor('#34495e')
+        .text(`Factura No: ${datosFactura.id_factura || 'N/A'}`, 50, 190)
+        .text(`Fecha: ${datosFactura.fecha_venta || 'N/A'}`, 50, 205)
+        .text(`Método de Pago: ${datosFactura.metodo_pago || 'N/A'}`, 50, 220);
 
-            // --- Datos del Cliente ---
-            doc.fontSize(14).fillColor('#2c3e50').text('DATOS DEL CLIENTE', 50, 250);
-            doc.fontSize(11).fillColor('#34495e')
-                .text(`Cédula: ${datosFactura.cliente?.cedula || 'N/A'}`, 50, 275)
-                .text(`Nombre: ${datosFactura.cliente?.nombre || 'N/A'}`, 50, 290)
-                .text(`Teléfono: ${datosFactura.cliente?.telefono || 'N/A'}`, 50, 305)
-                .text(`Correo: ${datosFactura.cliente?.correo || 'N/A'}`, 50, 320);
+      doc.fontSize(14).fillColor('#2c3e50').text('DATOS DEL CLIENTE', 50, 250);
+      doc.fontSize(11).fillColor('#34495e')
+        .text(`Cédula: ${datosFactura.cliente?.cedula || 'N/A'}`, 50, 275)
+        .text(`Nombre: ${datosFactura.cliente?.nombre || 'N/A'}`, 50, 290)
+        .text(`Teléfono: ${datosFactura.cliente?.telefono || 'N/A'}`, 50, 305)
+        .text(`Correo: ${datosFactura.cliente?.correo || 'N/A'}`, 50, 320);
 
-            // --- Encabezado de la Tabla de Productos/Calcomanías ---
-            doc.fontSize(14).fillColor('#2c3e50').text('PRODUCTOS / CALCOMANÍAS', 50, 350);
-            const inicioTabla = 380;
-            doc.fontSize(10).fillColor('#2c3e50')
-                .text('REF./ID', 50, inicioTabla)
-                .text('PRODUCTO / CALCOMANÍA', 100, inicioTabla)
-                .text('CANT.', 300, inicioTabla)
-                .text('PRECIO UNIT.', 350, inicioTabla)
-                .text('SUBTOTAL', 450, inicioTabla);
-            // Línea separadora de la cabecera de la tabla
-            doc.moveTo(50, inicioTabla + 15).lineTo(550, inicioTabla + 15).stroke('#bdc3c7');
+      doc.fontSize(14).fillColor('#2c3e50').text('PRODUCTOS VENDIDOS', 50, 350);
+      const inicioTabla = 380;
+      doc.fontSize(10).fillColor('#2c3e50')
+        .text('REF.', 50, inicioTabla)
+        .text('PRODUCTO', 100, inicioTabla)
+        .text('CANT.', 300, inicioTabla)
+        .text('PRECIO UNIT.', 350, inicioTabla)
+        .text('SUBTOTAL', 450, inicioTabla);
+      doc.moveTo(50, inicioTabla + 15).lineTo(550, inicioTabla + 15).stroke('#bdc3c7');
 
-            let posicionY = inicioTabla + 25;
+      let posicionY = inicioTabla + 25;
 
-            // Validación de los datos de los ítems
-            if (!datosFactura.items || !Array.isArray(datosFactura.items)) {
-                console.error('❌ Error: datosFactura.items no es válido:', datosFactura.items);
-                throw new Error('Los datos de productos/calcomanías no son válidos');
-            }
-
-            /**
-             * Función auxiliar para formatear valores numéricos a cadenas,
-             * opcionalmente como moneda.
-             * @param {number|string|null|undefined} valor - El valor a formatear.
-             * @param {boolean} esMoneda - Indica si el valor debe ser formateado como moneda.
-             * @returns {string} - El valor formateado.
-             */
-            const formatearValor = (valor, esMoneda = false) => {
-                // Maneja valores nulos, indefinidos o no numéricos
-                if (valor === null || typeof valor === 'undefined' || isNaN(valor)) {
-                    return esMoneda ? '$0.00' : 'N/A';
-                }
-                // Formatea como moneda si es requerido, con 2 decimales y formato colombiano
-                if (esMoneda) {
-                    return `$${parseFloat(valor).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                }
-                // Retorna el valor como cadena si no es moneda
-                return String(valor);
+      if (datosFactura.productos && Array.isArray(datosFactura.productos)) {
+        datosFactura.productos.forEach((producto, index) => {
+          try {
+            const extraerNumero = (valor, valorPorDefecto = '0') => {
+              if (!valor) return parseFloat(valorPorDefecto);
+              const numeroString = typeof valor === 'string' ? valor : String(valor);
+              const numeroExtraido = numeroString.replace(/[^0-9.-]+/g, '');
+              return parseFloat(numeroExtraido) || parseFloat(valorPorDefecto);
             };
 
-            // --- Bucle para Cargar los Ítems (Productos y Calcomanías) en la Tabla ---
-            datosFactura.items.forEach((item, index) => {
-                try {
-                    // Determina la referencia o ID según el tipo de ítem
-                    const refOrId = item.type === 'producto' ? item.referencia : `CALC-${item.id_calcomania}`;
-                    // Construye el nombre del ítem, añadiendo el tamaño si es una calcomanía
-                    const nombreItem = item.type === 'calcomania' && item.tamano ? `${item.nombre} (${item.tamano})` : item.nombre;
-                    // Precio unitario final al que se vendió el ítem
-                    const precioUnitario = item.precio_unidad_final_vendido;
-                    // Subtotal de la línea del ítem
-                    const subtotalItem = item.subtotal_item;
+            const formatearValor = (valor, esMoneda = false) => {
+              if (!valor) return esMoneda ? '$0' : '0';
+              if (typeof valor === 'string') return valor;
+              return esMoneda ? `$${valor.toLocaleString('es-CO')}` : String(valor);
+            };
 
-                    // Muestra la información del ítem en el PDF
-                    doc.fontSize(9).fillColor('#34495e')
-                        .text(refOrId || 'N/A', 50, posicionY)
-                        // Limita la longitud del nombre para que quepa en la columna
-                        .text((nombreItem || 'Artículo sin nombre').substring(0, 35) +
-                            ((nombreItem || '').length > 35 ? '...' : ''), 100, posicionY)
-                        .text(String(item.cantidad || '0'), 300, posicionY)
-                        .text(formatearValor(precioUnitario, true), 350, posicionY)
-                        .text(formatearValor(subtotalItem, true), 450, posicionY);
+            const precioUnitarioNumerico = extraerNumero(producto.precio_unitario);
+            let tieneDescuento = false;
 
-                    // Si existe un "precio original" que es mayor al precio unitario final (implica descuento)
-                    if (item.precio_original_con_descuento_display !== null && item.precio_original_con_descuento_display > precioUnitario) {
-                        doc.fontSize(8).fillColor('#e74c3c')
-                            .text(`(Original: ${formatearValor(item.precio_original_con_descuento_display, true)})`, 350, posicionY + 12);
-                    }
-
-                    // Ajusta la posición Y para el siguiente ítem, considerando si se mostró un precio original
-                    posicionY += (item.precio_original_con_descuento_display !== null && item.precio_original_con_descuento_display > precioUnitario) ? 30 : 20;
-                    // Si se alcanza el final de la página, añade una nueva página
-                    if (posicionY > 700) {
-                        doc.addPage();
-                        posicionY = 50; // Reinicia la posición Y en la nueva página
-                    }
-                } catch (itemError) {
-                    console.error(`❌ Error procesando artículo ${index}:`, itemError);
-                    console.error('Datos del artículo:', item);
-                    // Muestra un mensaje de error en el PDF si un ítem falla
-                    doc.fontSize(9).fillColor('#e74c3c')
-                        .text('Error en artículo', 50, posicionY)
-                        .text('Datos no válidos', 100, posicionY);
-                    posicionY += 20;
-                }
-            });
-
-            // --- Totales de la Factura ---
-            doc.moveTo(50, posicionY + 10).lineTo(550, posicionY + 10).stroke('#bdc3c7'); // Línea separadora
-            doc.fontSize(14).fillColor('#2c3e50').text('VALOR TOTAL:', 350, posicionY + 25);
-            doc.fontSize(16).fillColor('#014aad').text(formatearValor(datosFactura.valor_total, true) || '$0.00', 450, posicionY + 25);
-            doc.fontSize(10).fillColor('#7f8c8d')
-                .text(`Total de artículos: ${datosFactura.items?.length || 0}`, 50, posicionY + 60)
-                .text('Gracias por su compra en Accesorios Apolo', 50, posicionY + 80)
-                .text('Para soporte técnico: soporte@accesoriosapolo.com', 50, posicionY + 95);
-
-            // --- Información del Pie de Página (Fecha de Generación) ---
-            // Ajusta la zona horaria a Colombia (UTC-5) para la fecha de generación
-            const fechaActual = new Date();
-            const fechaColombia = new Date(fechaActual.getTime() - (5 * 60 * 60 * 1000));
-            const fechaFormateada = fechaColombia.toLocaleString('es-CO', {
-                timeZone: 'America/Bogota',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-
-            doc.fontSize(8).fillColor('#95a5a6')
-                .text('Este documento es una factura de venta generada electrónicamente.', 50, posicionY + 120)
-                .text(`Generado el: ${fechaFormateada}`, 50, posicionY + 135);
-            doc.end(); // Finaliza la creación del documento PDF
-
-            // Resuelve la promesa cuando el flujo de escritura termina
-            stream.on('finish', () => resolve(rutaArchivo));
-            // Rechaza la promesa si hay un error en el flujo de escritura
-            stream.on('error', reject);
-        } catch (error) {
-            console.error('❌ Error en generarPDFFactura:', error);
-            reject(error);
-        }
-    });
-}
-
-/**
- * Envía la factura por correo electrónico.
- * Esta función ahora consulta todos los datos de la factura de la base de datos.
- * @param {string} emailDestino - Dirección de correo electrónico del destinatario.
- * @param {number} idFactura - ID de la factura a enviar.
- * @param {object} pool - Conexión al pool de la base de datos (ej. MySQL pool).
- * @returns {Promise<object>} - Promesa que resuelve con el estado del envío.
- */
-async function enviarFacturaPorCorreo(emailDestino, idFactura, pool) {
-    try {
-        // Logs para depuración
-        console.log('📧 Iniciando envío de factura por correo...');
-        console.log('📋 Datos de envío recibidos:', { emailDestino, idFactura });
-
-        // Validaciones básicas
-        if (!emailDestino) {
-            throw new Error('Email de destino no proporcionado');
-        }
-        if (!idFactura) {
-            throw new Error('ID de factura no proporcionado');
-        }
-        if (!pool) {
-            throw new Error('Conexión a la base de datos (pool) no proporcionada');
-        }
-
-        // 1. Obtener los detalles principales de la FACTURA y del USUARIO (cliente)
-        const [facturaRows] = await pool.execute(
-            `SELECT
-                f.id_factura,
-                f.fecha_venta,
-                f.metodo_pago,
-                f.valor_total,
-                u.cedula,
-                u.nombre AS cliente_nombre,
-                u.telefono AS cliente_telefono,
-                u.correo AS cliente_correo
-             FROM FACTURA f
-             JOIN USUARIO u ON f.fk_id_usuario = u.id_usuario
-             WHERE f.id_factura = ?`,
-            [idFactura]
-        );
-
-        if (facturaRows.length === 0) {
-            throw new Error(`Factura con ID ${idFactura} no encontrada.`);
-        }
-        const factura = facturaRows[0];
-
-        // Objeto para almacenar todos los datos que se pasarán al PDF
-        let datosFactura = {
-            id_factura: factura.id_factura,
-            fecha_venta: factura.fecha_venta,
-            metodo_pago: factura.metodo_pago,
-            valor_total: parseFloat(factura.valor_total),
-            cliente: {
-                cedula: factura.cedula,
-                nombre: factura.cliente_nombre,
-                telefono: factura.cliente_telefono,
-                correo: factura.cliente_correo
-            },
-            items: [] // Array combinado para productos y calcomanías
-        };
-
-        // 2. Obtener los detalles de los productos de DETALLE_FACTURA
-        const [productosDetalle] = await pool.execute(
-            `SELECT
-                df.FK_referencia_producto AS referencia,
-                df.cantidad,
-                df.precio_unidad, -- Este es el precio por unidad al momento de la venta
-                p.nombre,
-                p.precio_unidad AS producto_precio_base, -- Precio base del producto de la tabla PRODUCTO
-                p.precio_descuento AS producto_precio_descuento -- Precio de descuento del producto de la tabla PRODUCTO
-             FROM DETALLE_FACTURA df
-             JOIN PRODUCTO p ON df.FK_referencia_producto = p.referencia
-             WHERE df.FK_id_factura = ?`,
-            [idFactura]
-        );
-
-        productosDetalle.forEach(item => {
-            const precioUnitarioVendido = parseFloat(item.precio_unidad); // Precio al que se vendió
-            const precioBaseProducto = parseFloat(item.producto_precio_base); // Precio original base del producto
-            const precioDescuentoProducto = item.producto_precio_descuento ? parseFloat(item.producto_precio_descuento) : null;
-
-            let precioOriginalDisplay = null; // Por defecto, no se muestra precio original
-
-            // Lógica para determinar si se debe mostrar un precio "original" (antes de descuento)
-            // Esto ocurre si el precio de venta es menor que el precio base original del producto,
-            // o si el producto tiene un precio_descuento definido y el precio de venta coincide con él.
-            const epsilon = 0.01; // Margen para comparación de números flotantes
-            if (precioDescuentoProducto !== null && precioDescuentoProducto < precioBaseProducto) {
-                // Si el precio vendido es el precio con descuento del producto o es menor que el precio base
-                if (Math.abs(precioUnitarioVendido - precioDescuentoProducto) < epsilon || precioUnitarioVendido < precioBaseProducto - epsilon) {
-                    precioOriginalDisplay = precioBaseProducto; // El precio base es el original
-                }
-            } else if (precioUnitarioVendido < precioBaseProducto - epsilon) {
-                 // Si no hay descuento en la tabla producto, pero el vendido es menor al base
-                 precioOriginalDisplay = precioBaseProducto;
+            if (producto.precio_descuento && producto.precio_descuento !== '' && producto.precio_descuento !== '0') {
+              const precioOriginalNumerico = extraerNumero(producto.precio_descuento);
+              tieneDescuento = precioOriginalNumerico > precioUnitarioNumerico;
             }
 
+            doc.fontSize(9).fillColor('#34495e')
+              .text(producto.referencia || 'N/A', 50, posicionY)
+              .text((producto.nombre || 'Producto sin nombre').substring(0, 25) +
+                ((producto.nombre || '').length > 25 ? '...' : ''), 100, posicionY)
+              .text(String(producto.cantidad || '0'), 300, posicionY)
+              .text(formatearValor(producto.precio_unitario, true), 350, posicionY)
+              .text(formatearValor(producto.subtotal, true), 450, posicionY);
 
-            datosFactura.items.push({
-                type: 'producto',
-                referencia: item.referencia,
-                nombre: item.nombre,
-                cantidad: item.cantidad,
-                precio_unidad_final_vendido: precioUnitarioVendido,
-                precio_original_con_descuento_display: precioOriginalDisplay,
-                subtotal_item: parseFloat((precioUnitarioVendido * item.cantidad).toFixed(2))
-            });
+            if (tieneDescuento) {
+              doc.fontSize(8).fillColor('#e74c3c')
+                .text(`(Precio original: ${formatearValor(producto.precio_descuento, true)})`, 350, posicionY + 12);
+            }
+
+            posicionY += tieneDescuento ? 30 : 20;
+            if (posicionY > 700) {
+              doc.addPage();
+              posicionY = 50;
+            }
+          } catch (productoError) {
+            console.error(`❌ Error procesando producto ${index}:`, productoError);
+            console.error('Datos del producto:', producto);
+            doc.fontSize(9).fillColor('#e74c3c')
+              .text('Error en producto', 50, posicionY)
+              .text('Datos no válidos', 100, posicionY);
+            posicionY += 20;
+          }
         });
+      }
 
-        // 3. Obtener los detalles de las calcomanías de DETALLE_FACTURA_CALCOMANIA
-        const [calcomaniasDetalle] = await pool.execute(
-            `SELECT
-                dfc.FK_id_calcomania AS id_calcomania,
-                dfc.cantidad,
-                dfc.precio_unidad, -- Este es el precio por unidad al momento de la venta
-                dfc.tamano,
-                c.nombre,
-                c.precio_unidad AS calcomania_precio_base_small, -- Precio base para 'pequeno' de la tabla CALCOMANIA
-                c.precio_descuento AS calcomania_precio_descuento_small -- Precio de descuento de CALCOMANIA (para 'pequeno')
-             FROM DETALLE_FACTURA_CALCOMANIA dfc
-             JOIN CALCOMANIA c ON dfc.FK_id_calcomania = c.id_calcomania
-             WHERE dfc.FK_id_factura = ?`,
-            [idFactura]
-        );
 
-        calcomaniasDetalle.forEach(item => {
-            const precioUnitarioVendido = parseFloat(item.precio_unidad); // Precio al que se vendió
-            const calcomaniaPrecioBaseSmall = parseFloat(item.calcomania_precio_base_small); // Precio base para tamaño pequeño
-            const calcomaniaPrecioDescuentoSmall = item.calcomania_precio_descuento_small ? parseFloat(item.calcomania_precio_descuento_small) : null;
-            const tamano = item.tamano;
+      // --- Sección para Calcomanías en el PDF ---
+      if (datosFactura.calcomanias && Array.isArray(datosFactura.calcomanias) && datosFactura.calcomanias.length > 0) {
+        if (posicionY > 600) {
+          doc.addPage();
+          posicionY = 50;
+        } else {
+          posicionY += 30; // Espacio después de la tabla de productos
+        }
 
-            let originalPriceForThisSize = calcomaniaPrecioBaseSmall; // Precio base original ajustado por tamaño (sin descuentos)
+        doc.fontSize(14).fillColor('#2c3e50').text('CALCOMANÍAS VENDIDAS', 50, posicionY);
+        posicionY += 30;
+        const inicioTablaCalcomanias = posicionY;
+        doc.fontSize(10).fillColor('#2c3e50')
+          .text('ID', 50, inicioTablaCalcomanias)
+          .text('CALCOMANÍA', 100, inicioTablaCalcomanias)
+          .text('TAMAÑO', 250, inicioTablaCalcomanias)
+          .text('CANT.', 350, inicioTablaCalcomanias)
+          .text('PRECIO UNIT.', 400, inicioTablaCalcomanias)
+          .text('SUBTOTAL', 500, inicioTablaCalcomanias);
+        doc.moveTo(50, inicioTablaCalcomanias + 15).lineTo(550, inicioTablaCalcomanias + 15).stroke('#bdc3c7');
 
-            // Ajusta el precio base original según los multiplicadores de tamaño
-            switch (tamano) {
-                case 'mediano':
-                    originalPriceForThisSize = calcomaniaPrecioBaseSmall + (calcomaniaPrecioBaseSmall * 1.25);
-                    break;
-                case 'grande':
-                    originalPriceForT
-                    hisSize = calcomaniaPrecioBaseSmall + (calcomaniaPrecioBaseSmall * 3.00);
-                    break;
-            }
-            originalPriceForThisSize = parseFloat(originalPriceForThisSize.toFixed(2)); // Redondea para comparaciones precisas
+        posicionY = inicioTablaCalcomanias + 25;
 
-            let precioOriginalDisplay = null; // Por defecto, no se muestra precio original
+        datosFactura.calcomanias.forEach((calcomania, index) => {
+          try {
+            const extraerNumero = (valor, valorPorDefecto = '0') => {
+              if (!valor) return parseFloat(valorPorDefecto);
+              const numeroString = typeof valor === 'string' ? valor : String(valor);
+              const numeroExtraido = numeroString.replace(/[^0-9.-]+/g, '');
+              return parseFloat(numeroExtraido) || parseFloat(valorPorDefecto);
+            };
 
-            const epsilon = 0.01; // Pequeño margen para comparación de números flotantes
+            const formatearValor = (valor, esMoneda = false) => {
+              if (!valor) return esMoneda ? '$0' : '0';
+              if (typeof valor === 'string') return valor;
+              return esMoneda ? `$${valor.toLocaleString('es-CO')}` : String(valor);
+            };
 
-            // Lógica para determinar si se muestra un precio "original" para calcomanías
-            // Esto refleja la lógica de `BuscarCalcomaniaVentaPorId` para calcular descuentos.
-            if (calcomaniaPrecioDescuentoSmall !== null && calcomaniaPrecioDescuentoSmall > 0 && calcomaniaPrecioDescuentoSmall < calcomaniaPrecioBaseSmall) {
-                // Hay un descuento base definido para la calcomanía pequeña
-                const percentage_discount_from_base = ((calcomaniaPrecioBaseSmall - calcomaniaPrecioDescuentoSmall) / calcomaniaPrecioBaseSmall);
-                const theoreticalDiscountedPriceForThisSize = parseFloat((originalPriceForThisSize * (1 - percentage_discount_from_base)).toFixed(2));
+            const precioUnitarioNumerico = extraerNumero(calcomania.precio_unitario);
+            let tieneDescuento = false;
 
-                // Si el precio vendido es el precio teórico con descuento o menor que el original
-                if (Math.abs(precioUnitarioVendido - theoreticalDiscountedPriceForThisSize) < epsilon || precioUnitarioVendido < originalPriceForThisSize - epsilon) {
-                    precioOriginalDisplay = originalPriceForThisSize;
-                }
-            } else {
-                // No hay descuento base definido para la calcomanía pequeña
-                // Si el precio vendido es menor que el precio original para este tamaño (indica un descuento personalizado)
-                if (precioUnitarioVendido < originalPriceForThisSize - epsilon) {
-                    precioOriginalDisplay = originalPriceForThisSize;
-                }
+            if (calcomania.precio_descuento && calcomania.precio_descuento !== '' && calcomania.precio_descuento !== '0') {
+              const precioOriginalNumerico = extraerNumero(calcomania.precio_descuento);
+              tieneDescuento = precioOriginalNumerico > precioUnitarioNumerico;
             }
 
+            doc.fontSize(9).fillColor('#34495e')
+              .text(String(calcomania.id || 'N/A'), 50, posicionY)
+              .text((calcomania.nombre || 'Calcomanía sin nombre').substring(0, 20) +
+                ((calcomania.nombre || '').length > 20 ? '...' : ''), 100, posicionY)
+              .text(calcomania.tamano || 'N/A', 250, posicionY)
+              .text(String(calcomania.cantidad || '0'), 350, posicionY)
+              .text(formatearValor(calcomania.precio_unitario, true), 400, posicionY)
+              .text(formatearValor(calcomania.subtotal, true), 500, posicionY);
 
-            datosFactura.items.push({
-                type: 'calcomania',
-                id_calcomania: item.id_calcomania,
-                nombre: item.nombre,
-                cantidad: item.cantidad,
-                tamano: item.tamano,
-                precio_unidad_final_vendido: precioUnitarioVendido,
-                precio_original_con_descuento_display: precioOriginalDisplay, // Será null si no hay un precio original claro para mostrar
-                subtotal_item: parseFloat((precioUnitarioVendido * item.cantidad).toFixed(2))
-            });
+            if (tieneDescuento) {
+              doc.fontSize(8).fillColor('#e74c3c')
+                .text(`(Precio original: ${formatearValor(calcomania.precio_descuento, true)})`, 400, posicionY + 12);
+            }
+
+            posicionY += tieneDescuento ? 30 : 20;
+            if (posicionY > 700) {
+              doc.addPage();
+              posicionY = 50;
+            }
+          } catch (calcomaniaError) {
+            console.error(`❌ Error procesando calcomanía ${index}:`, calcomaniaError);
+            console.error('Datos de la calcomanía:', calcomania);
+            doc.fontSize(9).fillColor('#e74c3c')
+              .text('Error en calcomanía', 50, posicionY)
+              .text('Datos no válidos', 100, posicionY);
+            posicionY += 20;
+          }
         });
-
-        // Ordenar los ítems (productos y calcomanías) para una presentación consistente en el PDF
-        datosFactura.items.sort((a, b) => {
-            if (a.type === b.type) {
-                return (a.nombre || '').localeCompare(b.nombre || ''); // Orden alfabético por nombre
-            }
-            return a.type === 'producto' ? -1 : 1; // Primero productos, luego calcomanías
-        });
+      }
 
 
-        console.log('📋 Datos de factura procesados para PDF:', JSON.stringify(datosFactura, null, 2));
+      doc.moveTo(50, posicionY + 10).lineTo(550, posicionY + 10).stroke('#bdc3c7');
+      doc.fontSize(14).fillColor('#2c3e50').text('VALOR TOTAL:', 350, posicionY + 25);
+      doc.fontSize(16).fillColor('#014aad').text(datosFactura.valor_total || '$0', 450, posicionY + 25);
+      doc.fontSize(10).fillColor('#7f8c8d')
+        .text(`Total de productos: ${datosFactura.productos?.length || 0}`, 50, posicionY + 60)
+        .text('Gracias por su compra en Accesorios Apolo', 50, posicionY + 80)
+        .text('Para soporte técnico: soporte@accesoriosapolo.com', 50, posicionY + 95);
 
-        // Genera el archivo PDF
-        const rutaPDF = await generarPDFFactura(datosFactura);
+      const fechaActual = new Date();
+      const fechaColombia = new Date(fechaActual.getTime() - (5 * 60 * 60 * 1000));
+      const fechaFormateada = fechaColombia.toLocaleString('es-CO', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
 
-        // Opciones del correo electrónico para enviar la factura
-        const opcionesCorreo = {
-            from: { name: 'Accesorios Apolo', address: process.env.EMAIL_USER }, // Remitente del correo
-            to: emailDestino, // Destinatario
-            subject: `Factura de Compra #${datosFactura.id_factura || 'N/A'} - Accesorios Apolo`, // Asunto
-            html: `<p>Estimado/a ${datosFactura.cliente?.nombre || 'Cliente'}, gracias por su compra. Adjuntamos su factura.</p>`, // Cuerpo HTML
-            attachments: [ // Archivos adjuntos
-                {
-                    filename: `Factura_${datosFactura.id_factura || 'N-A'}.pdf`,
-                    path: rutaPDF,
-                    contentType: 'application/pdf'
-                }
-            ]
-        };
+      doc.fontSize(8).fillColor('#95a5a6')
+        .text('Este documento es una factura de venta generada electrónicamente.', 50, posicionY + 120)
+        .text(`Generado el: ${fechaFormateada}`, 50, posicionY + 135);
+      doc.end();
 
-        // Envía el correo
-        const resultado = await transporter.sendMail(opcionesCorreo);
-        console.log('✅ Correo enviado:', resultado.messageId);
-
-        // Limpia el archivo PDF temporal después de 3 segundos
-        setTimeout(() => {
-            if (fs.existsSync(rutaPDF)) {
-                fs.unlinkSync(rutaPDF);
-                console.log('🗑️ Archivo temporal eliminado:', rutaPDF);
-            }
-        }, 3000);
-
-        return { success: true, message: 'Correo enviado exitosamente' };
+      stream.on('finish', () => resolve(rutaArchivo));
+      stream.on('error', reject);
     } catch (error) {
-        console.error('❌ Error al enviar correo:', error);
-        // Logs de depuración adicionales en caso de error
-        console.error('📋 Datos que causaron el error:', {
-            emailDestino,
-            idFactura,
-            error_message: error.message
-        });
-        throw new Error(`Error al enviar correo: ${error.message}`);
+      console.error('❌ Error en generarPDFFactura:', error);
+      reject(error);
     }
+  });
 }
 
-// Exporta la función para que pueda ser utilizada en otras partes de la aplicación
+async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
+  try {
+    console.log('📧 Iniciando envío de factura por correo...');
+    console.log('📋 Datos de factura recibidos:', {
+      id_factura: datosFactura?.id_factura,
+      cliente: datosFactura?.cliente?.nombre,
+      productos_count: datosFactura?.productos?.length,
+      calcomanias_count: datosFactura?.calcomanias?.length,
+      valor_total: datosFactura?.valor_total
+    });
+
+    if (!emailDestino) {
+      throw new Error('Email de destino no proporcionado');
+    }
+
+    if (!datosFactura) {
+      throw new Error('Datos de factura no proporcionados');
+    }
+
+    if (!datosFactura.cliente) {
+      throw new Error('Datos del cliente no proporcionados');
+    }
+
+    const rutaPDF = await generarPDFFactura(datosFactura);
+
+    // Función auxiliar para formatear valores de moneda de forma segura
+    const formatearMoneda = (valor) => {
+      if (typeof valor === 'string') {
+        // Intenta parsear el string si no es un número directo (ej: "$1.234,56")
+        const numeroLimpio = valor.replace(/[^0-9,-]+/g, '').replace(',', '.');
+        valor = parseFloat(numeroLimpio);
+      }
+      if (typeof valor !== 'number' || isNaN(valor)) {
+        return '$0'; // Valor por defecto si no es un número válido
+      }
+      return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(valor);
+    };
+
+    // --- HTML para la tabla de productos ---
+    let productosHtml = '';
+    if (datosFactura.productos && Array.isArray(datosFactura.productos) && datosFactura.productos.length > 0) {
+      productosHtml = `
+            <h3>Productos Vendidos</h3>
+            <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+                <thead>
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">REF.</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">PRODUCTO</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">CANT.</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">PRECIO UNIT.</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">SUBTOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+      datosFactura.productos.forEach(producto => {
+        let precioOriginalDisplay = '';
+        if (producto.precio_descuento && formatearMoneda(producto.precio_descuento) !== formatearMoneda(producto.precio_unitario)) {
+          precioOriginalDisplay = `<br><small style="color: #e74c3c;">(Original: ${formatearMoneda(producto.precio_descuento)})</small>`;
+        }
+
+        productosHtml += `
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${producto.referencia || 'N/A'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${producto.nombre || 'Producto sin nombre'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${producto.cantidad || '0'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(producto.precio_unitario)}${precioOriginalDisplay}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(producto.subtotal)}</td>
+                </tr>
+            `;
+      });
+      productosHtml += `
+                </tbody>
+            </table>
+        `;
+    }
+
+    // --- HTML para la tabla de calcomanías ---
+    let calcomaniasHtml = '';
+    if (datosFactura.calcomanias && Array.isArray(datosFactura.calcomanias) && datosFactura.calcomanias.length > 0) {
+      calcomaniasHtml = `
+            <h3>Calcomanías Vendidas</h3>
+            <table style="width:100%; border-collapse: collapse; margin-bottom: 20px;">
+                <thead>
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">ID</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">CALCOMANÍA</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">TAMAÑO</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">CANT.</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">PRECIO UNIT.</th>
+                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">SUBTOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+      datosFactura.calcomanias.forEach(calcomania => {
+        let precioOriginalDisplay = '';
+        if (calcomania.precio_descuento && formatearMoneda(calcomania.precio_descuento) !== formatearMoneda(calcomania.precio_unitario)) {
+          precioOriginalDisplay = `<br><small style="color: #e74c3c;">(Original: ${formatearMoneda(calcomania.precio_descuento)})</small>`;
+        }
+
+        calcomaniasHtml += `
+                <tr>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.id || 'N/A'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.nombre || 'Calcomanía sin nombre'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.tamano || 'N/A'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${calcomania.cantidad || '0'}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(calcomania.precio_unitario)}${precioOriginalDisplay}</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">${formatearMoneda(calcomania.subtotal)}</td>
+                </tr>
+            `;
+      });
+      calcomaniasHtml += `
+                </tbody>
+            </table>
+        `;
+    }
+
+    const valorTotalFormatted = formatearMoneda(datosFactura.valor_total);
+
+    const opcionesCorreo = {
+      from: { name: 'Accesorios Apolo', address: process.env.EMAIL_USER },
+      to: emailDestino,
+      subject: `Factura de Compra #${datosFactura.id_factura || 'N/A'} - Accesorios Apolo`,
+      html: `
+            <p>Estimado/a ${datosFactura.cliente?.nombre || 'Cliente'},</p>
+            <p>Gracias por su reciente compra en Accesorios Apolo. Adjuntamos su factura en formato PDF.</p>
+            <p>Aquí tiene un resumen de su compra:</p>
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <h2 style="color: #2c3e50;">Detalles de la Factura</h2>
+                <p><strong>Factura No:</strong> ${datosFactura.id_factura || 'N/A'}</p>
+                <p><strong>Fecha:</strong> ${datosFactura.fecha_venta || 'N/A'}</p>
+                <p><strong>Método de Pago:</strong> ${datosFactura.metodo_pago || 'N/A'}</p>
+
+                <h3 style="color: #2c3e50;">Datos del Cliente</h3>
+                <p><strong>Cédula:</strong> ${datosFactura.cliente?.cedula || 'N/A'}</p>
+                <p><strong>Nombre:</strong> ${datosFactura.cliente?.nombre || 'N/A'}</p>
+                <p><strong>Teléfono:</strong> ${datosFactura.cliente?.telefono || 'N/A'}</p>
+                <p><strong>Correo:</strong> ${datosFactura.cliente?.correo || 'N/A'}</p>
+
+                ${productosHtml}
+                ${calcomaniasHtml}
+
+                <p style="font-size: 1.2em; font-weight: bold; text-align: right; margin-top: 20px;">
+                    VALOR TOTAL: <span style="color: #014aad;">${valorTotalFormatted}</span>
+                </p>
+
+                <p style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #7f8c8d;">
+                    Gracias por su compra en Accesorios Apolo.<br>
+                    Para soporte técnico: <a href="mailto:soporte@accesoriosapolo.com" style="color: #014aad;">soporte@accesoriosapolo.com</a>
+                </p>
+            </div>
+            `,
+      attachments: [
+        {
+          filename: `Factura_${datosFactura.id_factura || 'N-A'}.pdf`,
+          path: rutaPDF,
+          contentType: 'application/pdf'
+        }
+      ]
+    };
+
+    const resultado = await transporter.sendMail(opcionesCorreo);
+    console.log('✅ Correo enviado:', resultado.messageId);
+
+    setTimeout(() => {
+      if (fs.existsSync(rutaPDF)) {
+        fs.unlinkSync(rutaPDF);
+        console.log('🗑️ Archivo temporal eliminado:', rutaPDF);
+      }
+    }, 3000);
+
+    return { success: true, message: 'Correo enviado exitosamente' };
+  } catch (error) {
+    console.error('❌ Error al enviar correo:', error);
+    console.error('📋 Datos que causaron el error:', {
+      emailDestino,
+      datosFactura: JSON.stringify(datosFactura, null, 2)
+    });
+    throw new Error(`Error al enviar correo: ${error.message}`);
+  }
+}
+
 module.exports = {
-    enviarFacturaPorCorreo
+  enviarFacturaPorCorreo
 };
