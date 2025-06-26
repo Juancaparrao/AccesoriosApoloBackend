@@ -34,7 +34,7 @@ async function ActualizarCarrito(req, res) {
       LEFT JOIN
         producto p ON cc.FK_referencia_producto = p.referencia
       LEFT JOIN
-        calcomnia c ON cc.FK_id_calcomania = c.id_calcomania
+        calcomania c ON cc.FK_id_calcomania = c.id_calcomania
       WHERE
         cc.id_carrito = ? AND cc.FK_id_usuario = ?`,
       [id_carrito_item, fk_id_usuario]
