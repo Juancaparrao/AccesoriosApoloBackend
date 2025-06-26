@@ -69,6 +69,7 @@ const { handleContactForm } = require('./templates/FormularioContactoCorreo');
 const { ConsultarCalcomaniasPorUsuario } = require('./CalcomaniasController/ConsultarCalcomaniasPorUsuario');
 const { EditarNombreCalcomania } = require('./CalcomaniasController/EditarNombreCalcomania');
 const { EliminarCalcomaniaUsuario } = require('./CalcomaniasController/EliminarCalcomaniasUsuario');
+const { RegistrarCalcomaniaUsuario } = require('./CalcomaniasController/RegistrarCalcomaniaUsuario');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -165,6 +166,7 @@ app.get('/consultar-detalle-factura-proveedor/:id_factura_proveedor', ConsultarD
 
 // Módulo de Calcomanías
 app.post('/registrar-calcomania', verificarToken, upload.single('imagen'), RegistrarCalcomania);
+app.post('/registrar-calcomania-Usuario', verificarToken, upload.single('imagen'), RegistrarCalcomaniaUsuario);
 app.get('/calcomanias', ConsultarCalcomania);
 app.post('/obtener-calcomania', ObtenerDatosCalcomania);
 app.put('/actualizar-calcomania', upload.single('imagen'), ActualizarCalcomania);
