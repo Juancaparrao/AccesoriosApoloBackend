@@ -64,15 +64,18 @@ async function AgregarCalcomaniaCarrito(req, res) {
     const fecha_adicion = new Date().toISOString().split('T')[0]; // Fecha actual
     const cantidad = 1; // Cantidad fija a 1 para esta operación
 
-    // ¡CAMBIO CLAVE AQUÍ!
-    // Usamos 'FK_referencia_producto' como en tu tabla
-    // Y el valor '0' se envía como STRING porque la columna es VARCHAR.
-    const FK_referencia_producto = '0';
+    // *** ¡EL CAMBIO CLAVE ESTÁ AQUÍ! ***
+    // Ahora, cuando es una calcomanía y no hay una referencia de producto real,
+    // pasamos explícitamente `null` para `FK_referencia_producto`.
+    const FK_referencia_producto_a_insertar = null; 
+    
+    // Aseguramos que la FK_id_calcomania sea el id de la calcomanía
+    const FK_id_calcomania_a_insertar = id_calcomania; 
 
     const [carritoResult] = await pool.execute(
       `INSERT INTO carrito_compras (fk_id_usuario, FK_referencia_producto, fk_id_calcomania, cantidad, fecha_adicion)
        VALUES (?, ?, ?, ?, ?)`,
-      [fk_id_usuario, FK_referencia_producto, id_calcomania, cantidad, fecha_adicion]
+      [fk_id_usuario, FK_referencia_producto_a_insertar, FK_id_calcomania_a_insertar, cantidad, fecha_adicion]
     );
 
     return res.status(200).json({
@@ -85,10 +88,10 @@ async function AgregarCalcomaniaCarrito(req, res) {
         precio_unidad: nuevo_precio_unidad
       },
       carrito_item: {
-        id_carrito_item: carritoResult.insertId,
+        id_carrito_item: carritoResult.insertId, // Esto funcionará si tienes un ID auto-incrementable en el carrito
         fk_id_usuario: fk_id_usuario,
-        FK_referencia_producto: FK_referencia_producto, // Devolvemos el valor usado
-        fk_id_calcomania: id_calcomania,
+        FK_referencia_producto: FK_referencia_producto_a_insertar, // Devolvemos el valor usado (null)
+        fk_id_calcomania: FK_id_calcomania_a_insertar,
         cantidad: cantidad,
         fecha_adicion: fecha_adicion
       }
