@@ -45,8 +45,8 @@ async function ConsultarDetalleVenta(req, res) {
                 p.nombre,
                 p.precio_unidad AS producto_precio_base, -- Precio unitario original del producto (sin descuentos propios de la tabla PRODUCTO)
                 p.precio_descuento AS producto_precio_descuento_flat -- Precio de descuento directo del producto
-            FROM DETALLE_FACTURA df
-            JOIN PRODUCTO p ON df.FK_referencia_producto = p.referencia
+            FROM detalle_factura df
+            JOIN producto p ON df.FK_referencia_producto = p.referencia
             WHERE df.FK_id_factura = ?
         `, [id_factura]);
 
@@ -60,8 +60,8 @@ async function ConsultarDetalleVenta(req, res) {
                 c.nombre,
                 c.precio_unidad AS calcomania_precio_base_small, -- Precio unitario base para tamaño pequeño
                 c.precio_descuento AS calcomania_precio_descuento_small -- Precio de descuento para tamaño pequeño
-            FROM DETALLE_FACTURA_CALCOMANIA dfc
-            JOIN CALCOMANIA c ON dfc.FK_id_calcomania = c.id_calcomania
+            FROM detalle_factura_calcomania dfc
+            JOIN calcomania c ON dfc.FK_id_calcomania = c.id_calcomania
             WHERE dfc.FK_id_factura = ?
         `, [id_factura]);
 
