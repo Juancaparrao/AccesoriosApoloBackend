@@ -1,76 +1,81 @@
 const pool = require('../db');
 
 async function ConsultarCalcomania(req, res) {
-    try {
-        // Obtenemos los IDs de los roles "gerente" y "vendedor" de la base de datos
-        // Esto es más robusto que codificarlos directamente, en caso de que los IDs cambien.
-        const [roles] = await pool.execute(
-            `SELECT id_rol, nombre FROM rol WHERE nombre IN ('gerente', 'vendedor')`
-        );
+  try {
+    console.log("=== DEBUG BACKEND - Consultar Calcomanías por Staff (Gerente/Vendedor) ===");
 
-        const rolesPermitidosIds = roles.map(rol => rol.id_rol);
+    const [calcomaniasQueryResult] = await pool.execute(
+      `SELECT
+         c.id_calcomania,
+         c.nombre,
+         c.url_archivo,
+         c.precio_unidad,
+         c.precio_descuento,
+         c.stock_pequeno,
+         c.stock_mediano,
+         c.stock_grande,
+         c.estado,
+         u.nombre AS nombre_usuario
+       FROM
+         calcomania c
+       JOIN
+         usuario u ON c.fk_id_usuario = u.id_usuario
+       JOIN
+         usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
+       JOIN
+         rol r ON ur.id_rol = r.id_rol
+       WHERE
+         (r.nombre = 'gerente' OR r.nombre = 'vendedor') AND c.estado = TRUE
+       GROUP BY
+         c.id_calcomania, c.nombre, c.url_archivo, c.precio_unidad, c.precio_descuento`,
+      [] // No hay parámetros para esta consulta WHERE
+    );
 
-        // Si no se encuentran los roles, o no hay IDs para filtrar, podríamos enviar un error
-        // o simplemente no devolver calcomanías, dependiendo del comportamiento deseado.
-        if (rolesPermitidosIds.length === 0) {
-            return res.status(404).json({
-                success: false,
-                mensaje: 'No se encontraron IDs de rol para gerente o vendedor. Verifique la tabla ROL.'
-            });
+    // 2. Procesar los resultados para calcular y incluir 'descuento' condicionalmente
+    const calcomanias = calcomaniasQueryResult.map(calcomania => {
+      const formattedCalcomania = {
+        id_calcomania: calcomania.id_calcomania,
+        nombre: calcomania.nombre,
+        url_archivo: calcomania.url_archivo,
+        precio_unidad: parseFloat(calcomania.precio_unidad) // Aseguramos que sea un número
+      };
+
+      // Si tiene precio_descuento, lo agregamos y calculamos el 'descuento'
+      if (calcomania.precio_descuento !== null && calcomania.precio_descuento !== undefined) {
+        formattedCalcomania.precio_descuento = parseFloat(calcomania.precio_descuento); // Aseguramos que sea un número
+        
+        // Calcular el porcentaje de descuento si precio_unidad es > 0
+        if (formattedCalcomania.precio_unidad > 0) {
+          const descuentoPorcentaje = ((formattedCalcomania.precio_unidad - formattedCalcomania.precio_descuento) / formattedCalcomania.precio_unidad) * 100;
+          formattedCalcomania.descuento = parseFloat(descuentoPorcentaje.toFixed(2)); // Redondeamos a 2 decimales
         }
+      }
 
-        const [calcomanias] = await pool.execute(
-            `SELECT
-                c.id_calcomania,
-                c.nombre,
-                c.url_archivo,
-                c.precio_unidad,
-                c.precio_descuento,
-                c.stock_pequeno,
-                c.stock_mediano,
-                c.stock_grande,
-                c.estado,
-                u.nombre AS nombre_usuario
-            FROM
-                calcomania c
-            INNER JOIN
-                usuario u ON c.fk_id_usuario = u.id_usuario
-            INNER JOIN
-                usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
-            WHERE
-                ur.id_rol IN (?) -- Filtrar por los roles permitidos
-            ORDER BY
-                c.fecha_subida DESC, c.id_calcomania DESC`,
-            [rolesPermitidosIds] // Pasamos el array de IDs para la cláusula IN
-        );
+      return formattedCalcomania;
+    });
 
-        // Formatear los datos para incluir el estado como texto y asegurar todos los campos
-        const calcomaniasFormateadas = calcomanias.map(calcomania => ({
-            id_calcomania: calcomania.id_calcomania,
-            nombre: calcomania.nombre,
-            url_archivo: calcomania.url_archivo,
-            precio_unidad: calcomania.precio_unidad,
-            precio_descuento: calcomania.precio_descuento,
-            stock_pequeno: calcomania.stock_pequeno,
-            stock_mediano: calcomania.stock_mediano,
-            stock_grande: calcomania.stock_grande,
-            estado: calcomania.estado ? 'Activo' : 'Inactivo',
-            nombre_usuario: calcomania.nombre_usuario
-        }));
-
-        return res.status(200).json({
-            success: true,
-            mensaje: 'Calcomanías consultadas exitosamente.',
-            calcomanias: calcomaniasFormateadas
-        });
-
-    } catch (error) {
-        console.error('Error consultando calcomanías:', error);
-        res.status(500).json({
-            success: false,
-            mensaje: 'Error interno del servidor al consultar calcomanías.'
-        });
+    // 3. Verificar si se encontraron calcomanías
+    if (calcomanias.length === 0) {
+      return res.status(404).json({
+        success: false,
+        mensaje: 'No se encontraron calcomanías activas registradas por gerentes o vendedores.'
+      });
     }
+
+    // 4. Devolver la respuesta con las calcomanías encontradas
+    return res.status(200).json({
+      success: true,
+      mensaje: 'Calcomanías registradas por gerentes/vendedores consultadas exitosamente.',
+      calcomanias: calcomanias
+    });
+
+  } catch (error) {
+    console.error('Error al consultar calcomanías por staff:', error);
+    res.status(500).json({
+      success: false,
+      mensaje: 'Error interno del servidor al consultar calcomanías.'
+    });
+  }
 }
 
 module.exports = { ConsultarCalcomania };
