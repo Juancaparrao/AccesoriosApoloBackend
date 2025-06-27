@@ -2,7 +2,7 @@ const pool = require('../db');
 
 async function ConsultarProductosPorMarca(req, res) {
     try {
-        console.log("=== DEBUG BACKEND - Consultar Productos por Marca (con excepción 'Otros') ===");
+        console.log("=== DEBUG BACKEND - Consultar Productos por Marca (con excepción 'Otros' y descuento formateado) ===");
 
         const { marca } = req.params;
 
@@ -85,9 +85,9 @@ async function ConsultarProductosPorMarca(req, res) {
                 promedio_calificacion: parseFloat(producto.promedio_calificacion) || 0.0 // Aseguramos que sea un número, o 0.0 si es NULL
             };
 
-            // Si tiene descuento, lo agregamos al objeto
+            // **MODIFICACIÓN AQUÍ:** Formatear el descuento como "X%"
             if (producto.descuento !== null && producto.descuento !== undefined) {
-                formattedProducto.descuento = parseInt(producto.descuento, 10); // Aseguramos que sea un número
+                formattedProducto.descuento = `${parseInt(producto.descuento, 10)}%`; // Convierte a entero y añade "%"
             }
 
             // Si tiene precio_descuento, lo agregamos al objeto
