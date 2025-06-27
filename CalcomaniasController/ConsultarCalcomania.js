@@ -5,7 +5,7 @@ async function ConsultarCalcomania(req, res) {
         // Obtenemos los IDs de los roles "gerente" y "vendedor" de la base de datos
         // Esto es más robusto que codificarlos directamente, en caso de que los IDs cambien.
         const [roles] = await pool.execute(
-            `SELECT id_rol, nombre FROM ROL WHERE nombre IN ('gerente', 'vendedor')`
+            `SELECT id_rol, nombre FROM rol WHERE nombre IN ('gerente', 'vendedor')`
         );
 
         const rolesPermitidosIds = roles.map(rol => rol.id_rol);
