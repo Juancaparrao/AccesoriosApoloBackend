@@ -33,27 +33,32 @@ async function ConsultarCalcomania(req, res) {
 
     // 2. Procesar los resultados para calcular y incluir 'descuento' condicionalmente
     const calcomanias = calcomaniasQueryResult.map(calcomania => {
-      const formattedCalcomania = {
-        id_calcomania: calcomania.id_calcomania,
-        nombre: calcomania.nombre,
-        url_archivo: calcomania.url_archivo,
-        precio_unidad: parseFloat(calcomania.precio_unidad) // Aseguramos que sea un número
-      };
+  const formattedCalcomania = {
+    id_calcomania: calcomania.id_calcomania,
+    nombre: calcomania.nombre,
+    url_archivo: calcomania.url_archivo,
+    precio_unidad: parseFloat(calcomania.precio_unidad), // Aseguramos que sea un número
+    // Agregamos los campos que faltaban en el objeto final:
+    stock_pequeno: calcomania.stock_pequeno,
+    stock_mediano: calcomania.stock_mediano,
+    stock_grande: calcomania.stock_grande,
+    estado: calcomania.estado ? 'Activo' : 'Inactivo', // La lógica de estado ya está aquí
+    nombre_usuario: calcomania.nombre_usuario,
+  };
 
-      // Si tiene precio_descuento, lo agregamos y calculamos el 'descuento'
-      if (calcomania.precio_descuento !== null && calcomania.precio_descuento !== undefined) {
-        formattedCalcomania.precio_descuento = parseFloat(calcomania.precio_descuento); // Aseguramos que sea un número
-        
-        // Calcular el porcentaje de descuento si precio_unidad es > 0
-        if (formattedCalcomania.precio_unidad > 0) {
-          const descuentoPorcentaje = ((formattedCalcomania.precio_unidad - formattedCalcomania.precio_descuento) / formattedCalcomania.precio_unidad) * 100;
-          formattedCalcomania.descuento = parseFloat(descuentoPorcentaje.toFixed(2)); // Redondeamos a 2 decimales
-        }
-      }
+  // Si tiene precio_descuento, lo agregamos y calculamos el 'descuento'
+  if (calcomania.precio_descuento !== null && calcomania.precio_descuento !== undefined) {
+    formattedCalcomania.precio_descuento = parseFloat(calcomania.precio_descuento); // Aseguramos que sea un número
 
-      return formattedCalcomania;
-    });
+    // Calcular el porcentaje de descuento si precio_unidad es > 0
+    if (formattedCalcomania.precio_unidad > 0) {
+      const descuentoPorcentaje = ((formattedCalcomania.precio_unidad - formattedCalcomania.precio_descuento) / formattedCalcomania.precio_unidad) * 100;
+      formattedCalcomania.descuento = parseFloat(descuentoPorcentaje.toFixed(2)); // Redondeamos a 2 decimales
+    }
+  }
 
+  return formattedCalcomania;
+});
     // 3. Verificar si se encontraron calcomanías
     if (calcomanias.length === 0) {
       return res.status(404).json({
