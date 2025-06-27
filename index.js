@@ -78,6 +78,7 @@ const { ConsultarSubcategoriasPorCategoria } = require('./NavbarController/Consu
 const { ConsultarProductoPorSubcategoria } = require('./NavbarController/ConsultarProductoPorSubcategoria');
 const { ConsultarCalcomaniasPorRol } = require('./NavbarController/ConsultarCalcomaniasPorRol');
 const { ConsultarProductosPorMarca } = require('./NavbarController/ConsultarProductosPorMarca');
+const { AgregarCalcomaniasStaff } = require('./NavbarController/AgregarCalcomaniasStaff');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -246,6 +247,7 @@ app.get('/subcategorias-por-categoria-por-nombre/:nombre_categoria', ConsultarSu
 app.get('/productos-por-subcategoria/:nombre_subcategoria', ConsultarProductoPorSubcategoria);
 app.get('/calcomanias/staff', ConsultarCalcomaniasPorRol);
 app.get('/productos-por-marca/:marca', ConsultarProductosPorMarca);
+app.post('/agregar-calcomanias-staff', verificarToken, AgregarCalcomaniasStaff);
 
 
 // Formulario de contacto
