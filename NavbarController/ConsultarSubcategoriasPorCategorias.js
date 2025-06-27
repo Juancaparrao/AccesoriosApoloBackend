@@ -25,7 +25,7 @@ async function ConsultarSubcategoriasPorCategoria(req, res) {
        JOIN
          categoria c ON s.FK_id_categoria = c.id_categoria
        WHERE
-         c.nombre_categoria = ?`,
+         c.nombre_categoria = ? AND s.estado = TRUE`,
       [nombre_categoria]
     );
 
