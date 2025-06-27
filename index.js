@@ -77,6 +77,7 @@ const { EliminarItemCarrito } = require('./CarritoController/EliminarCarrito');
 const { ConsultarSubcategoriasPorCategoria } = require('./NavbarController/ConsultarSubcategoriasPorCategorias');
 const { ConsultarProductoPorSubcategoria } = require('./NavbarController/ConsultarProductoPorSubcategoria');
 const { ConsultarCalcomaniasPorRol } = require('./NavbarController/ConsultarCalcomaniasPorRol');
+const { ConsultarProductosPorMarca } = require('./NavbarController/ConsultarProductosPorMarca');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -244,6 +245,7 @@ app.delete('/carrito/:id_carrito_item', verificarToken, EliminarItemCarrito);
 app.get('/subcategorias-por-categoria-por-nombre/:nombre_categoria', ConsultarSubcategoriasPorCategoria);
 app.get('/productos-por-subcategoria/:nombre_subcategoria', ConsultarProductoPorSubcategoria);
 app.get('/calcomanias/staff', ConsultarCalcomaniasPorRol);
+app.get('/productos-por-marca/:marca', ConsultarProductosPorMarca);
 
 
 // Formulario de contacto
