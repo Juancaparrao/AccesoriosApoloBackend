@@ -12,13 +12,13 @@ async function ConsultarCalcomaniasPorRol(req, res) {
          c.precio_unidad,
          c.precio_descuento
        FROM
-         CALCOMANIA c
+         calcomania c
        JOIN
-         USUARIO u ON c.fk_id_usuario = u.id_usuario
+         usuario u ON c.fk_id_usuario = u.id_usuario
        JOIN
-         USUARIO_ROL ur ON u.id_usuario = ur.fk_id_usuario
+         usuario_rol ur ON u.id_usuario = ur.fk_id_usuario
        JOIN
-         ROL r ON ur.id_rol = r.id_rol
+         rol r ON ur.id_rol = r.id_rol
        WHERE
          (r.nombre = 'gerente' OR r.nombre = 'vendedor') AND c.estado = TRUE
        GROUP BY

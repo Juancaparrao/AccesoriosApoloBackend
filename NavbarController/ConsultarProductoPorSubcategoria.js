@@ -28,9 +28,9 @@ async function ConsultarProductoPorSubcategoria(req, res) {
          p.marca,
          p.promedio_calificacion
        FROM
-         PRODUCTO p
+         producto p
        JOIN
-         SUBCATEGORIA s ON p.FK_id_subcategoria = s.id_subcategoria
+         subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
        WHERE
          s.nombre_subcategoria = ? AND p.estado = TRUE`,
       [nombre_subcategoria]
