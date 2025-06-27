@@ -2,9 +2,8 @@ const pool = require('../db');
 
 async function ConsultarProductosPorMarca(req, res) {
     try {
-        console.log("=== DEBUG BACKEND - Consultar Productos por Marca ===");
+        console.log("=== DEBUG BACKEND - Consultar Productos por Marca (con excepción 'Otros') ===");
 
-        // La marca se espera en los parámetros de la URL, por ejemplo: /productos-por-marca/Samsung
         const { marca } = req.params;
 
         // 1. Validar que la marca esté presente y sea un string válido
@@ -15,31 +14,65 @@ async function ConsultarProductosPorMarca(req, res) {
             });
         }
 
-        // 2. Ejecutar la consulta SQL para obtener los productos activos de la marca,
-        // incluyendo la URL de la primera imagen asociada de la tabla producto_imagen.
-        const [productosQueryResult] = await pool.execute(
-            `SELECT
-                p.referencia,
-                p.nombre,
-                -- Subconsulta para obtener la primera URL de imagen del producto
-                (
-                    SELECT url_imagen
-                    FROM producto_imagen pi
-                    WHERE pi.FK_referencia_producto = p.referencia
-                    ORDER BY pi.id_imagen ASC
-                    LIMIT 1
-                ) AS url_imagen_principal,
-                p.precio_unidad,
-                p.descuento,
-                p.precio_descuento,
-                p.marca,
-                p.promedio_calificacion
-            FROM
-                producto p
-            WHERE
-                p.marca = ? AND p.estado = TRUE`,
-            [marca]
-        );
+        let query;
+        let queryParams = [];
+
+        // Definir las marcas a excluir si se solicita "Otros"
+        const marcasAExcluir = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
+
+        // Lógica condicional para construir la consulta SQL
+        if (marca.toLowerCase() === 'otros') {
+            // Si la marca es "Otros", excluimos las marcas específicas
+            query = `
+                SELECT
+                    p.referencia,
+                    p.nombre,
+                    (
+                        SELECT url_imagen
+                        FROM producto_imagen pi
+                        WHERE pi.FK_referencia_producto = p.referencia
+                        ORDER BY pi.id_imagen ASC
+                        LIMIT 1
+                    ) AS url_imagen_principal,
+                    p.precio_unidad,
+                    p.descuento,
+                    p.precio_descuento,
+                    p.marca,
+                    p.promedio_calificacion
+                FROM
+                    producto p
+                WHERE
+                    p.marca NOT IN (?) AND p.estado = TRUE
+            `;
+            queryParams = [marcasAExcluir];
+        } else {
+            // Para cualquier otra marca, consultamos directamente por esa marca
+            query = `
+                SELECT
+                    p.referencia,
+                    p.nombre,
+                    (
+                        SELECT url_imagen
+                        FROM producto_imagen pi
+                        WHERE pi.FK_referencia_producto = p.referencia
+                        ORDER BY pi.id_imagen ASC
+                        LIMIT 1
+                    ) AS url_imagen_principal,
+                    p.precio_unidad,
+                    p.descuento,
+                    p.precio_descuento,
+                    p.marca,
+                    p.promedio_calificacion
+                FROM
+                    producto p
+                WHERE
+                    p.marca = ? AND p.estado = TRUE
+            `;
+            queryParams = [marca];
+        }
+
+        // 2. Ejecutar la consulta SQL construida dinámicamente
+        const [productosQueryResult] = await pool.execute(query, queryParams);
 
         // 3. Procesar los resultados para incluir 'descuento' y 'precio_descuento' condicionalmente
         const productos = productosQueryResult.map(producto => {
@@ -67,16 +100,24 @@ async function ConsultarProductosPorMarca(req, res) {
 
         // 4. Verificar si se encontraron productos
         if (productos.length === 0) {
+            let mensajeNoEncontrado = `No se encontraron productos activos para la marca "${marca}".`;
+            if (marca.toLowerCase() === 'otros') {
+                mensajeNoEncontrado = `No se encontraron productos activos de marcas diferentes a ${marcasAExcluir.join(', ')}.`;
+            }
             return res.status(404).json({
                 success: false,
-                mensaje: `No se encontraron productos activos para la marca "${marca}".`
+                mensaje: mensajeNoEncontrado
             });
         }
 
         // 5. Devolver la respuesta con los productos encontrados
+        let mensajeExito = `Productos activos de la marca "${marca}" consultados exitosamente.`;
+        if (marca.toLowerCase() === 'otros') {
+            mensajeExito = `Productos activos de otras marcas consultados exitosamente.`;
+        }
         return res.status(200).json({
             success: true,
-            mensaje: `Productos activos de la marca "${marca}" consultados exitosamente.`,
+            mensaje: mensajeExito,
             productos: productos
         });
 
