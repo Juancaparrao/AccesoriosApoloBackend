@@ -2,7 +2,7 @@ const pool = require('../db');
 
 async function ConsultarProductoPorReferencia(req, res) {
     try {
-        console.log("=== DEBUG BACKEND - Consultar Producto por Referencia con Ahorro ===");
+        console.log("=== DEBUG BACKEND - Consultar Producto por Referencia (Imagen de producto_imagen) ===");
 
         const { referencia } = req.params; // La referencia se espera en los parámetros de la URL
 
@@ -14,20 +14,28 @@ async function ConsultarProductoPorReferencia(req, res) {
             });
         }
 
-        // 2. Consulta SQL para obtener los detalles del producto y el conteo de calificaciones
+        // 2. Consulta SQL para obtener los detalles del producto, el conteo de calificaciones
+        // y la URL de la imagen principal del producto.
         const [rows] = await pool.execute(
             `SELECT
                 p.referencia,
                 p.nombre,
                 p.descripcion,
                 p.talla,
-                p.url_archivo,
+                -- Subconsulta para obtener la primera URL de imagen del producto
+                (
+                    SELECT url_imagen
+                    FROM producto_imagen pi
+                    WHERE pi.FK_referencia_producto = p.referencia
+                    ORDER BY pi.id_imagen ASC
+                    LIMIT 1
+                ) AS url_imagen_principal,
                 p.precio_unidad,
                 p.descuento,
                 p.precio_descuento,
                 p.marca,
                 p.promedio_calificacion,
-                COUNT(c.id_calificacion) AS numero_calificaciones -- Conteo de calificaciones
+                COUNT(c.id_calificacion) AS numero_calificaciones
             FROM
                 producto p
             LEFT JOIN
@@ -35,9 +43,9 @@ async function ConsultarProductoPorReferencia(req, res) {
             WHERE
                 p.referencia = ?
             GROUP BY
-                p.referencia, p.nombre, p.descripcion, p.talla, p.url_archivo,
-                p.precio_unidad, p.descuento, p.precio_descuento, p.marca, p.promedio_calificacion
-            LIMIT 1`, // Aseguramos que solo traiga un resultado ya que 'referencia' es PRIMARY KEY
+                p.referencia, p.nombre, p.descripcion, p.talla, p.precio_unidad,
+                p.descuento, p.precio_descuento, p.marca, p.promedio_calificacion
+            LIMIT 1`,
             [referencia]
         );
 
@@ -57,10 +65,11 @@ async function ConsultarProductoPorReferencia(req, res) {
             nombre: producto.nombre,
             descripcion: producto.descripcion,
             talla: producto.talla,
-            url_archivo: producto.url_archivo,
+            // Usamos el alias de la subconsulta para la URL de la imagen
+            url_imagen: producto.url_imagen_principal, 
             marca: producto.marca,
             promedio_calificacion: parseFloat(producto.promedio_calificacion) || 0.0,
-            numero_calificaciones: parseInt(producto.numero_calificaciones, 10) || 0 // Aseguramos que sea un número, o 0
+            numero_calificaciones: parseInt(producto.numero_calificaciones, 10) || 0
         };
 
         // Lógica condicional para el descuento y el ahorro
