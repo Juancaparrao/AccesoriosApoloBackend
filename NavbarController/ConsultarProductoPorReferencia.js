@@ -2,7 +2,7 @@ const pool = require('../db');
 
 async function ConsultarProductoPorReferencia(req, res) {
     try {
-        console.log("=== DEBUG BACKEND - Consultar Producto por Referencia (Imagen de producto_imagen) ===");
+        console.log("=== DEBUG BACKEND - Consultar Producto por Referencia (Múltiples Imágenes) ===");
 
         const { referencia } = req.params; // La referencia se espera en los parámetros de la URL
 
@@ -14,22 +14,13 @@ async function ConsultarProductoPorReferencia(req, res) {
             });
         }
 
-        // 2. Consulta SQL para obtener los detalles del producto, el conteo de calificaciones
-        // y la URL de la imagen principal del producto.
-        const [rows] = await pool.execute(
+        // 2. Consulta SQL para obtener los detalles principales del producto y el conteo de calificaciones
+        const [productRows] = await pool.execute(
             `SELECT
                 p.referencia,
                 p.nombre,
                 p.descripcion,
                 p.talla,
-                -- Subconsulta para obtener la primera URL de imagen del producto
-                (
-                    SELECT url_imagen
-                    FROM producto_imagen pi
-                    WHERE pi.FK_referencia_producto = p.referencia
-                    ORDER BY pi.id_imagen ASC
-                    LIMIT 1
-                ) AS url_imagen_principal,
                 p.precio_unidad,
                 p.descuento,
                 p.precio_descuento,
@@ -50,23 +41,32 @@ async function ConsultarProductoPorReferencia(req, res) {
         );
 
         // 3. Verificar si se encontró el producto
-        if (rows.length === 0) {
+        if (productRows.length === 0) {
             return res.status(404).json({
                 success: false,
                 mensaje: `Producto con referencia "${referencia}" no encontrado.`
             });
         }
 
-        const producto = rows[0];
+        const producto = productRows[0];
 
-        // 4. Formatear la respuesta del producto
+        // 4. Consulta SQL para obtener TODAS las URLs de imágenes asociadas a este producto
+        const [imageRows] = await pool.execute(
+            `SELECT url_imagen FROM producto_imagen WHERE FK_referencia_producto = ? ORDER BY id_imagen ASC`,
+            [referencia]
+        );
+
+        // Extraer las URLs de las imágenes en un arreglo
+        const urls_imagenes = imageRows.map(img => img.url_imagen);
+
+        // 5. Formatear la respuesta del producto
         const productoFormateado = {
             referencia: producto.referencia,
             nombre: producto.nombre,
             descripcion: producto.descripcion,
             talla: producto.talla,
-            // Usamos el alias de la subconsulta para la URL de la imagen
-            url_imagen: producto.url_imagen_principal, 
+            // Ahora, 'urls_imagenes' será un arreglo
+            urls_imagenes: urls_imagenes,
             marca: producto.marca,
             promedio_calificacion: parseFloat(producto.promedio_calificacion) || 0.0,
             numero_calificaciones: parseInt(producto.numero_calificaciones, 10) || 0
@@ -88,7 +88,7 @@ async function ConsultarProductoPorReferencia(req, res) {
             productoFormateado.precio_unidad = parseFloat(precioUnidad.toFixed(2));
         }
 
-        // 5. Devolver la respuesta
+        // 6. Devolver la respuesta
         return res.status(200).json({
             success: true,
             mensaje: 'Producto consultado exitosamente.',
