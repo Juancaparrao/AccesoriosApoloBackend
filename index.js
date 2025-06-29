@@ -81,6 +81,7 @@ const { ConsultarProductosPorMarca } = require('./NavbarController/ConsultarProd
 const { AgregarCalcomaniasStaff } = require('./NavbarController/AgregarCalcomaniasStaff');
 const { AgregarProductoAlCarrito } = require('./NavbarController/AgregarProducto');
 const { ConsultarProductoPorReferencia } = require('./NavbarController/ConsultarProductoPorReferencia');
+const { ConsultarCalcomaniaPorId } = require('./NavbarController/ConsultarCalcomaniaPorId');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -252,6 +253,7 @@ app.get('/productos-por-marca/:marca', ConsultarProductosPorMarca);
 app.post('/agregar-calcomanias-staff', verificarToken, AgregarCalcomaniasStaff);
 app.post('/agregar-producto-carrito', verificarToken, AgregarProductoAlCarrito);
 app.get('/consultar-producto-por-referencia/:referencia', ConsultarProductoPorReferencia);
+app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 
 
 
