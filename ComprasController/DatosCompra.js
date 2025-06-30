@@ -70,11 +70,11 @@ async function ConsultarCarritoYResumen(req, res) {
                 c.precio_unidad AS precio_unidad_calcomania,
                 c.precio_descuento AS precio_descuento_calcomania
             FROM
-                CARRITO_COMPRAS cc
+                carrito_compras cc
             LEFT JOIN
-                PRODUCTO p ON cc.FK_referencia_producto = p.referencia
+                producto p ON cc.FK_referencia_producto = p.referencia
             LEFT JOIN
-                CALCOMANIA c ON cc.FK_id_calcomania = c.id_calcomania
+                calcomania c ON cc.FK_id_calcomania = c.id_calcomania
             WHERE
                 cc.FK_id_usuario = ?`,
             [fk_id_usuario]
@@ -203,7 +203,7 @@ async function FinalizarCompraYRegistro(req, res) {
 
             // Actualizar datos del usuario existente si son diferentes
             const [currentUser] = await connection.execute(
-                `SELECT nombre, cedula, telefono FROM USUARIO WHERE id_usuario = ?`,
+                `SELECT nombre, cedula, telefono FROM usuario WHERE id_usuario = ?`,
                 [fk_id_usuario]
             );
 
@@ -215,7 +215,7 @@ async function FinalizarCompraYRegistro(req, res) {
             if (telefono !== currentUser[0].telefono) { updateFields.push('telefono = ?'); updateValues.push(telefono); }
 
             if (updateFields.length > 0) {
-                const updateQuery = `UPDATE USUARIO SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
+                const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
                 updateValues.push(fk_id_usuario);
                 await connection.execute(updateQuery, updateValues);
                 console.log(`Usuario ID ${fk_id_usuario} (autenticado) actualizado con nuevos datos.`);
@@ -227,7 +227,7 @@ async function FinalizarCompraYRegistro(req, res) {
 
             // Buscar si el correo ya existe en la tabla USUARIO
             const [existingUserByEmail] = await connection.execute(
-                `SELECT id_usuario, nombre, cedula, telefono FROM USUARIO WHERE correo = ?`,
+                `SELECT id_usuario, nombre, cedula, telefono FROM usuario WHERE correo = ?`,
                 [correo]
             );
 
@@ -245,7 +245,7 @@ async function FinalizarCompraYRegistro(req, res) {
                 if (telefono !== existingUserData.telefono) { updateFields.push('telefono = ?'); updateValues.push(telefono); }
 
                 if (updateFields.length > 0) {
-                    const updateQuery = `UPDATE USUARIO SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
+                    const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
                     updateValues.push(fk_id_usuario);
                     await connection.execute(updateQuery, updateValues);
                     console.log(`Datos de usuario existente (ID: ${fk_id_usuario}, no autenticado) actualizados.`);
@@ -259,18 +259,18 @@ async function FinalizarCompraYRegistro(req, res) {
                 const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10);
 
                 const [insertResult] = await connection.execute(
-                    `INSERT INTO USUARIO (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
+                    `INSERT INTO usuario (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
                     [nombre, cedula, telefono, correo, hashedPassword, true] // Estado true por defecto
                 );
                 fk_id_usuario = insertResult.insertId;
 
                 // Asignar el rol 'cliente' al nuevo usuario
                 const [clienteRole] = await connection.execute(
-                    `SELECT id_rol FROM ROL WHERE nombre = 'cliente'`
+                    `SELECT id_rol FROM rol WHERE nombre = 'cliente'`
                 );
                 if (clienteRole.length > 0) {
                     await connection.execute(
-                        `INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)`,
+                        `INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`,
                         [fk_id_usuario, clienteRole[0].id_rol]
                     );
                 }
@@ -281,7 +281,7 @@ async function FinalizarCompraYRegistro(req, res) {
         // 2. Limpiar el carrito de compras del usuario
         // Esto se hace siempre al "finalizar" esta etapa, ya que se asume que los artículos se van a procesar.
         await connection.execute(
-            `DELETE FROM CARRITO_COMPRAS WHERE FK_id_usuario = ?`,
+            `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
             [fk_id_usuario]
         );
         console.log(`Carrito de compras limpiado para el usuario ID: ${fk_id_usuario}`);

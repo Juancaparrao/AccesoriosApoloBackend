@@ -36,7 +36,7 @@ async function DireccionEnvio(req, res) {
 
             // Obtener los datos actuales del usuario
             const [userCheck] = await pool.execute(
-                `SELECT nombre, cedula, telefono, correo FROM USUARIO WHERE id_usuario = ?`,
+                `SELECT nombre, cedula, telefono, correo FROM usuario WHERE id_usuario = ?`,
                 [fk_id_usuario]
             );
 
@@ -78,7 +78,7 @@ async function DireccionEnvio(req, res) {
 
 
             if (updateFields.length > 0) {
-                const updateQuery = `UPDATE USUARIO SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
+                const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
                 updateValues.push(fk_id_usuario);
                 await pool.execute(updateQuery, updateValues);
                 console.log(`Usuario ID ${fk_id_usuario} actualizado con nuevos datos.`);
@@ -86,7 +86,7 @@ async function DireccionEnvio(req, res) {
 
             // Obtener la dirección de la última compra si existe
             const [lastPurchase] = await pool.execute(
-                `SELECT direccion, informacion_adicional FROM FACTURA WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
+                `SELECT direccion, informacion_adicional FROM factura WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
                 [fk_id_usuario]
             );
 
@@ -114,7 +114,7 @@ async function DireccionEnvio(req, res) {
 
             // Verificar si el correo electrónico ya existe en la tabla USUARIO
             const [existingUserByEmail] = await pool.execute(
-                `SELECT id_usuario, nombre, cedula, telefono, correo FROM USUARIO WHERE correo = ?`,
+                `SELECT id_usuario, nombre, cedula, telefono, correo FROM usuario WHERE correo = ?`,
                 [correo]
             );
 
@@ -145,7 +145,7 @@ async function DireccionEnvio(req, res) {
                 }
 
                 if (updateFields.length > 0) {
-                    const updateQuery = `UPDATE USUARIO SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
+                    const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
                     updateValues.push(fk_id_usuario);
                     await pool.execute(updateQuery, updateValues);
                     console.log(`Datos de usuario existente (ID: ${fk_id_usuario}) actualizados.`);
@@ -153,7 +153,7 @@ async function DireccionEnvio(req, res) {
 
                 // Obtener la dirección de la última compra para este usuario
                 const [lastPurchase] = await pool.execute(
-                    `SELECT direccion, informacion_adicional FROM FACTURA WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
+                    `SELECT direccion, informacion_adicional FROM factura WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
                     [fk_id_usuario]
                 );
 
