@@ -165,10 +165,28 @@ async function FinalizarCompraYRegistro(req, res) {
     try {
         console.log("=== DEBUG BACKEND - Finalizar Compra y Registro (Corregida) ===");
 
+        // --- DEBUG PASO 1: Revisar el contenido de la sesión al inicio ---
+        console.log("DEBUG 1: Contenido completo de req.session:", JSON.stringify(req.session, null, 2));
+        console.log("DEBUG 1: Contenido de req.session.checkout:", JSON.stringify(req.session.checkout, null, 2));
+        console.log("DEBUG 1: Contenido de req.session.checkout.direccion_envio:", JSON.stringify(req.session.checkout && req.session.checkout.direccion_envio, null, 2));
+
+
         // --- OBTENER DATOS DEL USUARIO Y DIRECCIÓN DESDE LA SESIÓN ---
         const checkoutData = req.session.checkout && req.session.checkout.direccion_envio;
 
+        // --- DEBUG PASO 2: Verificar el valor de 'checkoutData' extraído ---
+        console.log("DEBUG 2: Valor de 'checkoutData' (direccion_envio) extraído:", JSON.stringify(checkoutData, null, 2));
+
+
         if (!checkoutData || !checkoutData.nombre || !checkoutData.cedula || !checkoutData.telefono || !checkoutData.correo || !checkoutData.direccion) {
+            // --- DEBUG PASO 3: Indicar qué campo específico falta si la validación falla ---
+            if (!checkoutData) console.log("DEBUG ERROR 3: 'checkoutData' es undefined o null.");
+            if (checkoutData && !checkoutData.nombre) console.log("DEBUG ERROR 3: Falta 'nombre' en checkoutData.");
+            if (checkoutData && !checkoutData.cedula) console.log("DEBUG ERROR 3: Falta 'cedula' en checkoutData.");
+            if (checkoutData && !checkoutData.telefono) console.log("DEBUG ERROR 3: Falta 'telefono' en checkoutData.");
+            if (checkoutData && !checkoutData.correo) console.log("DEBUG ERROR 3: Falta 'correo' en checkoutData.");
+            if (checkoutData && !checkoutData.direccion) console.log("DEBUG ERROR 3: Falta 'direccion' en checkoutData.");
+
             return res.status(400).json({
                 success: false,
                 mensaje: 'Información de usuario o dirección de envío incompleta en la sesión. Por favor, vuelva a la sección de dirección.'
@@ -176,6 +194,15 @@ async function FinalizarCompraYRegistro(req, res) {
         }
 
         const { nombre, cedula, telefono, correo, direccion, informacion_adicional } = checkoutData;
+
+        // --- DEBUG PASO 4: Mostrar los datos individuales extraídos ---
+        console.log("DEBUG 4: Datos extraídos - Nombre:", nombre);
+        console.log("DEBUG 4: Datos extraídos - Cédula:", cedula);
+        console.log("DEBUG 4: Datos extraídos - Teléfono:", telefono);
+        console.log("DEBUG 4: Datos extraídos - Correo:", correo);
+        console.log("DEBUG 4: Datos extraídos - Dirección:", direccion);
+        console.log("DEBUG 4: Datos extraídos - Información Adicional:", informacion_adicional);
+
 
         connection = await pool.getConnection();
         await connection.beginTransaction();
@@ -352,7 +379,7 @@ async function FinalizarCompraYRegistro(req, res) {
             }
         });
 
-        const PRECIO_ENVIO = 14900;
+        const PRECIO_ENVIO = 14900; // Precio de envío en COP
         const subtotalFactura = parseFloat(totalArticulosFinal.toFixed(2));
         const totalFactura = parseFloat((subtotalFactura + PRECIO_ENVIO).toFixed(2));
         const descuentoAplicado = parseFloat(descuentoTotalArticulos.toFixed(2)); // Suma de todos los descuentos
@@ -397,11 +424,6 @@ async function FinalizarCompraYRegistro(req, res) {
                 }
             }
 
-            // Usar el precio con descuento si aplica, si no, el unitario calculado
-            const precio_final_aplicado = (precio_descuento_factura !== null && precio_descuento_factura < precio_unitario_factura)
-                                        ? precio_descuento_factura
-                                        : precio_unitario_factura;
-
             await connection.execute(
                 `INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, FK_id_calcomania, cantidad, precio_unitario, precio_descuento, tamano_calcomania) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
@@ -429,6 +451,8 @@ async function FinalizarCompraYRegistro(req, res) {
         if (req.session.checkout) {
             delete req.session.checkout.direccion_envio;
             console.log("Información de dirección de envío eliminada de la sesión.");
+            // --- DEBUG PASO 5: Verificar que se borró de la sesión ---
+            console.log("DEBUG 5: req.session.checkout después de limpiar direccion_envio:", JSON.stringify(req.session.checkout, null, 2));
         }
 
 

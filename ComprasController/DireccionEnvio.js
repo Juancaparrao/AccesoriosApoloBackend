@@ -1,10 +1,10 @@
 const pool = require('../db');
-// const bcrypt = require('bcrypt'); // Ya no es necesario aquí si no manejamos contraseñas
+// const bcrypt = require('bcrypt'); // No necesario aquí, como bien señalas
 
 async function DireccionEnvio(req, res) {
     try {
         console.log("=== DEBUG BACKEND - Función DireccionEnvio (Actualizada y Corregida) ===");
-        console.log("req.user (desde token):", req.user); // Información si el usuario está autenticado
+        console.log("DEBUG: req.user (desde token, si existe):", req.user); // Información si el usuario está autenticado
 
         const {
             nombre,
@@ -15,8 +15,13 @@ async function DireccionEnvio(req, res) {
             informacion_adicional // Sigue siendo opcional según tu esquema DB
         } = req.body;
 
+        // --- DEBUG 1: Datos recibidos en el cuerpo de la solicitud (req.body) ---
+        console.log("DEBUG 1: Datos recibidos en req.body:", JSON.stringify(req.body, null, 2));
+
+
         // 1. Validación de campos obligatorios
         if (!nombre || !cedula || !telefono || !correo || !direccion) {
+            console.log("DEBUG ERROR: Campos obligatorios faltantes en req.body.");
             return res.status(400).json({
                 success: false,
                 mensaje: 'Los campos nombre, cédula, teléfono, correo y dirección son obligatorios.'
@@ -28,7 +33,13 @@ async function DireccionEnvio(req, res) {
         let userWasRegisteredInDB = false; // Indica si el usuario ya existe en la tabla USUARIO
 
         // Inicializar req.session.checkout si no existe
-        req.session.checkout = req.session.checkout || {};
+        // --- DEBUG 2: Estado inicial de req.session.checkout ---
+        if (!req.session.checkout) {
+            req.session.checkout = {};
+            console.log("DEBUG 2: req.session.checkout inicializado a un objeto vacío.");
+        } else {
+            console.log("DEBUG 2: req.session.checkout ya existe. Contenido:", JSON.stringify(req.session.checkout, null, 2));
+        }
 
         // Verificar si el usuario está autenticado a través del token
         if (req.user && req.user.id_usuario) {
@@ -44,7 +55,7 @@ async function DireccionEnvio(req, res) {
             );
 
             if (userCheck.length === 0) {
-                // Esto no debería ocurrir si el token es válido
+                console.error("ERROR: Usuario autenticado no encontrado en la base de datos con ID:", fk_id_usuario);
                 return res.status(401).json({
                     success: false,
                     mensaje: 'Usuario autenticado no encontrado en la base de datos.'
@@ -82,7 +93,7 @@ async function DireccionEnvio(req, res) {
                 const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
                 updateValues.push(fk_id_usuario);
                 await pool.execute(updateQuery, updateValues);
-                console.log(`Usuario ID ${fk_id_usuario} actualizado con nuevos datos.`);
+                console.log(`Usuario ID ${fk_id_usuario} actualizado con nuevos datos en DB.`);
             }
 
             // Obtener la dirección de la última compra si existe para el usuario autenticado
@@ -110,7 +121,7 @@ async function DireccionEnvio(req, res) {
                 direccion: direccion,
                 informacion_adicional: informacion_adicional || null
             };
-            console.log("Dirección de envío temporalmente guardada en sesión para usuario autenticado.");
+            console.log("DEBUG: Dirección de envío temporalmente guardada en sesión para usuario autenticado.");
 
         } else {
             // --- Usuario NO AUTENTICADO ---
@@ -179,7 +190,7 @@ async function DireccionEnvio(req, res) {
                     direccion: direccion,
                     informacion_adicional: informacion_adicional || null
                 };
-                console.log("Dirección de envío temporalmente guardada en sesión para usuario existente no autenticado.");
+                console.log("DEBUG: Dirección de envío temporalmente guardada en sesión para usuario existente no autenticado.");
 
             } else {
                 // Scenario 3: El correo NO existe en la DB y el usuario NO está autenticado.
@@ -201,7 +212,7 @@ async function DireccionEnvio(req, res) {
                 };
 
                 // Almacenar la información de envío actual temporalmente en la sesión.
-                // Usamos `id_usuario: null` para indicar que aún no hay un registro persistente.
+                // Usamos `id_usuario: null` para indicar que este es un usuario "invitado" sin ID de DB aún.
                 req.session.checkout.direccion_envio = {
                     id_usuario: null, // Indica que este es un usuario "invitado" sin ID de DB aún
                     nombre: nombre,
@@ -211,21 +222,36 @@ async function DireccionEnvio(req, res) {
                     direccion: direccion,
                     informacion_adicional: informacion_adicional || null
                 };
-                console.log("Datos de usuario 'invitado' y dirección de envío guardados temporalmente en sesión.");
+                console.log("DEBUG: Datos de usuario 'invitado' y dirección de envío guardados temporalmente en sesión.");
             }
         }
 
-        // Respuesta final
-        res.status(200).json({
-            success: true,
-            mensaje: 'Información de envío procesada y guardada temporalmente. Puedes continuar con la compra.',
-            usuario_existente_en_db: userWasRegisteredInDB,
-            datos_usuario: userDataToReturn,
-            direccion_temporal_guardada: {
-                direccion: direccion,
-                informacion_adicional: informacion_adicional || null
+        // --- DEBUG 3: Contenido FINAL de req.session.checkout.direccion_envio después de todas las asignaciones ---
+        console.log("DEBUG 3: Contenido FINAL de req.session.checkout.direccion_envio:", JSON.stringify(req.session.checkout.direccion_envio, null, 2));
+
+        // --- IMPORTANTE: Guardar la sesión explícitamente ---
+        // Esto es crucial si tu almacén de sesiones no guarda automáticamente en cada modificación.
+        // req.session.save() garantiza que los cambios se persistan en el almacén de sesiones.
+        req.session.save((err) => {
+            if (err) {
+                console.error("DEBUG ERROR: Error al guardar la sesión después de DireccionEnvio:", err);
+                return res.status(500).json({ success: false, mensaje: 'Error interno del servidor al guardar la información de la sesión.' });
             }
+            console.log("DEBUG: Sesión guardada exitosamente después de DireccionEnvio.");
+
+            // Respuesta final SOLO DESPUÉS de que la sesión se haya guardado
+            res.status(200).json({
+                success: true,
+                mensaje: 'Información de envío procesada y guardada temporalmente. Puedes continuar con la compra.',
+                usuario_existente_en_db: userWasRegisteredInDB,
+                datos_usuario: userDataToReturn,
+                direccion_temporal_guardada: {
+                    direccion: direccion,
+                    informacion_adicional: informacion_adicional || null
+                }
+            });
         });
+
 
     } catch (error) {
         console.error('Error en la función DireccionEnvio:', error);
