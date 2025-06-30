@@ -194,9 +194,9 @@ async function DireccionEnvio(req, res) {
         // 3. Crear la FACTURA con los datos de envío
         const fecha_venta = new Date(); // Fecha actual
         const [facturaResult] = await connection.execute(
-            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio, estado_pedido, estado_pago_wompi)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 0.00, null, 0.00, 'Pendiente', 'PENDING'] // Estado inicial y pago Wompi
+            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 0.00, null, 0.00] // Estado inicial y pago Wompi
         );
         const id_factura = facturaResult.insertId;
         console.log(`Nueva factura (ID: ${id_factura}) creada con datos de envío para usuario ID: ${fk_id_usuario}.`);
