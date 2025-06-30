@@ -1,13 +1,8 @@
-// services/emailService.js
+
 
 const transporter = require('../config/mailer'); // ⚠️ Ajusta esta ruta si tu archivo mailer.js está en otra ubicación relativa.
 
-/**
- * Envía un correo electrónico de bienvenida a un nuevo usuario con sus credenciales.
- * @param {string} destinatarioCorreo - La dirección de correo electrónico del usuario.
- * @param {string} contrasenaGenerada - La contraseña generada automáticamente para el usuario.
- * @returns {Promise<boolean>} - `true` si el correo se envió con éxito, `false` en caso contrario.
- */
+
 async function enviarCorreoBienvenida(destinatarioCorreo, contrasenaGenerada) {
     const mailOptions = {
         from: `Accesorios Apolo <${process.env.EMAIL_USER}>`, // Usamos la variable de entorno para el remitente

@@ -1,35 +1,26 @@
 const pool = require('../db');
+const { enviarCorreoBienvenida } = require('../services/emailService'); // Importa tu servicio de correo
 
 async function ConsultarCarritoYResumen(req, res) {
     try {
         console.log("=== DEBUG BACKEND - Consultar Carrito y Resumen ===");
 
-        // --- CAMBIO CLAVE AQUÍ: Permite consultar el carrito sin autenticación ---
-        // Si el usuario no está autenticado, podemos usar un ID de sesión o algún otro identificador temporal para el carrito.
-        // Asumiendo que el carrito de un invitado se asocia al req.sessionID (si usas express-session)
-        // O si ya tienes un identificador de carrito para invitados.
         let fk_id_usuario;
         if (req.user && req.user.id_usuario) {
             fk_id_usuario = req.user.id_usuario;
             console.log("Usuario AUTENTICADO consultando carrito. ID:", fk_id_usuario);
         } else {
-            // Esto es un placeholder. Necesitarías una forma de identificar el carrito de un invitado.
-            // Por ejemplo, si el ID del carrito se pasa en los headers o la URL, o si está en req.session
-            // Por ahora, si no hay usuario, devolverá un error 401 si no hay una forma de identificar el carrito de invitado.
-            // Para fines de esta demostración, asumiremos que si no hay req.user, no se puede consultar el carrito.
-            // Si deseas soportar carritos de invitado, la lógica de FK_id_usuario y carrito_compras debe adaptarse.
+            // Lógica para carritos de invitado (si la implementas):
+            // Necesitarías una forma de identificar el carrito de un invitado,
+            // por ejemplo, usando req.session.guestId o un token del frontend.
+            // Por ahora, si no hay usuario autenticado, devuelve un error 401.
             return res.status(401).json({
                 success: false,
-                mensaje: 'Acceso no autorizado. El usuario debe estar autenticado para consultar su carrito, o la funcionalidad de carrito de invitado no está implementada para esta ruta.'
+                mensaje: 'Acceso no autorizado. Para consultar el carrito, el usuario debe estar autenticado.'
             });
-            // Si manejas carritos de invitado en la DB, tendrías que tener un FK_id_session o similar
-            // Y pasar el req.sessionID aquí, o un ID de carrito generado por el frontend.
-            // Por ejemplo: fk_id_usuario = req.sessionID; // Si tu tabla carrito_compras usa sessionID para invitados
-            // Luego, la consulta SQL para carrito_compras tendría que buscar por FK_id_usuario O FK_id_sesion
         }
 
         // 1. Obtener los artículos del carrito (productos y calcomanías)
-        // ... (el resto de tu lógica de ConsultarCarritoYResumen permanece igual)
         const [carritoItems] = await pool.execute(
             `SELECT
                 cc.FK_referencia_producto AS referencia_producto,
@@ -75,36 +66,29 @@ async function ConsultarCarritoYResumen(req, res) {
                 let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
                 let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
 
-                // --- Lógica de cálculo de precio según tamaño para calcomanías (CORREGIDA) ---
                 switch (item.tamano.toLowerCase()) {
                     case 'pequeño':
-                        // Precio base, sin incremento
                         precio_unidad_calculado = precio_base_calcomania;
                         precio_descuento_calculado = precio_descuento_base_calcomania;
                         break;
                     case 'mediano':
-                        // Precio base + 125% del precio base (lo que es igual a multiplicarlo por 2.25)
                         precio_unidad_calculado = precio_base_calcomania * 2.25;
                         precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
                         break;
                     case 'grande':
-                        // Precio base + 300% del precio base (lo que es igual a multiplicarlo por 4.00)
                         precio_unidad_calculado = precio_base_calcomania * 4.00;
                         precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
                         break;
                     default:
-                        // Si el tamaño no es reconocido, se usa el precio base sin modificaciones.
                         console.warn(`Tamaño de calcomanía desconocido: ${item.tamano}. Usando precio base.`);
                         precio_unidad_calculado = precio_base_calcomania;
                         precio_descuento_calculado = precio_descuento_base_calcomania;
                         break;
                 }
-                // --- Fin de la lógica de cálculo de precio por tamaño ---
             }
 
             const cantidad = item.cantidad;
 
-            // Calcular subtotalArticulo y contribuir a los totales generales
             totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
 
             if (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) {
@@ -129,8 +113,7 @@ async function ConsultarCarritoYResumen(req, res) {
             });
         });
 
-        // 2. Calcular el resumen del pedido
-        const PRECIO_ENVIO = 14900;
+        const PRECIO_ENVIO = 14900; // Asumiendo pesos colombianos COP
         const subtotalPedido = parseFloat((totalArticulosFinal).toFixed(2));
         const totalPedido = parseFloat((subtotalPedido + PRECIO_ENVIO).toFixed(2));
 
@@ -165,124 +148,62 @@ async function FinalizarCompraYRegistro(req, res) {
     try {
         console.log("=== DEBUG BACKEND - Finalizar Compra y Registro (Completa) ===");
 
-        // --- OBTENER DATOS DEL USUARIO Y DIRECCIÓN DESDE LA SESIÓN ---
-        const checkoutData = req.session.checkout?.direccion_envio; // Usamos el operador ?. para seguridad
+        // --- OBTENER DATOS NECESARIOS DE LA SESIÓN ---
+        const checkoutInfoFromSession = req.session.checkout;
 
-        if (!checkoutData || !checkoutData.nombre || !checkoutData.cedula || !checkoutData.telefono || !checkoutData.correo || !checkoutData.direccion) {
-            console.error("DEBUG ERROR: Información de checkout incompleta en la sesión.");
-            // Puedes añadir más detalles de depuración para saber qué campo específico falta
-            return res.status(400).json({
+        if (!checkoutInfoFromSession || !checkoutInfoFromSession.fk_id_usuario_para_compra || !checkoutInfoFromSession.id_factura_temp) {
+             console.error("DEBUG ERROR: Información de checkout incompleta en la sesión para finalizar la compra.");
+             return res.status(400).json({
+                 success: false,
+                 mensaje: 'Información de la compra no encontrada en la sesión. Por favor, reinicie el proceso de compra.'
+             });
+         }
+
+        // Recuperar los datos guardados en la sesión por DireccionEnvio
+        const fk_id_usuario = checkoutInfoFromSession.fk_id_usuario_para_compra;
+        const id_factura_temp = checkoutInfoFromSession.id_factura_temp;
+        const esNuevoRegistro = checkoutInfoFromSession.es_nuevo_registro;
+        // Aquí recuperamos la contraseña GENERADA Y GUARDADA en DireccionEnvio, no la desencriptamos porque no fue encriptada antes de guardarse en sesión.
+        const contrasenaGenerada = checkoutInfoFromSession.contrasena_generada; // Será null si no fue nuevo registro
+
+        // Recuperar los datos de dirección de envío asociados a la factura temporal
+        // Estos ya están en la factura, pero necesitamos el correo para el email de bienvenida.
+        const [facturaTemporalData] = await pool.execute(
+            `SELECT direccion, informacion_adicional FROM factura WHERE id_factura = ? AND fk_id_usuario = ?`,
+            [id_factura_temp, fk_id_usuario]
+        );
+
+        if (facturaTemporalData.length === 0) {
+            console.error(`DEBUG ERROR: Factura temporal ID ${id_factura_temp} no encontrada para el usuario ${fk_id_usuario}.`);
+            return res.status(404).json({
                 success: false,
-                mensaje: 'Información de usuario o dirección de envío incompleta en la sesión. Por favor, vuelva a la sección de dirección.'
+                mensaje: 'La factura temporal no pudo ser encontrada. Por favor, intente de nuevo.'
             });
         }
+        const { direccion, informacion_adicional } = facturaTemporalData[0];
 
-        const { nombre, cedula, telefono, correo, direccion, informacion_adicional } = checkoutData;
+        // Obtener el correo del usuario que se registró/identificó
+        // Ya que la lógica de usuario se manejó en DireccionEnvio, el fk_id_usuario ya apunta
+        // al usuario correcto, ya sea existente o recién creado.
+        const [userData] = await pool.execute(`SELECT correo FROM usuario WHERE id_usuario = ?`, [fk_id_usuario]);
+        let usuarioEmail = userData.length > 0 ? userData[0].correo : null;
+
+        if (!usuarioEmail) {
+            console.error("DEBUG ERROR: No se pudo obtener el correo del usuario para finalizar la compra.");
+            throw new Error("No se pudo obtener el correo del usuario.");
+        }
+
 
         connection = await pool.getConnection();
         await connection.beginTransaction(); // Iniciar transacción
 
-        let fk_id_usuario;
-        let esNuevoRegistro = false;
-        let contrasenaGenerada = null;
-        let usuarioEmail = correo; // El correo del usuario para el que se procesa la compra
+        // Los pasos de creación/actualización de usuario ya se manejaron en DireccionEnvio.
+        // Aquí solo confirmamos el fk_id_usuario que viene de la sesión.
+        console.log(`Procediendo con la compra para usuario ID: ${fk_id_usuario}. Nuevo registro: ${esNuevoRegistro}`);
 
-        // 1. Determinar el usuario y si necesita ser registrado o actualizado
-        if (req.user && req.user.id_usuario) {
-            // --- Usuario AUTENTICADO por Token ---
-            console.log(`Usuario AUTENTICADO. ID: ${req.user.id_usuario}`);
-            fk_id_usuario = req.user.id_usuario;
-
-            // Opcional: Verificar que el correo proporcionado en la sesión coincida con el del token.
-            // Esto es una medida de seguridad extra, aunque el middleware de autenticación ya verifica el token.
-            if (correo !== req.user.correo) {
-                console.warn(`[Seguridad] Correo proporcionado en sesión (${correo}) no coincide con el del token (${req.user.correo}).`);
-                // Considera si esto debe ser un error fatal o simplemente una advertencia.
-                // Para una alta seguridad, podría abortar la operación.
-                // throw new Error('El correo asociado a la compra no coincide con su cuenta autenticada.');
-            }
-
-            // Actualizar datos del usuario existente si son diferentes
-            const [currentUser] = await connection.execute(
-                `SELECT nombre, cedula, telefono FROM usuario WHERE id_usuario = ?`,
-                [fk_id_usuario]
-            );
-
-            let updateFields = [];
-            let updateValues = [];
-
-            if (nombre !== currentUser[0].nombre) { updateFields.push('nombre = ?'); updateValues.push(nombre); }
-            if (parseInt(cedula, 10) !== currentUser[0].cedula) { updateFields.push('cedula = ?'); updateValues.push(cedula); }
-            if (telefono !== currentUser[0].telefono) { updateFields.push('telefono = ?'); updateValues.push(telefono); }
-
-            if (updateFields.length > 0) {
-                const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
-                updateValues.push(fk_id_usuario);
-                await connection.execute(updateQuery, updateValues);
-                console.log(`Usuario ID ${fk_id_usuario} (autenticado) actualizado con nuevos datos.`);
-            }
-
-        } else {
-            // --- Usuario NO AUTENTICADO (comprando como invitado o usuario existente no logueado) ---
-            console.log("Usuario NO AUTENTICADO. Verificando correo en la base de datos...");
-
-            const [existingUserByEmail] = await connection.execute(
-                `SELECT id_usuario, nombre, cedula, telefono FROM usuario WHERE correo = ?`,
-                [correo]
-            );
-
-            if (existingUserByEmail.length > 0) {
-                // Usuario EXISTE en DB pero NO AUTENTICADO: Usamos su ID existente y actualizamos.
-                fk_id_usuario = existingUserByEmail[0].id_usuario;
-                console.log(`Correo ya registrado, usuario no autenticado. Usando ID existente: ${fk_id_usuario}`);
-
-                const existingUserData = existingUserByEmail[0];
-                let updateFields = [];
-                let updateValues = [];
-
-                if (nombre !== existingUserData.nombre) { updateFields.push('nombre = ?'); updateValues.push(nombre); }
-                if (parseInt(cedula, 10) !== existingUserData.cedula) { updateFields.push('cedula = ?'); updateValues.push(cedula); }
-                if (telefono !== existingUserData.telefono) { updateFields.push('telefono = ?'); updateValues.push(telefono); }
-
-                if (updateFields.length > 0) {
-                    const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
-                    updateValues.push(fk_id_usuario);
-                    await connection.execute(updateQuery, updateValues);
-                    console.log(`Datos de usuario existente (ID: ${fk_id_usuario}, no autenticado) actualizados.`);
-                }
-
-            } else {
-                // Usuario NO EXISTE en la DB: Proceder con el registro automático
-                console.log("Correo NO registrado. Registrando nuevo usuario automáticamente...");
-                esNuevoRegistro = true;
-                contrasenaGenerada = generarContrasenaSegura();
-                const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10);
-
-                const [insertResult] = await connection.execute(
-                    `INSERT INTO usuario (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
-                    [nombre, cedula, telefono, correo, hashedPassword, true] // Estado true por defecto
-                );
-                fk_id_usuario = insertResult.insertId;
-
-                // Asignar el rol 'cliente' al nuevo usuario
-                const [clienteRole] = await connection.execute(
-                    `SELECT id_rol FROM rol WHERE nombre = 'cliente'`
-                );
-                if (clienteRole.length > 0) {
-                    await connection.execute(
-                        `INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`,
-                        [fk_id_usuario, clienteRole[0].id_rol]
-                    );
-                    console.log(`Rol 'cliente' asignado al nuevo usuario ID: ${fk_id_usuario}`);
-                } else {
-                    console.warn("Advertencia: No se encontró el rol 'cliente' en la base de datos.");
-                }
-                console.log(`Nuevo usuario registrado automáticamente con ID: ${fk_id_usuario}`);
-            }
-        }
 
         // 2. Mover el carrito del usuario a la factura
-        // Obtener los artículos del carrito del usuario (¡Importante: usa fk_id_usuario aquí!)
+        // Obtener los artículos del carrito del usuario
         const [carritoItems] = await connection.execute(
             `SELECT
                 cc.FK_referencia_producto AS referencia_producto,
@@ -307,7 +228,7 @@ async function FinalizarCompraYRegistro(req, res) {
         );
 
         if (carritoItems.length === 0) {
-            await connection.rollback(); // No hay artículos en el carrito, revertir y salir.
+            await connection.rollback();
             return res.status(400).json({
                 success: false,
                 mensaje: 'El carrito de compras está vacío. No se puede finalizar una compra sin artículos.'
@@ -316,9 +237,8 @@ async function FinalizarCompraYRegistro(req, res) {
 
         let totalArticulosFinal = 0;
         let descuentoTotalArticulos = 0;
-        // totalArticulosSinDescuento ya no es necesario aquí si solo calculamos el total final y descuentoAplicado
 
-        carritoItems.forEach(item => {
+        for (const item of carritoItems) {
             let precio_unidad_calculado, precio_descuento_calculado;
 
             if (item.referencia_producto !== null) { // Es un producto
@@ -349,105 +269,80 @@ async function FinalizarCompraYRegistro(req, res) {
             }
 
             const cantidad = item.cantidad;
-            // Sumamos el precio original para el cálculo del descuento total
             descuentoTotalArticulos += (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) ?
                 (precio_unidad_calculado - precio_descuento_calculado) * cantidad : 0;
 
-            // Sumamos el precio final (con descuento si aplica) al total de la factura
             totalArticulosFinal += (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) ?
                 precio_descuento_calculado * cantidad : precio_unidad_calculado * cantidad;
-        });
 
-        const PRECIO_ENVIO = 14900; // Precio de envío en COP
-        const subtotalFactura = parseFloat(totalArticulosFinal.toFixed(2));
-        const totalFactura = parseFloat((subtotalFactura + PRECIO_ENVIO).toFixed(2));
-        const descuentoAplicado = parseFloat(descuentoTotalArticulos.toFixed(2)); // Suma de todos los descuentos
-
-        // Insertar la factura principal
-        const [facturaResult] = await connection.execute(
-            `INSERT INTO factura (fk_id_usuario, fecha_venta, total, subtotal, descuento, precio_envio, direccion, informacion_adicional, estado_pedido) VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?)`,
-            [fk_id_usuario, totalFactura, subtotalFactura, descuentoAplicado, PRECIO_ENVIO, direccion, informacion_adicional, 'Pendiente']
-        );
-        const id_factura = facturaResult.insertId;
-        console.log(`Factura creada con ID: ${id_factura} para usuario ID: ${fk_id_usuario}`);
-
-        // Insertar los detalles de la factura
-        for (const item of carritoItems) {
-            let precio_unitario_factura; // Precio original del ítem (sin descuento)
-            let precio_descuento_factura; // Precio con descuento del ítem (si aplica)
-
-            if (item.referencia_producto !== null) { // Es un producto
-                precio_unitario_factura = parseFloat(item.precio_unidad_producto);
-                precio_descuento_factura = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
-            } else { // Es una calcomanía
-                let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
-                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
-
-                switch (item.tamano.toLowerCase()) {
-                    case 'pequeño':
-                        precio_unitario_factura = precio_base_calcomania;
-                        precio_descuento_factura = precio_descuento_base_calcomania;
-                        break;
-                    case 'mediano':
-                        precio_unitario_factura = precio_base_calcomania * 2.25;
-                        precio_descuento_factura = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
-                        break;
-                    case 'grande':
-                        precio_unitario_factura = precio_base_calcomania * 4.00;
-                        precio_descuento_factura = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
-                        break;
-                    default:
-                        precio_unitario_factura = precio_base_calcomania;
-                        precio_descuento_factura = precio_descuento_base_calcomania;
-                        break;
-                }
-            }
-
+            // Insertar los detalles de la factura
             await connection.execute(
                 `INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, FK_id_calcomania, cantidad, precio_unitario, precio_descuento, tamano_calcomania) VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    id_factura,
+                    id_factura_temp, // Usar el id_factura_temp que ya creamos en DireccionEnvio
                     item.referencia_producto,
                     item.id_calcomania,
                     item.cantidad,
-                    parseFloat(precio_unitario_factura.toFixed(2)), // Precio original del ítem
-                    precio_descuento_factura ? parseFloat(precio_descuento_factura.toFixed(2)) : null, // Precio con descuento del ítem (si aplica)
+                    parseFloat(precio_unidad_calculado.toFixed(2)), // Precio original del ítem
+                    precio_descuento_calculado ? parseFloat(precio_descuento_calculado.toFixed(2)) : null, // Precio con descuento del ítem (si aplica)
                     item.id_calcomania ? item.tamano : null // Solo para calcomanías
                 ]
             );
+
+            // Reducir el stock (aquí debes implementar la lógica para tus tablas de producto/calcomania)
+            if (item.referencia_producto) {
+                const [updateProductStock] = await connection.execute(
+                    `UPDATE producto SET stock = stock - ? WHERE referencia = ?`,
+                    [item.cantidad, item.referencia_producto]
+                );
+                // Si necesitas verificar el stock antes o manejar un error si es insuficiente:
+                // SELECT stock FROM producto WHERE referencia = ?
+                // if (currentStock < item.cantidad) { throw new Error('Stock insuficiente'); }
+            } else if (item.id_calcomania) {
+                // Si las calcomanías tienen stock:
+                // const [updateCalcomaniaStock] = await connection.execute(
+                //     `UPDATE calcomania SET stock = stock - ? WHERE id_calcomania = ?`,
+                //     [item.cantidad, item.id_calcomania]
+                // );
+            }
         }
-        console.log(`Detalles de factura insertados para la factura ID: ${id_factura}`);
+        console.log(`Detalles de factura y reducción de stock procesados para factura ID: ${id_factura_temp}`);
+
+        const PRECIO_ENVIO = 14900;
+        const subtotalFactura = parseFloat(totalArticulosFinal.toFixed(2));
+        const totalFactura = parseFloat((subtotalFactura + PRECIO_ENVIO).toFixed(2));
+        const descuentoAplicado = parseFloat(descuentoTotalArticulos.toFixed(2));
+
+        // Actualizar la factura principal con los totales finales y el estado
+        await connection.execute(
+            `UPDATE factura SET total = ?, subtotal = ?, descuento = ?, precio_envio = ?, estado_pedido = 'Completada', fecha_venta = NOW() WHERE id_factura = ?`,
+            [totalFactura, subtotalFactura, descuentoAplicado, PRECIO_ENVIO, id_factura_temp]
+        );
+        console.log(`Factura ID: ${id_factura_temp} actualizada con totales y estado 'Completada'.`);
+
 
         // 3. Limpiar el carrito de compras del usuario
-        // Esto se hace siempre al "finalizar" esta etapa, ya que los artículos se han procesado en la factura.
         await connection.execute(
             `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
             [fk_id_usuario]
         );
         console.log(`Carrito de compras limpiado para el usuario ID: ${fk_id_usuario}`);
 
-        // 4. Limpiar la información de envío de la sesión una vez completada la compra
-        if (req.session.checkout) {
-            delete req.session.checkout.direccion_envio;
-            // También se puede limpiar todo el objeto checkout si no se necesita más
-            // delete req.session.checkout;
-            console.log("Información de dirección de envío eliminada de la sesión.");
-        }
-        // Guarda la sesión para que los cambios se reflejen inmediatamente
+        // 4. Limpiar la información de checkout de la sesión
+        delete req.session.checkout;
         req.session.save((err) => {
             if (err) {
                 console.error("DEBUG ERROR: Error al guardar la sesión después de FinalizarCompra:", err);
             } else {
-                console.log("DEBUG: Sesión guardada exitosamente después de FinalizarCompra.");
+                console.log("DEBUG: Sesión guardada y información de checkout eliminada.");
             }
         });
 
-
-        await connection.commit(); // Confirmar la transacción
+        await connection.commit();
 
         // 5. Enviar correo de bienvenida si es un nuevo registro
+        // La `contrasenaGenerada` se recupera directamente de la sesión
         if (esNuevoRegistro && usuarioEmail && contrasenaGenerada) {
-            // Asegúrate de que enviarCorreoBienvenida es asíncrona y la esperas
             const correoEnviado = await enviarCorreoBienvenida(usuarioEmail, contrasenaGenerada);
             if (correoEnviado) {
                 console.log(`Correo de bienvenida enviado exitosamente a ${usuarioEmail}`);
@@ -459,7 +354,7 @@ async function FinalizarCompraYRegistro(req, res) {
         res.status(200).json({
             success: true,
             mensaje: '¡Compra finalizada exitosamente! Tu pedido está en camino.',
-            id_factura: id_factura,
+            id_factura: id_factura_temp,
             nuevo_usuario_registrado: esNuevoRegistro,
             contrasena_generada: esNuevoRegistro ? contrasenaGenerada : undefined, // Solo si es nuevo registro
             total_factura: totalFactura
@@ -467,15 +362,25 @@ async function FinalizarCompraYRegistro(req, res) {
 
     } catch (error) {
         if (connection) {
-            await connection.rollback(); // Revertir la transacción si algo falla
+            await connection.rollback();
             console.error("Transacción revertida debido a un error.");
         }
         console.error('Error al procesar la finalización de la compra:', error);
-        // Manejar errores específicos como correo duplicado si ocurre en la fase de INSERT
+
+        // Ya que la creación/actualización de usuario se maneja en DireccionEnvio,
+        // este ER_DUP_ENTRY por 'correo' es menos probable que ocurra aquí,
+        // a menos que algo más intente insertar un usuario con un correo duplicado.
         if (error.code === 'ER_DUP_ENTRY' && error.sqlMessage.includes('correo')) {
-            return res.status(409).json({ // 409 Conflict
+            return res.status(409).json({
                 success: false,
-                mensaje: 'El correo electrónico ya está registrado. Si ya tiene una cuenta, inicie sesión antes de finalizar la compra.'
+                mensaje: 'Un usuario con este correo electrónico ya existe. Si ya tiene una cuenta, inicie sesión.'
+            });
+        }
+        // Manejar el caso de stock insuficiente (ajusta el mensaje de error o código SQL específico si es necesario)
+        if (error.sqlMessage && error.sqlMessage.includes('stock')) { // Ejemplo, ajusta según el error real de tu DB
+            return res.status(400).json({
+                success: false,
+                mensaje: 'No hay suficiente stock para uno o más artículos en su carrito. Por favor, revise las cantidades.'
             });
         }
         res.status(500).json({
@@ -483,11 +388,10 @@ async function FinalizarCompraYRegistro(req, res) {
             mensaje: 'Error interno del servidor al procesar su solicitud.'
         });
     } finally {
-        if (connection) connection.release(); // Liberar la conexión
+        if (connection) connection.release();
     }
 }
 
-// Exportar las funciones
 module.exports = {
     ConsultarCarritoYResumen,
     FinalizarCompraYRegistro
