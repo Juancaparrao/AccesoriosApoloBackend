@@ -1,11 +1,11 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto'); // Necesario para generar bytes aleatorios
+const crypto = require('crypto');
 
-// Se ha eliminado la línea de importación de EmailSender.js
+// Re-importar el servicio de correo
+const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado');
 
 function generarContrasenaSegura() {
-    // Genera 8 bytes aleatorios y los convierte a una cadena hexadecimal (16 caracteres)
     return crypto.randomBytes(8).toString('hex');
 }
 
@@ -41,7 +41,7 @@ async function DireccionEnvio(req, res) {
 
         let fk_id_usuario;
         let esNuevoRegistro = false; // Flag para saber si se registró un nuevo usuario
-        let contrasenaGenerada = null; // Para almacenar la contraseña generada si aplica (pero no se usará por ahora)
+        let contrasenaGenerada = null; // Para almacenar la contraseña generada si aplica
         let carritoDesdeDB = []; // Para almacenar los ítems del carrito, ya sea del frontend o DB
 
         // 2. Manejo del Usuario (Autenticado o Invitado)
@@ -154,7 +154,7 @@ async function DireccionEnvio(req, res) {
                 console.log("Correo NO registrado en DB. Registrando nuevo usuario y generando contraseña.");
                 esNuevoRegistro = true; // Es un nuevo registro
 
-                contrasenaGenerada = generarContrasenaSegura(); // Se genera, pero no se usa ni se envía
+                contrasenaGenerada = generarContrasenaSegura(); // Genera la contraseña
                 const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10); // Hashear para guardar
 
                 const [result] = await connection.execute(
@@ -177,6 +177,17 @@ async function DireccionEnvio(req, res) {
                     console.warn("Advertencia: No se encontró el rol 'cliente' en la base de datos.");
                 }
                 console.log(`Nuevo usuario registrado automáticamente con ID: ${fk_id_usuario}`);
+
+                // *** AQUI ENVIAMOS EL CORREO DE BIENVENIDA CON LA CONTRASEÑA GENERADA ***
+                // Es el único lugar donde tenemos la contraseña en texto plano de forma segura.
+                if (correo) { // Asegurarse de que el correo existe
+                    const correoEnviado = await enviarCorreoBienvenida(correo, contrasenaGenerada);
+                    if (correoEnviado) {
+                        console.log(`Correo de bienvenida con contraseña enviado a ${correo}`);
+                    } else {
+                        console.warn(`Falló el envío del correo de bienvenida a ${correo}.`);
+                    }
+                }
             }
         }
 
@@ -189,7 +200,6 @@ async function DireccionEnvio(req, res) {
                 mensaje: 'No se encontraron artículos en su carrito. Por favor, añada artículos antes de continuar.'
             });
         }
-
 
         // 3. Crear la FACTURA con los datos de envío
         const fecha_venta = new Date(); // Fecha actual
@@ -237,47 +247,25 @@ async function DireccionEnvio(req, res) {
              console.log(`Usuario logeado. Se asume que el carrito en la DB es la fuente de verdad y no se repobló.`);
         }
 
-
-        // 5. Almacenar información relevante en la sesión para el siguiente paso (FinalizarCompraYRegistro)
-        req.session.checkout = req.session.checkout || {};
-        req.session.checkout.id_factura_temp = id_factura; // Guardamos el ID de la factura creada
-        req.session.checkout.fk_id_usuario_para_compra = fk_id_usuario;
-        req.session.checkout.es_nuevo_registro = esNuevoRegistro;
-        req.session.checkout.correo_cliente_factura = correo; // Guardamos el correo para usarlo en Wompi
-        if (esNuevoRegistro) {
-            req.session.checkout.contrasena_generada = contrasenaGenerada;
-            // No se envía el correo con la contraseña generada en este momento,
-            // pero la contraseña se guarda en la DB y en la sesión si es un nuevo registro.
-        }
-
-        console.log("DEBUG: ID de factura, flags de usuario y contraseña (si aplica) guardados en la sesión.");
-
         await connection.commit();
         console.log("DEBUG: Transacción de DireccionEnvio completada y datos guardados en DB.");
 
-        req.session.save((err) => {
-            if (err) {
-                console.error("DEBUG ERROR: Error al guardar la sesión después de DireccionEnvio:", err);
-                return res.status(500).json({ success: false, mensaje: 'Error interno del servidor al guardar la información de la sesión.' });
-            }
-            console.log("DEBUG: Sesión guardada exitosamente después de DireccionEnvio.");
-
-            res.status(200).json({
-                success: true,
-                mensaje: 'Información de envío y factura inicial procesadas. Puedes continuar con la compra.',
-                id_factura_creada: id_factura, // Se retorna el ID de la factura creada
-                nuevo_usuario_registrado: esNuevoRegistro,
-                datos_usuario_para_checkout: { // Estos son los datos del usuario tal como se ingresaron
-                    nombre,
-                    cedula,
-                    telefono,
-                    correo,
-                    direccion,
-                    informacion_adicional
-                },
-                // La contraseña generada no se retorna al frontend por seguridad,
-                // ya que no se está enviando por correo.
-            });
+        res.status(200).json({
+            success: true,
+            mensaje: 'Información de envío y factura inicial procesadas. Puedes continuar con la compra.',
+            id_factura_creada: id_factura, // Se retorna el ID de la factura creada
+            fk_id_usuario_para_compra: fk_id_usuario, // Se retorna el ID del usuario para el siguiente paso
+            nuevo_usuario_registrado: esNuevoRegistro, // Se retorna el flag de nuevo registro
+            datos_usuario_para_checkout: { // Estos son los datos del usuario tal como se ingresaron
+                nombre,
+                cedula,
+                telefono,
+                correo,
+                direccion,
+                informacion_adicional
+            },
+            // La contraseña generada no se retorna al frontend por seguridad,
+            // ya que ya se envió por correo.
         });
 
     } catch (error) {

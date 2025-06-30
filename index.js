@@ -85,7 +85,7 @@ const { AgregarProductoAlCarrito } = require('./NavbarController/AgregarProducto
 const { ConsultarProductoPorReferencia } = require('./NavbarController/ConsultarProductoPorReferencia');
 const { ConsultarCalcomaniaPorId } = require('./NavbarController/ConsultarCalcomaniaPorId');
 const { DireccionEnvio } = require('./ComprasController/DireccionEnvio');
-const { ConsultarCarritoYResumen, FinalizarCompraYRegistro } = require('./ComprasController/DatosCompra');
+const { ConsultarCarritoYResumen} = require('./ComprasController/DatosCompra');
 const { handleWompiWebhook } = require('./ComprasController/WompiController');
 
 app.use(cors({
@@ -284,7 +284,6 @@ app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 // Compras
 app.post('/direccion-envio', verificarTokenOpcional, DireccionEnvio);
 app.get('/carrito-resumen', verificarTokenOpcional, ConsultarCarritoYResumen);
-app.post('/finalizar-compra', verificarTokenOpcional, FinalizarCompraYRegistro);
 
 
 
