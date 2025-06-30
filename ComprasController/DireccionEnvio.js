@@ -3,7 +3,7 @@ const pool = require('../db');
 
 async function DireccionEnvio(req, res) {
     try {
-        console.log("=== DEBUG BACKEND - Función DireccionEnvio (Actualizada) ===");
+        console.log("=== DEBUG BACKEND - Función DireccionEnvio (Actualizada y Corregida) ===");
         console.log("req.user (desde token):", req.user); // Información si el usuario está autenticado
 
         const {
@@ -15,7 +15,7 @@ async function DireccionEnvio(req, res) {
             informacion_adicional // Sigue siendo opcional según tu esquema DB
         } = req.body;
 
-        // 1. Validación de campos obligatorios (ahora más estricta)
+        // 1. Validación de campos obligatorios
         if (!nombre || !cedula || !telefono || !correo || !direccion) {
             return res.status(400).json({
                 success: false,
@@ -27,6 +27,9 @@ async function DireccionEnvio(req, res) {
         let userDataToReturn = {};
         let userWasRegisteredInDB = false; // Indica si el usuario ya existe en la tabla USUARIO
 
+        // Inicializar req.session.checkout si no existe
+        req.session.checkout = req.session.checkout || {};
+
         // Verificar si el usuario está autenticado a través del token
         if (req.user && req.user.id_usuario) {
             // --- Usuario AUTENTICADO ---
@@ -34,7 +37,7 @@ async function DireccionEnvio(req, res) {
             fk_id_usuario = req.user.id_usuario;
             userWasRegisteredInDB = true;
 
-            // Obtener los datos actuales del usuario
+            // Obtener los datos actuales del usuario desde la DB
             const [userCheck] = await pool.execute(
                 `SELECT nombre, cedula, telefono, correo FROM usuario WHERE id_usuario = ?`,
                 [fk_id_usuario]
@@ -53,12 +56,11 @@ async function DireccionEnvio(req, res) {
             let updateValues = [];
 
             // Actualizar datos del usuario si son diferentes de los proporcionados
-            // Ojo: el correo no se actualiza por seguridad aquí. Si cambia, implica nuevo registro o proceso de cambio de email.
             if (nombre !== currentUser.nombre) {
                 updateFields.push('nombre = ?');
                 updateValues.push(nombre);
             }
-            if (parseInt(cedula, 10) !== currentUser.cedula) { // Convertir a número para comparación
+            if (parseInt(cedula, 10) !== currentUser.cedula) {
                 updateFields.push('cedula = ?');
                 updateValues.push(cedula);
             }
@@ -68,11 +70,10 @@ async function DireccionEnvio(req, res) {
             }
             // El correo no se actualiza aquí, solo se valida que el proporcionado sea el del token.
             if (correo !== currentUser.correo) {
-                console.warn(`[Seguridad] Correo proporcionado (${correo}) no coincide con el del token (${currentUser.correo}). Ignorando cambio de correo.`);
-                // Podrías devolver un error 403 o 400 si esto es un intento de spoofing
+                console.warn(`[Seguridad] Correo proporcionado (${correo}) no coincide con el del token (${currentUser.correo}).`);
                 return res.status(403).json({
                     success: false,
-                    mensaje: 'El correo proporcionado no coincide con el de su cuenta autenticada.'
+                    mensaje: 'El correo proporcionado no coincide con el de su cuenta autenticada. Por favor, inicie sesión con el correo correcto o cierre sesión para realizar una compra como invitado.'
                 });
             }
 
@@ -84,13 +85,12 @@ async function DireccionEnvio(req, res) {
                 console.log(`Usuario ID ${fk_id_usuario} actualizado con nuevos datos.`);
             }
 
-            // Obtener la dirección de la última compra si existe
+            // Obtener la dirección de la última compra si existe para el usuario autenticado
             const [lastPurchase] = await pool.execute(
                 `SELECT direccion, informacion_adicional FROM factura WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
                 [fk_id_usuario]
             );
 
-            // Rellenar userDataToReturn con la información actualizada del usuario + última dirección
             userDataToReturn = {
                 nombre: nombre,
                 cedula: cedula,
@@ -100,9 +100,13 @@ async function DireccionEnvio(req, res) {
                 informacion_adicional_anterior: lastPurchase.length > 0 ? lastPurchase[0].informacion_adicional : null
             };
 
-            // Almacenar la información de envío actual temporalmente en la sesión
-            req.session.checkout = req.session.checkout || {};
-            req.session.checkout[fk_id_usuario] = {
+            // Almacenar la información de envío actual temporalmente en la sesión asociada al ID de usuario
+            req.session.checkout.direccion_envio = { // Usamos una clave más genérica `direccion_envio`
+                id_usuario: fk_id_usuario, // Guardamos el ID de usuario si está autenticado
+                nombre: nombre,
+                cedula: cedula,
+                telefono: telefono,
+                correo: correo,
                 direccion: direccion,
                 informacion_adicional: informacion_adicional || null
             };
@@ -112,15 +116,15 @@ async function DireccionEnvio(req, res) {
             // --- Usuario NO AUTENTICADO ---
             console.log("Usuario NO AUTENTICADO.");
 
-            // Verificar si el correo electrónico ya existe en la tabla USUARIO
+            // Buscar si el correo electrónico ya existe en la tabla USUARIO
             const [existingUserByEmail] = await pool.execute(
                 `SELECT id_usuario, nombre, cedula, telefono, correo FROM usuario WHERE correo = ?`,
                 [correo]
             );
 
             if (existingUserByEmail.length > 0) {
-                // El correo electrónico existe, el usuario no está autenticado.
-                // Actualizamos sus datos y obtenemos su última dirección.
+                // Scenario 2: El correo electrónico existe en la DB, pero el usuario no está autenticado.
+                // Usamos su ID existente y actualizamos sus datos de contacto en la DB.
                 fk_id_usuario = existingUserByEmail[0].id_usuario;
                 userWasRegisteredInDB = true;
 
@@ -130,12 +134,11 @@ async function DireccionEnvio(req, res) {
                 let updateFields = [];
                 let updateValues = [];
 
-                // Actualizar datos del usuario si son diferentes
                 if (nombre !== existingUser.nombre) {
                     updateFields.push('nombre = ?');
                     updateValues.push(nombre);
                 }
-                if (parseInt(cedula, 10) !== existingUser.cedula) { // Convertir a número para comparación
+                if (parseInt(cedula, 10) !== existingUser.cedula) {
                     updateFields.push('cedula = ?');
                     updateValues.push(cedula);
                 }
@@ -148,10 +151,10 @@ async function DireccionEnvio(req, res) {
                     const updateQuery = `UPDATE usuario SET ${updateFields.join(', ')} WHERE id_usuario = ?`;
                     updateValues.push(fk_id_usuario);
                     await pool.execute(updateQuery, updateValues);
-                    console.log(`Datos de usuario existente (ID: ${fk_id_usuario}) actualizados.`);
+                    console.log(`Datos de usuario existente (ID: ${fk_id_usuario}, no autenticado) actualizados en DB.`);
                 }
 
-                // Obtener la dirección de la última compra para este usuario
+                // Obtener la dirección de la última compra para este usuario existente
                 const [lastPurchase] = await pool.execute(
                     `SELECT direccion, informacion_adicional FROM factura WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
                     [fk_id_usuario]
@@ -166,30 +169,57 @@ async function DireccionEnvio(req, res) {
                     informacion_adicional_anterior: lastPurchase.length > 0 ? lastPurchase[0].informacion_adicional : null
                 };
 
-                // Almacenar la información de envío actual temporalmente en la sesión
-                req.session.checkout = req.session.checkout || {};
-                req.session.checkout[fk_id_usuario] = { // Usar el id_usuario encontrado
+                // Almacenar la información de envío actual temporalmente en la sesión, asociada al ID de usuario encontrado
+                req.session.checkout.direccion_envio = {
+                    id_usuario: fk_id_usuario, // Guardamos el ID de usuario encontrado
+                    nombre: nombre,
+                    cedula: cedula,
+                    telefono: telefono,
+                    correo: correo,
                     direccion: direccion,
                     informacion_adicional: informacion_adicional || null
                 };
                 console.log("Dirección de envío temporalmente guardada en sesión para usuario existente no autenticado.");
 
             } else {
-                // El correo NO existe, el usuario no está autenticado y no se le pide contraseña.
-                // En este caso, NO se registra en la DB. Simplemente se le informa.
-                console.log("Correo NO registrado. No se puede proceder sin registro o inicio de sesión.");
-                return res.status(404).json({
-                    success: false,
-                    mensaje: 'El correo electrónico no está registrado. Por favor, regístrese o inicie sesión para continuar con su compra.'
-                });
+                // Scenario 3: El correo NO existe en la DB y el usuario NO está autenticado.
+                // ¡Aquí es donde lo guardamos TEMPORALMENTE en la sesión SIN registrarlo en la DB aún!
+                console.log("Correo NO registrado en DB. Guardando datos temporalmente en sesión para nuevo usuario.");
+
+                // No hay fk_id_usuario aún, ya que no se ha registrado en la DB.
+                // Asociaremos estos datos a la sesión actual (req.sessionID)
+                fk_id_usuario = null; // Confirmamos que no hay un ID de DB asignado aún
+                userWasRegisteredInDB = false; // Confirmamos que NO está en la DB
+
+                userDataToReturn = {
+                    nombre: nombre,
+                    cedula: cedula,
+                    telefono: telefono,
+                    correo: correo,
+                    direccion_anterior: null, // No hay historial para un usuario no registrado
+                    informacion_adicional_anterior: null
+                };
+
+                // Almacenar la información de envío actual temporalmente en la sesión.
+                // Usamos `id_usuario: null` para indicar que aún no hay un registro persistente.
+                req.session.checkout.direccion_envio = {
+                    id_usuario: null, // Indica que este es un usuario "invitado" sin ID de DB aún
+                    nombre: nombre,
+                    cedula: cedula,
+                    telefono: telefono,
+                    correo: correo,
+                    direccion: direccion,
+                    informacion_adicional: informacion_adicional || null
+                };
+                console.log("Datos de usuario 'invitado' y dirección de envío guardados temporalmente en sesión.");
             }
         }
 
         // Respuesta final
         res.status(200).json({
             success: true,
-            mensaje: 'Información de envío procesada exitosamente.',
-            usuario_existente_en_db: userWasRegisteredInDB, // Indica si el usuario ya estaba en la DB
+            mensaje: 'Información de envío procesada y guardada temporalmente. Puedes continuar con la compra.',
+            usuario_existente_en_db: userWasRegisteredInDB,
             datos_usuario: userDataToReturn,
             direccion_temporal_guardada: {
                 direccion: direccion,
