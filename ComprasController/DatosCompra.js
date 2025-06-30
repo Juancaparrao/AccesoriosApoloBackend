@@ -45,6 +45,10 @@ async function ConsultarCarritoYResumen(req, res) {
         console.log("=== DEBUG BACKEND - Consultar Carrito y Resumen ===");
 
         // Asegurarse de que el usuario esté autenticado. Esta función es solo para usuarios con sesión iniciada.
+        // NOTA: Si usas verificarTokenOpcional, esta validación debe ser flexible.
+        // Si esta ruta SÓLO es para usuarios autenticados, entonces el middleware verificarToken (estricto) es el adecuado.
+        // Si puede ser usada por usuarios no autenticados para ver su carrito temporal (por ejemplo, en la sesión), entonces la lógica cambia.
+        // Asumiendo que ConsultarCarritoYResumen se usa con `verificarToken` (estricto), esta validación es correcta.
         if (!req.user || !req.user.id_usuario) {
             return res.status(401).json({
                 success: false,
@@ -60,15 +64,15 @@ async function ConsultarCarritoYResumen(req, res) {
                 cc.FK_referencia_producto AS referencia_producto,
                 cc.FK_id_calcomania AS id_calcomania,
                 cc.cantidad,
-                cc.tamano, -- Solo relevante para calcomanías
+                cc.tamano, -- Ya lo estás seleccionando, ¡perfecto!
                 p.nombre AS nombre_producto,
                 p.precio_unidad AS precio_unidad_producto,
                 p.precio_descuento AS precio_descuento_producto,
                 (SELECT url_imagen FROM producto_imagen pi WHERE pi.FK_referencia_producto = p.referencia ORDER BY pi.id_imagen ASC LIMIT 1) AS url_imagen_producto,
                 c.nombre AS nombre_calcomania,
                 c.url_archivo AS url_archivo_calcomania,
-                c.precio_unidad AS precio_unidad_calcomania,
-                c.precio_descuento AS precio_descuento_calcomania
+                c.precio_unidad AS precio_base_calcomania, -- Renombrado para claridad
+                c.precio_descuento AS precio_descuento_calcomania_base -- Renombrado
             FROM
                 carrito_compras cc
             LEFT JOIN
@@ -81,36 +85,65 @@ async function ConsultarCarritoYResumen(req, res) {
         );
 
         let articulosEnCarrito = [];
-        let totalArticulosSinDescuento = 0; // Suma de (precio_unidad_original * cantidad)
+        let totalArticulosSinDescuento = 0; // Suma de (precio_unidad_original_calculado * cantidad)
         let descuentoTotalArticulos = 0;    // Suma del ahorro total por descuentos
         let totalArticulosFinal = 0;        // Suma de (precio_final_aplicado * cantidad)
 
         carritoItems.forEach(item => {
-            let nombre, url_imagen_o_archivo, precio_unidad, precio_descuento, subtotalArticulo;
+            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_descuento_calculado, subtotalArticulo;
             let esProducto = item.referencia_producto !== null;
 
             if (esProducto) {
                 nombre = item.nombre_producto;
                 url_imagen_o_archivo = item.url_imagen_producto;
-                precio_unidad = parseFloat(item.precio_unidad_producto);
-                precio_descuento = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
+                precio_unidad_calculado = parseFloat(item.precio_unidad_producto);
+                precio_descuento_calculado = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
             } else { // Es una calcomanía
                 nombre = item.nombre_calcomania;
                 url_imagen_o_archivo = item.url_archivo_calcomania;
-                precio_unidad = parseFloat(item.precio_unidad_calcomania);
-                precio_descuento = item.precio_descuento_calcomania ? parseFloat(item.precio_descuento_calcomania) : null;
+                let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
+                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
+
+                // --- Lógica de cálculo de precio según tamaño para calcomanías ---
+                switch (item.tamano.toLowerCase()) { // Asegurarse de que el tamaño sea en minúsculas para la comparación
+                    case 'pequeño':
+                        precio_unidad_calculado = precio_base_calcomania;
+                        precio_descuento_calculado = precio_descuento_base_calcomania; // Si hay descuento, se aplica al precio base sin modificaciones adicionales por tamaño
+                        break;
+                    case 'mediano':
+                        precio_unidad_calculado = precio_base_calcomania * 1.25; // Sumar 25% (125% del original)
+                        // Si hay descuento, aplicar el mismo porcentaje de incremento al precio con descuento si existe.
+                        // Ojo: Esto asume que el "125%" es un incremento sobre el precio final.
+                        // Si el descuento se aplica DESPUÉS del incremento por tamaño, la lógica cambiaría.
+                        // Para simplificar, aplicamos el mismo factor al precio base y al precio con descuento (si existe).
+                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 1.25 : null;
+                        break;
+                    case 'grande':
+                        precio_unidad_calculado = precio_base_calcomania * 3.00; // Sumar 200% (300% del original)
+                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 3.00 : null;
+                        break;
+                    default:
+                        // Si el tamaño no es reconocido, se usa el precio base.
+                        console.warn(`Tamaño de calcomanía desconocido: ${item.tamano}. Usando precio base.`);
+                        precio_unidad_calculado = precio_base_calcomania;
+                        precio_descuento_calculado = precio_descuento_base_calcomania;
+                        break;
+                }
+                // --- Fin de la lógica de cálculo de precio por tamaño ---
             }
 
             const cantidad = item.cantidad;
 
             // Calcular subtotalArticulo y contribuir a los totales generales
-            totalArticulosSinDescuento += precio_unidad * cantidad; // Siempre suma el precio original para TotalArticulos
+            // Siempre suma el precio original (calculado por tamaño si es calcomanía) para TotalArticulosSinDescuento
+            totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
 
-            if (precio_descuento !== null && precio_descuento < precio_unidad) {
-                subtotalArticulo = precio_descuento * cantidad;
-                descuentoTotalArticulos += (precio_unidad - precio_descuento) * cantidad;
+            if (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) {
+                subtotalArticulo = precio_descuento_calculado * cantidad;
+                // El descuento es la diferencia entre el precio calculado sin descuento y el precio calculado con descuento
+                descuentoTotalArticulos += (precio_unidad_calculado - precio_descuento_calculado) * cantidad;
             } else {
-                subtotalArticulo = precio_unidad * cantidad;
+                subtotalArticulo = precio_unidad_calculado * cantidad;
             }
             totalArticulosFinal += subtotalArticulo;
 
@@ -122,9 +155,9 @@ async function ConsultarCarritoYResumen(req, res) {
                 url_imagen_o_archivo: url_imagen_o_archivo,
                 cantidad: cantidad,
                 tamano: item.tamano, // Incluir tamaño para calcomanías si aplica
-                precio_unidad_original: parseFloat(precio_unidad.toFixed(2)), // Precio sin descuento
-                precio_con_descuento: precio_descuento ? parseFloat(precio_descuento.toFixed(2)) : null, // Precio con descuento
-                subtotalArticulo: parseFloat(subtotalArticulo.toFixed(2)) // Cantidad * precio_con_descuento o precio_unidad
+                precio_unidad_original: parseFloat(precio_unidad_calculado.toFixed(2)), // Precio sin descuento (ajustado por tamaño para calcomanías)
+                precio_con_descuento: precio_descuento_calculado ? parseFloat(precio_descuento_calculado.toFixed(2)) : null, // Precio con descuento (ajustado por tamaño)
+                subtotalArticulo: parseFloat(subtotalArticulo.toFixed(2)) // Cantidad * precio_final_aplicado
             });
         });
 
