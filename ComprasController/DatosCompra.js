@@ -1,6 +1,6 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado');
+const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado'); // Ajusta la ruta a tu archivo de servicio de correo
 
 /**
  * Función auxiliar para generar contraseñas seguras.
@@ -42,8 +42,11 @@ function generarContrasenaSegura() {
 
 async function ConsultarCarritoYResumen(req, res) {
     try {
-        console.log("=== DEBUG BACKEND - Consultar Carrito y Resumen (Corregida la lógica de precios de calcomanías) ===");
+        console.log("=== DEBUG BACKEND - Consultar Carrito y Resumen ===");
 
+        // Si esta ruta SÓLO es para usuarios autenticados, entonces el middleware verificarToken (estricto) es el adecuado.
+        // Si puede ser usada por usuarios no autenticados para ver su carrito temporal (por ejemplo, en la sesión), entonces la lógica cambia.
+        // Asumiendo que ConsultarCarritoYResumen se usa con `verificarToken` (estricto), esta validación es correcta.
         if (!req.user || !req.user.id_usuario) {
             return res.status(401).json({
                 success: false,
@@ -53,6 +56,7 @@ async function ConsultarCarritoYResumen(req, res) {
 
         const fk_id_usuario = req.user.id_usuario;
 
+        // 1. Obtener los artículos del carrito (productos y calcomanías)
         const [carritoItems] = await pool.execute(
             `SELECT
                 cc.FK_referencia_producto AS referencia_producto,
@@ -66,7 +70,7 @@ async function ConsultarCarritoYResumen(req, res) {
                 c.nombre AS nombre_calcomania,
                 c.url_archivo AS url_archivo_calcomania,
                 c.precio_unidad AS precio_base_calcomania,
-                c.precio_descuento AS porcentaje_descuento_calcomania -- Ahora es el porcentaje de descuento
+                c.precio_descuento AS precio_descuento_calcomania_base
             FROM
                 carrito_compras cc
             LEFT JOIN
@@ -84,60 +88,55 @@ async function ConsultarCarritoYResumen(req, res) {
         let totalArticulosFinal = 0;
 
         carritoItems.forEach(item => {
-            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_con_descuento, subtotalArticulo;
+            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_descuento_calculado, subtotalArticulo;
             let esProducto = item.referencia_producto !== null;
 
             if (esProducto) {
                 nombre = item.nombre_producto;
                 url_imagen_o_archivo = item.url_imagen_producto;
                 precio_unidad_calculado = parseFloat(item.precio_unidad_producto);
-                // Si el producto tiene un precio_descuento, ese es su precio final con descuento
-                precio_con_descuento = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
+                precio_descuento_calculado = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
             } else { // Es una calcomanía
                 nombre = item.nombre_calcomania;
                 url_imagen_o_archivo = item.url_archivo_calcomania;
                 let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
-                let porcentaje_descuento_calcomania = item.porcentaje_descuento_calcomania ? parseFloat(item.porcentaje_descuento_calcomania) : 0; // Ahora es un porcentaje
+                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
 
-                // --- Lógica de cálculo de precio según tamaño para calcomanías ---
-                let factorTamano = 1.0;
+                // --- Lógica de cálculo de precio según tamaño para calcomanías (CORREGIDA) ---
                 switch (item.tamano.toLowerCase()) {
                     case 'pequeño':
-                        factorTamano = 1.0; // Precio unidad base
+                        // Precio base, sin incremento
+                        precio_unidad_calculado = precio_base_calcomania;
+                        precio_descuento_calculado = precio_descuento_base_calcomania;
                         break;
                     case 'mediano':
-                        factorTamano = 1.25; // 125% del precio base
+                        // Precio base + 125% del precio base (lo que es igual a multiplicarlo por 2.25)
+                        precio_unidad_calculado = precio_base_calcomania * 2.25;
+                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
                         break;
                     case 'grande':
-                        factorTamano = 3.00; // 300% del precio base
+                        // Precio base + 300% del precio base (lo que es igual a multiplicarlo por 4.00)
+                        precio_unidad_calculado = precio_base_calcomania * 4.00;
+                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
                         break;
                     default:
+                        // Si el tamaño no es reconocido, se usa el precio base sin modificaciones.
                         console.warn(`Tamaño de calcomanía desconocido: ${item.tamano}. Usando precio base.`);
-                        factorTamano = 1.0;
+                        precio_unidad_calculado = precio_base_calcomania;
+                        precio_descuento_calculado = precio_descuento_base_calcomania;
                         break;
                 }
-                
-                // Calcular el precio_unidad_calculado SIEMPRE basándose en el precio_base_calcomania y el factor de tamaño
-                precio_unidad_calculado = precio_base_calcomania * factorTamano;
-
-                // Ahora, si existe un descuento, aplícalo sobre este precio_unidad_calculado
-                if (porcentaje_descuento_calcomania > 0 && porcentaje_descuento_calcomania <= 100) {
-                    precio_con_descuento = precio_unidad_calculado * (1 - porcentaje_descuento_calcomania / 100);
-                } else {
-                    precio_con_descuento = null; // No hay descuento válido
-                }
-                // --- Fin de la lógica de cálculo de precio por tamaño y descuento ---
+                // --- Fin de la lógica de cálculo de precio por tamaño ---
             }
 
             const cantidad = item.cantidad;
 
-            // Siempre sumamos el precio original (ajustado por tamaño para calcomanías) para TotalArticulosSinDescuento
+            // Calcular subtotalArticulo y contribuir a los totales generales
             totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
 
-            if (precio_con_descuento !== null && precio_con_descuento < precio_unidad_calculado) {
-                subtotalArticulo = precio_con_descuento * cantidad;
-                // El ahorro es la diferencia entre el precio_unidad_calculado y el precio_con_descuento
-                descuentoTotalArticulos += (precio_unidad_calculado - precio_con_descuento) * cantidad;
+            if (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) {
+                subtotalArticulo = precio_descuento_calculado * cantidad;
+                descuentoTotalArticulos += (precio_unidad_calculado - precio_descuento_calculado) * cantidad;
             } else {
                 subtotalArticulo = precio_unidad_calculado * cantidad;
             }
@@ -152,11 +151,12 @@ async function ConsultarCarritoYResumen(req, res) {
                 cantidad: cantidad,
                 tamano: item.tamano,
                 precio_unidad_original: parseFloat(precio_unidad_calculado.toFixed(2)),
-                precio_con_descuento: precio_con_descuento ? parseFloat(precio_con_descuento.toFixed(2)) : null,
+                precio_con_descuento: precio_descuento_calculado ? parseFloat(precio_descuento_calculado.toFixed(2)) : null,
                 subtotalArticulo: parseFloat(subtotalArticulo.toFixed(2))
             });
         });
 
+        // 2. Calcular el resumen del pedido
         const PRECIO_ENVIO = 14900;
         const subtotalPedido = parseFloat((totalArticulosFinal).toFixed(2));
         const totalPedido = parseFloat((subtotalPedido + PRECIO_ENVIO).toFixed(2));
@@ -187,19 +187,21 @@ async function ConsultarCarritoYResumen(req, res) {
 }
 
 async function FinalizarCompraYRegistro(req, res) {
-    let connection;
+    let connection; // Declarar la conexión fuera del try para que esté disponible en finally
     try {
-        console.log("=== DEBUG BACKEND - Finalizar Compra y Registro ===");
+        console.log("=== DEBUG BACKEND - Finalizar Compra y Registro (Corregida) ===");
 
+        // Aseguramos que los datos necesarios para el usuario siempre vengan en el body
         const {
             nombre,
             cedula,
             telefono,
             correo,
-            direccion,
-            informacion_adicional
+            direccion, // Se espera para la interfaz, pero no se guarda en factura aquí
+            informacion_adicional // Se espera para la interfaz, pero no se guarda en factura aquí
         } = req.body;
 
+        // Validar que los datos de contacto y dirección sean obligatorios
         if (!nombre || !cedula || !telefono || !correo || !direccion) {
             return res.status(400).json({
                 success: false,
@@ -208,22 +210,26 @@ async function FinalizarCompraYRegistro(req, res) {
         }
 
         connection = await pool.getConnection();
-        await connection.beginTransaction();
+        await connection.beginTransaction(); // Iniciar transacción
 
         let fk_id_usuario;
         let esNuevoRegistro = false;
         let contrasenaGenerada = null;
-        let usuarioEmail = correo;
+        let usuarioEmail = correo; // Usamos el correo del body como el correo principal para esta operación
 
+        // 1. Determinar el usuario y si necesita ser registrado o actualizado
         if (req.user && req.user.id_usuario) {
+            // --- Usuario AUTENTICADO por Token ---
             console.log("Usuario AUTENTICADO. ID:", req.user.id_usuario);
             fk_id_usuario = req.user.id_usuario;
 
+            // Verificar que el correo del token coincida con el correo del body para seguridad
             if (correo !== req.user.correo) {
                 console.warn(`[Seguridad] Correo proporcionado (${correo}) no coincide con el del token (${req.user.correo}).`);
                 throw new Error('El correo proporcionado no coincide con el de su cuenta autenticada.');
             }
 
+            // Actualizar datos del usuario existente si son diferentes
             const [currentUser] = await connection.execute(
                 `SELECT nombre, cedula, telefono FROM usuario WHERE id_usuario = ?`,
                 [fk_id_usuario]
@@ -244,14 +250,17 @@ async function FinalizarCompraYRegistro(req, res) {
             }
 
         } else {
+            // --- Usuario NO AUTENTICADO ---
             console.log("Usuario NO AUTENTICADO.");
 
+            // Buscar si el correo ya existe en la tabla USUARIO
             const [existingUserByEmail] = await connection.execute(
                 `SELECT id_usuario, nombre, cedula, telefono FROM usuario WHERE correo = ?`,
                 [correo]
             );
 
             if (existingUserByEmail.length > 0) {
+                // Usuario EXISTE en DB pero NO AUTENTICADO: Usamos su ID existente y actualizamos.
                 fk_id_usuario = existingUserByEmail[0].id_usuario;
                 console.log("Correo ya registrado, usuario no autenticado. ID:", fk_id_usuario);
 
@@ -271,6 +280,7 @@ async function FinalizarCompraYRegistro(req, res) {
                 }
 
             } else {
+                // Usuario NO EXISTE en la DB: Proceder con el registro automático
                 console.log("Correo NO registrado. Registrando nuevo usuario automáticamente...");
                 esNuevoRegistro = true;
                 contrasenaGenerada = generarContrasenaSegura();
@@ -278,10 +288,11 @@ async function FinalizarCompraYRegistro(req, res) {
 
                 const [insertResult] = await connection.execute(
                     `INSERT INTO usuario (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
-                    [nombre, cedula, telefono, correo, hashedPassword, true]
+                    [nombre, cedula, telefono, correo, hashedPassword, true] // Estado true por defecto
                 );
                 fk_id_usuario = insertResult.insertId;
 
+                // Asignar el rol 'cliente' al nuevo usuario
                 const [clienteRole] = await connection.execute(
                     `SELECT id_rol FROM rol WHERE nombre = 'cliente'`
                 );
@@ -295,14 +306,17 @@ async function FinalizarCompraYRegistro(req, res) {
             }
         }
 
+        // 2. Limpiar el carrito de compras del usuario
+        // Esto se hace siempre al "finalizar" esta etapa, ya que se asume que los artículos se van a procesar.
         await connection.execute(
             `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
             [fk_id_usuario]
         );
         console.log(`Carrito de compras limpiado para el usuario ID: ${fk_id_usuario}`);
 
-        await connection.commit();
+        await connection.commit(); // Confirmar la transacción (registro/actualización de usuario y limpieza de carrito)
 
+        // 3. Enviar correo de bienvenida si es un nuevo registro
         if (esNuevoRegistro && usuarioEmail && contrasenaGenerada) {
             await enviarCorreoBienvenida(usuarioEmail, contrasenaGenerada);
             console.log(`Correo de bienvenida enviado a ${usuarioEmail}`);
@@ -312,17 +326,18 @@ async function FinalizarCompraYRegistro(req, res) {
             success: true,
             mensaje: 'Información de usuario y carrito procesados exitosamente. Tu compra está lista para ser finalizada en el siguiente paso.',
             nuevo_usuario_registrado: esNuevoRegistro,
-            contrasena_generada: esNuevoRegistro ? contrasenaGenerada : undefined
+            contrasena_generada: esNuevoRegistro ? contrasenaGenerada : undefined // Solo si es nuevo registro
         });
 
     } catch (error) {
         if (connection) {
-            await connection.rollback();
+            await connection.rollback(); // Revertir la transacción si algo falla
             console.log("Transacción revertida debido a un error.");
         }
         console.error('Error al procesar la finalización de la compra:', error);
+        // Manejar errores específicos como correo duplicado
         if (error.code === 'ER_DUP_ENTRY' && error.sqlMessage.includes('correo')) {
-            return res.status(409).json({
+            return res.status(409).json({ // 409 Conflict
                 success: false,
                 mensaje: 'El correo electrónico ya está registrado. Si ya tiene una cuenta, inicie sesión antes de finalizar la compra.'
             });
@@ -332,7 +347,7 @@ async function FinalizarCompraYRegistro(req, res) {
             mensaje: 'Error interno del servidor al procesar su solicitud.'
         });
     } finally {
-        if (connection) connection.release();
+        if (connection) connection.release(); // Liberar la conexión
     }
 }
 
