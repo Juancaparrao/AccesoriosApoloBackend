@@ -8,7 +8,7 @@ const {solicitarRecuperacion, cambiarContrasena } = require('./InicioController/
 const { solicitarOTP, reenviarOTP, verificarOTPHandler } = require('./InicioController/OTP');
 const { login } = require('./InicioController/Login');
 const { obtenerNombre } = require('./InicioController/GeneralInicio');
-const { verificarToken } = require('./InicioController/middleware');
+const { verificarToken, verificarTokenOpcional } = require('./InicioController/middleware');
 const { loginConGoogle } = require('./InicioController/GoogleAuth');
 const { loginConFacebook } = require('./InicioController/FacebookAuth');
 const { obtenerPerfil } = require('./InicioController/Perfil');
@@ -258,9 +258,9 @@ app.get('/consultar-producto-por-referencia/:referencia', ConsultarProductoPorRe
 app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 
 // Compras
-app.post('/direccion-envio', verificarToken, DireccionEnvio);
-app.get('/carrito-resumen', verificarToken, ConsultarCarritoYResumen);
-app.post('/finalizar-compra', verificarToken, FinalizarCompraYRegistro);
+app.post('/direccion-envio', verificarTokenOpcional, DireccionEnvio);
+app.get('/carrito-resumen', verificarTokenOpcional, ConsultarCarritoYResumen);
+app.post('/finalizar-compra', verificarTokenOpcional, FinalizarCompraYRegistro);
 
 
 
