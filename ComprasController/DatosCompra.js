@@ -1,4 +1,4 @@
-// ... (código existente: pool, bcrypt, enviarCorreoBienvenida, generarContrasenaSegura)
+const pool = require('../db');
 
 async function ConsultarCarritoYResumen(req, res) {
     try {
