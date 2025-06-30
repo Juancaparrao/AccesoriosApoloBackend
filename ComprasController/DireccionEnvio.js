@@ -1,9 +1,11 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto'); // Necesario para generar bytes aleatorios
-const { enviarCredencialesNuevoUsuario } = require('../templates/EmailSender'); // Asume que tienes esta función
+
+// Se ha eliminado la línea de importación de EmailSender.js
 
 function generarContrasenaSegura() {
+    // Genera 8 bytes aleatorios y los convierte a una cadena hexadecimal (16 caracteres)
     return crypto.randomBytes(8).toString('hex');
 }
 
@@ -39,7 +41,7 @@ async function DireccionEnvio(req, res) {
 
         let fk_id_usuario;
         let esNuevoRegistro = false; // Flag para saber si se registró un nuevo usuario
-        let contrasenaGenerada = null; // Para almacenar la contraseña generada si aplica
+        let contrasenaGenerada = null; // Para almacenar la contraseña generada si aplica (pero no se usará por ahora)
         let carritoDesdeDB = []; // Para almacenar los ítems del carrito, ya sea del frontend o DB
 
         // 2. Manejo del Usuario (Autenticado o Invitado)
@@ -152,7 +154,7 @@ async function DireccionEnvio(req, res) {
                 console.log("Correo NO registrado en DB. Registrando nuevo usuario y generando contraseña.");
                 esNuevoRegistro = true; // Es un nuevo registro
 
-                contrasenaGenerada = generarContrasenaSegura(); // Usar la función creada aquí
+                contrasenaGenerada = generarContrasenaSegura(); // Se genera, pero no se usa ni se envía
                 const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10); // Hashear para guardar
 
                 const [result] = await connection.execute(
@@ -201,7 +203,6 @@ async function DireccionEnvio(req, res) {
 
 
         // 4. Limpiar y Repoblar el CARRITO_COMPRAS en la DB si es un usuario invitado/nuevo
-        // Si el usuario ya estaba logeado, el carrito ya debe estar en la DB y no se modifica aquí.
         if (!req.user || esNuevoRegistro) { // Si no está logeado O si es un registro nuevo (viene de invitado)
             await connection.execute(
                 `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
@@ -245,24 +246,14 @@ async function DireccionEnvio(req, res) {
         req.session.checkout.correo_cliente_factura = correo; // Guardamos el correo para usarlo en Wompi
         if (esNuevoRegistro) {
             req.session.checkout.contrasena_generada = contrasenaGenerada;
+            // No se envía el correo con la contraseña generada en este momento,
+            // pero la contraseña se guarda en la DB y en la sesión si es un nuevo registro.
         }
 
         console.log("DEBUG: ID de factura, flags de usuario y contraseña (si aplica) guardados en la sesión.");
 
         await connection.commit();
         console.log("DEBUG: Transacción de DireccionEnvio completada y datos guardados en DB.");
-
-        // Si es un nuevo registro, envía el correo con las credenciales
-        if (esNuevoRegistro) {
-            try {
-                await enviarCredencialesNuevoUsuario(correo, contrasenaGenerada);
-                console.log(`Correo con credenciales enviado a ${correo}.`);
-            } catch (emailError) {
-                console.error(`ERROR: No se pudo enviar el correo de credenciales a ${correo}:`, emailError);
-                // No se detiene el flujo de compra, pero se registra el error
-            }
-        }
-
 
         req.session.save((err) => {
             if (err) {
@@ -284,8 +275,8 @@ async function DireccionEnvio(req, res) {
                     direccion,
                     informacion_adicional
                 },
-                // No retornamos la contraseña aquí por seguridad, el correo es la forma
-                // ...(esNuevoRegistro && { contrasena_generada: contrasenaGenerada })
+                // La contraseña generada no se retorna al frontend por seguridad,
+                // ya que no se está enviando por correo.
             });
         });
 
