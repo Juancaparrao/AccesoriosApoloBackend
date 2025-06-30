@@ -10,7 +10,6 @@ async function RegistrarProducto(req, res) {
       descripcion,
       talla,
       marca,
-      url_archivo,
       precio_unidad,
       descuento,
       FK_id_categoria,
@@ -54,8 +53,8 @@ async function RegistrarProducto(req, res) {
     // Insertar producto
     await pool.execute(
       `INSERT INTO producto 
-       (referencia, nombre, descripcion, talla, marca, stock, url_archivo, precio_unidad, descuento, precio_descuento, FK_id_categoria, FK_id_subcategoria, estado)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (referencia, nombre, descripcion, talla, marca, stock, precio_unidad, descuento, precio_descuento, FK_id_categoria, FK_id_subcategoria, estado)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         referencia,
         nombre,
@@ -63,7 +62,6 @@ async function RegistrarProducto(req, res) {
         talla || null,
         marca,
         0,
-        null, // o usar url_archivo || null si lo necesitas
         precio,
         desc,
         precioDescuentoCalculado,
