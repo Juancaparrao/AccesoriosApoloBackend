@@ -1,6 +1,12 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
-const { generarContrasenaSegura } = require('./funcionesAuxiliares'); // Asegúrate de tener esta función
+const crypto = require('crypto'); // Necesario para generar bytes aleatorios
+
+
+function generarContrasenaSegura() {
+    // Genera 8 bytes aleatorios y los convierte a una cadena hexadecimal (16 caracteres)
+    return crypto.randomBytes(8).toString('hex');
+}
 
 async function DireccionEnvio(req, res) {
     let connection;
@@ -114,7 +120,7 @@ async function DireccionEnvio(req, res) {
                 console.log("Correo NO registrado en DB. Registrando nuevo usuario y generando contraseña.");
                 esNuevoRegistro = true; // Es un nuevo registro
 
-                contrasenaGenerada = generarContrasenaSegura(); // Usar la función importada
+                contrasenaGenerada = generarContrasenaSegura(); // Usar la función creada aquí
                 const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10); // Hashear para guardar
 
                 const [result] = await connection.execute(
