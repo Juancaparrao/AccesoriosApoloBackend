@@ -163,30 +163,14 @@ async function ConsultarCarritoYResumen(req, res) {
 async function FinalizarCompraYRegistro(req, res) {
     let connection;
     try {
-        console.log("=== DEBUG BACKEND - Finalizar Compra y Registro (Corregida) ===");
-
-        // --- DEBUG PASO 1: Revisar el contenido de la sesión al inicio ---
-        console.log("DEBUG 1: Contenido completo de req.session:", JSON.stringify(req.session, null, 2));
-        console.log("DEBUG 1: Contenido de req.session.checkout:", JSON.stringify(req.session.checkout, null, 2));
-        console.log("DEBUG 1: Contenido de req.session.checkout.direccion_envio:", JSON.stringify(req.session.checkout && req.session.checkout.direccion_envio, null, 2));
-
+        console.log("=== DEBUG BACKEND - Finalizar Compra y Registro (Completa) ===");
 
         // --- OBTENER DATOS DEL USUARIO Y DIRECCIÓN DESDE LA SESIÓN ---
-        const checkoutData = req.session.checkout && req.session.checkout.direccion_envio;
-
-        // --- DEBUG PASO 2: Verificar el valor de 'checkoutData' extraído ---
-        console.log("DEBUG 2: Valor de 'checkoutData' (direccion_envio) extraído:", JSON.stringify(checkoutData, null, 2));
-
+        const checkoutData = req.session.checkout?.direccion_envio; // Usamos el operador ?. para seguridad
 
         if (!checkoutData || !checkoutData.nombre || !checkoutData.cedula || !checkoutData.telefono || !checkoutData.correo || !checkoutData.direccion) {
-            // --- DEBUG PASO 3: Indicar qué campo específico falta si la validación falla ---
-            if (!checkoutData) console.log("DEBUG ERROR 3: 'checkoutData' es undefined o null.");
-            if (checkoutData && !checkoutData.nombre) console.log("DEBUG ERROR 3: Falta 'nombre' en checkoutData.");
-            if (checkoutData && !checkoutData.cedula) console.log("DEBUG ERROR 3: Falta 'cedula' en checkoutData.");
-            if (checkoutData && !checkoutData.telefono) console.log("DEBUG ERROR 3: Falta 'telefono' en checkoutData.");
-            if (checkoutData && !checkoutData.correo) console.log("DEBUG ERROR 3: Falta 'correo' en checkoutData.");
-            if (checkoutData && !checkoutData.direccion) console.log("DEBUG ERROR 3: Falta 'direccion' en checkoutData.");
-
+            console.error("DEBUG ERROR: Información de checkout incompleta en la sesión.");
+            // Puedes añadir más detalles de depuración para saber qué campo específico falta
             return res.status(400).json({
                 success: false,
                 mensaje: 'Información de usuario o dirección de envío incompleta en la sesión. Por favor, vuelva a la sección de dirección.'
@@ -195,33 +179,27 @@ async function FinalizarCompraYRegistro(req, res) {
 
         const { nombre, cedula, telefono, correo, direccion, informacion_adicional } = checkoutData;
 
-        // --- DEBUG PASO 4: Mostrar los datos individuales extraídos ---
-        console.log("DEBUG 4: Datos extraídos - Nombre:", nombre);
-        console.log("DEBUG 4: Datos extraídos - Cédula:", cedula);
-        console.log("DEBUG 4: Datos extraídos - Teléfono:", telefono);
-        console.log("DEBUG 4: Datos extraídos - Correo:", correo);
-        console.log("DEBUG 4: Datos extraídos - Dirección:", direccion);
-        console.log("DEBUG 4: Datos extraídos - Información Adicional:", informacion_adicional);
-
-
         connection = await pool.getConnection();
-        await connection.beginTransaction();
+        await connection.beginTransaction(); // Iniciar transacción
 
         let fk_id_usuario;
         let esNuevoRegistro = false;
         let contrasenaGenerada = null;
-        let usuarioEmail = correo;
+        let usuarioEmail = correo; // El correo del usuario para el que se procesa la compra
 
         // 1. Determinar el usuario y si necesita ser registrado o actualizado
         if (req.user && req.user.id_usuario) {
             // --- Usuario AUTENTICADO por Token ---
-            console.log("Usuario AUTENTICADO. ID:", req.user.id_usuario);
+            console.log(`Usuario AUTENTICADO. ID: ${req.user.id_usuario}`);
             fk_id_usuario = req.user.id_usuario;
 
-            // Verificar que el correo del token coincida con el correo guardado en sesión
+            // Opcional: Verificar que el correo proporcionado en la sesión coincida con el del token.
+            // Esto es una medida de seguridad extra, aunque el middleware de autenticación ya verifica el token.
             if (correo !== req.user.correo) {
                 console.warn(`[Seguridad] Correo proporcionado en sesión (${correo}) no coincide con el del token (${req.user.correo}).`);
-                throw new Error('El correo asociado a la compra no coincide con su cuenta autenticada. Por favor, inicie sesión con el correo correcto.');
+                // Considera si esto debe ser un error fatal o simplemente una advertencia.
+                // Para una alta seguridad, podría abortar la operación.
+                // throw new Error('El correo asociado a la compra no coincide con su cuenta autenticada.');
             }
 
             // Actualizar datos del usuario existente si son diferentes
@@ -245,10 +223,9 @@ async function FinalizarCompraYRegistro(req, res) {
             }
 
         } else {
-            // --- Usuario NO AUTENTICADO ---
-            console.log("Usuario NO AUTENTICADO.");
+            // --- Usuario NO AUTENTICADO (comprando como invitado o usuario existente no logueado) ---
+            console.log("Usuario NO AUTENTICADO. Verificando correo en la base de datos...");
 
-            // Buscar si el correo ya existe en la tabla USUARIO
             const [existingUserByEmail] = await connection.execute(
                 `SELECT id_usuario, nombre, cedula, telefono FROM usuario WHERE correo = ?`,
                 [correo]
@@ -257,7 +234,7 @@ async function FinalizarCompraYRegistro(req, res) {
             if (existingUserByEmail.length > 0) {
                 // Usuario EXISTE en DB pero NO AUTENTICADO: Usamos su ID existente y actualizamos.
                 fk_id_usuario = existingUserByEmail[0].id_usuario;
-                console.log("Correo ya registrado, usuario no autenticado. ID:", fk_id_usuario);
+                console.log(`Correo ya registrado, usuario no autenticado. Usando ID existente: ${fk_id_usuario}`);
 
                 const existingUserData = existingUserByEmail[0];
                 let updateFields = [];
@@ -296,13 +273,16 @@ async function FinalizarCompraYRegistro(req, res) {
                         `INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`,
                         [fk_id_usuario, clienteRole[0].id_rol]
                     );
+                    console.log(`Rol 'cliente' asignado al nuevo usuario ID: ${fk_id_usuario}`);
+                } else {
+                    console.warn("Advertencia: No se encontró el rol 'cliente' en la base de datos.");
                 }
                 console.log(`Nuevo usuario registrado automáticamente con ID: ${fk_id_usuario}`);
             }
         }
 
         // 2. Mover el carrito del usuario a la factura
-        // Primero, obtener los artículos del carrito del usuario (¡Importante: usa fk_id_usuario aquí!)
+        // Obtener los artículos del carrito del usuario (¡Importante: usa fk_id_usuario aquí!)
         const [carritoItems] = await connection.execute(
             `SELECT
                 cc.FK_referencia_producto AS referencia_producto,
@@ -327,7 +307,7 @@ async function FinalizarCompraYRegistro(req, res) {
         );
 
         if (carritoItems.length === 0) {
-            await connection.rollback();
+            await connection.rollback(); // No hay artículos en el carrito, revertir y salir.
             return res.status(400).json({
                 success: false,
                 mensaje: 'El carrito de compras está vacío. No se puede finalizar una compra sin artículos.'
@@ -336,7 +316,7 @@ async function FinalizarCompraYRegistro(req, res) {
 
         let totalArticulosFinal = 0;
         let descuentoTotalArticulos = 0;
-        let totalArticulosSinDescuento = 0; // Necesario para calcular el descuento de forma precisa
+        // totalArticulosSinDescuento ya no es necesario aquí si solo calculamos el total final y descuentoAplicado
 
         carritoItems.forEach(item => {
             let precio_unidad_calculado, precio_descuento_calculado;
@@ -354,11 +334,11 @@ async function FinalizarCompraYRegistro(req, res) {
                         precio_descuento_calculado = precio_descuento_base_calcomania;
                         break;
                     case 'mediano':
-                        precio_unidad_calculado = precio_base_calcomania * 2.25; // Precio base + 125%
+                        precio_unidad_calculado = precio_base_calcomania * 2.25;
                         precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
                         break;
                     case 'grande':
-                        precio_unidad_calculado = precio_base_calcomania * 4.00; // Precio base + 300%
+                        precio_unidad_calculado = precio_base_calcomania * 4.00;
                         precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
                         break;
                     default:
@@ -369,14 +349,13 @@ async function FinalizarCompraYRegistro(req, res) {
             }
 
             const cantidad = item.cantidad;
-            totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
+            // Sumamos el precio original para el cálculo del descuento total
+            descuentoTotalArticulos += (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) ?
+                (precio_unidad_calculado - precio_descuento_calculado) * cantidad : 0;
 
-            if (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) {
-                totalArticulosFinal += precio_descuento_calculado * cantidad;
-                descuentoTotalArticulos += (precio_unidad_calculado - precio_descuento_calculado) * cantidad;
-            } else {
-                totalArticulosFinal += precio_unidad_calculado * cantidad;
-            }
+            // Sumamos el precio final (con descuento si aplica) al total de la factura
+            totalArticulosFinal += (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) ?
+                precio_descuento_calculado * cantidad : precio_unidad_calculado * cantidad;
         });
 
         const PRECIO_ENVIO = 14900; // Precio de envío en COP
@@ -394,8 +373,8 @@ async function FinalizarCompraYRegistro(req, res) {
 
         // Insertar los detalles de la factura
         for (const item of carritoItems) {
-            let precio_unitario_factura;
-            let precio_descuento_factura;
+            let precio_unitario_factura; // Precio original del ítem (sin descuento)
+            let precio_descuento_factura; // Precio con descuento del ítem (si aplica)
 
             if (item.referencia_producto !== null) { // Es un producto
                 precio_unitario_factura = parseFloat(item.precio_unidad_producto);
@@ -431,8 +410,8 @@ async function FinalizarCompraYRegistro(req, res) {
                     item.referencia_producto,
                     item.id_calcomania,
                     item.cantidad,
-                    parseFloat(precio_unitario_factura.toFixed(2)), // Precio antes de cualquier descuento directo del artículo
-                    precio_descuento_factura ? parseFloat(precio_descuento_factura.toFixed(2)) : null, // Precio con descuento directo del artículo
+                    parseFloat(precio_unitario_factura.toFixed(2)), // Precio original del ítem
+                    precio_descuento_factura ? parseFloat(precio_descuento_factura.toFixed(2)) : null, // Precio con descuento del ítem (si aplica)
                     item.id_calcomania ? item.tamano : null // Solo para calcomanías
                 ]
             );
@@ -450,18 +429,31 @@ async function FinalizarCompraYRegistro(req, res) {
         // 4. Limpiar la información de envío de la sesión una vez completada la compra
         if (req.session.checkout) {
             delete req.session.checkout.direccion_envio;
+            // También se puede limpiar todo el objeto checkout si no se necesita más
+            // delete req.session.checkout;
             console.log("Información de dirección de envío eliminada de la sesión.");
-            // --- DEBUG PASO 5: Verificar que se borró de la sesión ---
-            console.log("DEBUG 5: req.session.checkout después de limpiar direccion_envio:", JSON.stringify(req.session.checkout, null, 2));
         }
+        // Guarda la sesión para que los cambios se reflejen inmediatamente
+        req.session.save((err) => {
+            if (err) {
+                console.error("DEBUG ERROR: Error al guardar la sesión después de FinalizarCompra:", err);
+            } else {
+                console.log("DEBUG: Sesión guardada exitosamente después de FinalizarCompra.");
+            }
+        });
 
 
         await connection.commit(); // Confirmar la transacción
 
         // 5. Enviar correo de bienvenida si es un nuevo registro
         if (esNuevoRegistro && usuarioEmail && contrasenaGenerada) {
-            await enviarCorreoBienvenida(usuarioEmail, contrasenaGenerada);
-            console.log(`Correo de bienvenida enviado a ${usuarioEmail}`);
+            // Asegúrate de que enviarCorreoBienvenida es asíncrona y la esperas
+            const correoEnviado = await enviarCorreoBienvenida(usuarioEmail, contrasenaGenerada);
+            if (correoEnviado) {
+                console.log(`Correo de bienvenida enviado exitosamente a ${usuarioEmail}`);
+            } else {
+                console.warn(`Falló el envío del correo de bienvenida a ${usuarioEmail}.`);
+            }
         }
 
         res.status(200).json({
@@ -476,10 +468,10 @@ async function FinalizarCompraYRegistro(req, res) {
     } catch (error) {
         if (connection) {
             await connection.rollback(); // Revertir la transacción si algo falla
-            console.log("Transacción revertida debido a un error.");
+            console.error("Transacción revertida debido a un error.");
         }
         console.error('Error al procesar la finalización de la compra:', error);
-        // Manejar errores específicos como correo duplicado
+        // Manejar errores específicos como correo duplicado si ocurre en la fase de INSERT
         if (error.code === 'ER_DUP_ENTRY' && error.sqlMessage.includes('correo')) {
             return res.status(409).json({ // 409 Conflict
                 success: false,
@@ -495,7 +487,7 @@ async function FinalizarCompraYRegistro(req, res) {
     }
 }
 
-
+// Exportar las funciones
 module.exports = {
     ConsultarCarritoYResumen,
     FinalizarCompraYRegistro
