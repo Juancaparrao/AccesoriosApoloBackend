@@ -124,18 +124,18 @@ async function DireccionEnvio(req, res) {
                 const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10); // Hashear para guardar
 
                 const [result] = await connection.execute(
-                    `INSERT INTO USUARIO (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
+                    `INSERT INTO usuario (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
                     [nombre, cedula, telefono, correo, hashedPassword, true] // Estado true por defecto
                 );
                 fk_id_usuario = result.insertId;
 
                 // Asignar el rol 'cliente' al nuevo usuario
                 const [clienteRole] = await connection.execute(
-                    `SELECT id_rol FROM ROL WHERE nombre = 'cliente'`
+                    `SELECT id_rol FROM rol WHERE nombre = 'cliente'`
                 );
                 if (clienteRole.length > 0) {
                     await connection.execute(
-                        `INSERT INTO USUARIO_ROL (fk_id_usuario, id_rol) VALUES (?, ?)`,
+                        `INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`,
                         [fk_id_usuario, clienteRole[0].id_rol]
                     );
                     console.log(`Rol 'cliente' asignado al nuevo usuario ID: ${fk_id_usuario}`);
@@ -151,7 +151,7 @@ async function DireccionEnvio(req, res) {
         // ya que se actualizarán en el paso FinalizarCompraYRegistro
         const fecha_venta = new Date(); // Fecha actual
         const [facturaResult] = await connection.execute(
-            `INSERT INTO FACTURA (fk_id_usuario, fecha_venta, direccion, informacion_adicional, estado_factura, valor_total, metodo_pago, valor_envio)
+            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, estado_factura, valor_total, metodo_pago, valor_envio)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 'Pendiente', 0.00, null, 0.00]
         );
@@ -162,7 +162,7 @@ async function DireccionEnvio(req, res) {
         // 4. Limpiar y Repoblar el CARRITO_COMPRAS en la DB
         // Eliminar cualquier artículo existente para este usuario en el carrito de la DB
         await connection.execute(
-            `DELETE FROM CARRITO_COMPRAS WHERE FK_id_usuario = ?`,
+            `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
             [fk_id_usuario]
         );
         console.log(`Carrito de compras existente en DB limpiado para el usuario ID: ${fk_id_usuario}`);
@@ -187,7 +187,7 @@ async function DireccionEnvio(req, res) {
                 }
 
                 await connection.execute(
-                    `INSERT INTO CARRITO_COMPRAS (FK_id_usuario, FK_referencia_producto, FK_id_calcomania, cantidad, tamano)
+                    `INSERT INTO carrito_compras (FK_id_usuario, FK_referencia_producto, FK_id_calcomania, cantidad, tamano)
                      VALUES (?, ?, ?, ?, ?)`,
                     [fk_id_usuario, fk_referencia_producto, fk_id_calcomania, item.cantidad, tamano_calcomania]
                 );
