@@ -152,7 +152,7 @@ async function DireccionEnvio(req, res) {
         const fecha_venta = new Date(); // Fecha actual
         const [facturaResult] = await connection.execute(
             `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 0.00, null, 0.00]
         );
         const id_factura = facturaResult.insertId;
