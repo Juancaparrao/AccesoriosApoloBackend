@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
 require('dotenv').config();
 const app = express();
 const port = 3000;
@@ -95,6 +96,17 @@ app.use((req, res, next) => {
     console.log(`${req.method} ${req.url}`);
     next();
 });
+
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'un_secreto_predeterminado_muy_seguro_si_no_hay_env', // <-- ¡CRÍTICO! Usa una variable de entorno.
+    resave: false, // No guardar la sesión si no ha sido modificada
+    saveUninitialized: false, // No crear sesiones para solicitudes no inicializadas
+    cookie: {
+        secure: process.env.NODE_ENV === 'production', // true en producción (requiere HTTPS)
+        httpOnly: true, // No permitir acceso al cliente desde JavaScript
+        maxAge: 1000 * 60 * 60 * 24 // 1 día de duración de la sesión (ajusta si es necesario)
+    }
+}));
 
 // Rutas de registro con OTP
 app.post('/solicitar-otp', solicitarOTP);
