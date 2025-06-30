@@ -5,6 +5,7 @@ require('dotenv').config();
 const app = express();
 const port = 3000;
 const  upload  = require('./multer');
+const bodyParser = require('body-parser');
 const {solicitarRecuperacion, cambiarContrasena } = require('./InicioController/RecuperarContrasena');
 const { solicitarOTP, reenviarOTP, verificarOTPHandler } = require('./InicioController/OTP');
 const { login } = require('./InicioController/Login');
@@ -85,6 +86,7 @@ const { ConsultarProductoPorReferencia } = require('./NavbarController/Consultar
 const { ConsultarCalcomaniaPorId } = require('./NavbarController/ConsultarCalcomaniaPorId');
 const { DireccionEnvio } = require('./ComprasController/DireccionEnvio');
 const { ConsultarCarritoYResumen, FinalizarCompraYRegistro } = require('./ComprasController/DatosCompra');
+const { handleWompiWebhook } = require('./ComprasController/WompiController');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -107,6 +109,16 @@ app.use(session({
         maxAge: 1000 * 60 * 60 * 24 // 1 día de duración de la sesión (ajusta si es necesario)
     }
 }));
+
+
+app.post('/api/wompi/webhook', bodyParser.json({
+    // La función `verify` permite acceder al cuerpo crudo de la solicitud
+    verify: (req, res, buf) => {
+        // Almacena el buffer crudo del cuerpo en `req.rawBody`
+        // `wompiController.handleWompiWebhook` lo usará para verificar la firma
+        req.rawBody = buf;
+    }
+}), handleWompiWebhook);
 
 // Rutas de registro con OTP
 app.post('/solicitar-otp', solicitarOTP);

@@ -1,5 +1,5 @@
 const pool = require('../db');
-const { enviarCorreoBienvenida } = require('../services/emailService'); // Importa tu servicio de correo
+const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado'); // Importa tu servicio de correo
 
 async function ConsultarCarritoYResumen(req, res) {
     try {
