@@ -1,17 +1,16 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto'); // Necesario para generar bytes aleatorios
-
+const { enviarCredencialesNuevoUsuario } = require('../templates/EmailSender'); // Asume que tienes esta función
 
 function generarContrasenaSegura() {
-    // Genera 8 bytes aleatorios y los convierte a una cadena hexadecimal (16 caracteres)
     return crypto.randomBytes(8).toString('hex');
 }
 
 async function DireccionEnvio(req, res) {
     let connection;
     try {
-        console.log("=== DEBUG BACKEND - Función DireccionEnvio (Ahora sí crea la Factura, no Detalle_Factura) ===");
+        console.log("=== DEBUG BACKEND - Función DireccionEnvio ===");
         console.log("DEBUG: req.user (desde token, si existe):", req.user);
 
         const {
@@ -21,18 +20,17 @@ async function DireccionEnvio(req, res) {
             correo,
             direccion,
             informacion_adicional,
-            carrito // Datos del carrito desde el frontend
+            carrito // Datos del carrito desde el frontend (Opcional si usuario logeado)
         } = req.body;
 
-        // --- DEBUG 1: Datos recibidos en el cuerpo de la solicitud (req.body) ---
         console.log("DEBUG 1: Datos recibidos en req.body:", JSON.stringify(req.body, null, 2));
 
-        // 1. Validación de campos obligatorios
-        if (!nombre || !cedula || !telefono || !correo || !direccion || !carrito || !Array.isArray(carrito) || carrito.length === 0) {
-            console.log("DEBUG ERROR: Campos obligatorios faltantes o carrito vacío en req.body.");
+        // 1. Validación de campos obligatorios para datos de envío
+        if (!nombre || !cedula || !telefono || !correo || !direccion) {
+            console.log("DEBUG ERROR: Datos de envío obligatorios faltantes.");
             return res.status(400).json({
                 success: false,
-                mensaje: 'Los campos nombre, cédula, teléfono, correo, dirección y un carrito no vacío son obligatorios.'
+                mensaje: 'Los campos nombre, cédula, teléfono, correo y dirección son obligatorios.'
             });
         }
 
@@ -42,6 +40,7 @@ async function DireccionEnvio(req, res) {
         let fk_id_usuario;
         let esNuevoRegistro = false; // Flag para saber si se registró un nuevo usuario
         let contrasenaGenerada = null; // Para almacenar la contraseña generada si aplica
+        let carritoDesdeDB = []; // Para almacenar los ítems del carrito, ya sea del frontend o DB
 
         // 2. Manejo del Usuario (Autenticado o Invitado)
         if (req.user && req.user.id_usuario) {
@@ -67,11 +66,13 @@ async function DireccionEnvio(req, res) {
             let updateFields = [];
             let updateValues = [];
 
+            // Actualizar datos del usuario si hay cambios (excepto correo, ya verificado por token)
             if (nombre !== currentUser.nombre) { updateFields.push('nombre = ?'); updateValues.push(nombre); }
             if (parseInt(cedula, 10) !== currentUser.cedula) { updateFields.push('cedula = ?'); updateValues.push(cedula); }
             if (telefono !== currentUser.telefono) { updateFields.push('telefono = ?'); updateValues.push(telefono); }
+            // Comprobación de correo: Si está autenticado, el correo del body DEBE COINCIDIR con el del token.
             if (correo !== currentUser.correo) {
-                console.warn(`[Seguridad] Correo proporcionado (${correo}) no coincide con el del token (${currentUser.correo}).`);
+                console.warn(`[Seguridad] Correo proporcionado en body (${correo}) no coincide con el del token (${currentUser.correo}).`);
                 await connection.rollback();
                 return res.status(403).json({
                     success: false,
@@ -86,9 +87,40 @@ async function DireccionEnvio(req, res) {
                 console.log(`Usuario ID ${fk_id_usuario} actualizado con nuevos datos en DB.`);
             }
 
+            // Para usuarios logeados, OBTENER EL CARRITO DIRECTAMENTE DE LA BASE DE DATOS
+            const [dbCartItems] = await connection.execute(
+                `SELECT
+                    cc.FK_referencia_producto AS id_producto,
+                    cc.FK_id_calcomania AS id_calcomania,
+                    cc.cantidad,
+                    cc.tamano,
+                    CASE
+                        WHEN cc.FK_referencia_producto IS NOT NULL THEN 'producto'
+                        WHEN cc.FK_id_calcomania IS NOT NULL THEN 'calcomania'
+                        ELSE NULL
+                    END AS tipo
+                FROM carrito_compras cc
+                WHERE cc.FK_id_usuario = ?`,
+                [fk_id_usuario]
+            );
+
+            carritoDesdeDB = dbCartItems;
+            console.log(`Carrito cargado desde DB para usuario logeado ID ${fk_id_usuario}:`, carritoDesdeDB);
+
         } else {
             // --- Usuario NO AUTENTICADO (Invitado) ---
             console.log("Usuario NO AUTENTICADO. Intentando encontrar o registrar.");
+
+            // Validar que el carrito NO esté vacío para usuarios no autenticados
+            if (!carrito || !Array.isArray(carrito) || carrito.length === 0) {
+                console.log("DEBUG ERROR: Carrito vacío o inválido para usuario no autenticado.");
+                await connection.rollback(); // Asegurarse de hacer rollback
+                return res.status(400).json({
+                    success: false,
+                    mensaje: 'Para finalizar la compra como invitado, su carrito no puede estar vacío.'
+                });
+            }
+            carritoDesdeDB = carrito; // Usar el carrito enviado por el frontend
 
             const [existingUserByEmail] = await connection.execute(
                 `SELECT id_usuario, nombre, cedula, telefono, correo FROM usuario WHERE correo = ?`,
@@ -146,37 +178,43 @@ async function DireccionEnvio(req, res) {
             }
         }
 
+        // Validación final del carrito_desde_DB después de todo el procesamiento de usuario
+        if (!carritoDesdeDB || !Array.isArray(carritoDesdeDB) || carritoDesdeDB.length === 0) {
+            console.log("DEBUG ERROR: Carrito vacío o inválido después de determinar el usuario.");
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                mensaje: 'No se encontraron artículos en su carrito. Por favor, añada artículos antes de continuar.'
+            });
+        }
+
+
         // 3. Crear la FACTURA con los datos de envío
-        // Establecemos un valor_total y metodo_pago iniciales a NULL/0.00,
-        // ya que se actualizarán en el paso FinalizarCompraYRegistro
         const fecha_venta = new Date(); // Fecha actual
         const [facturaResult] = await connection.execute(
-            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 0.00, null, 0.00]
+            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio, estado_pedido, estado_pago_wompi)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 0.00, null, 0.00, 'Pendiente', 'PENDING'] // Estado inicial y pago Wompi
         );
         const id_factura = facturaResult.insertId;
         console.log(`Nueva factura (ID: ${id_factura}) creada con datos de envío para usuario ID: ${fk_id_usuario}.`);
 
 
-        // 4. Limpiar y Repoblar el CARRITO_COMPRAS en la DB
-        // Eliminar cualquier artículo existente para este usuario en el carrito de la DB
-        await connection.execute(
-            `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
-            [fk_id_usuario]
-        );
-        console.log(`Carrito de compras existente en DB limpiado para el usuario ID: ${fk_id_usuario}`);
+        // 4. Limpiar y Repoblar el CARRITO_COMPRAS en la DB si es un usuario invitado/nuevo
+        // Si el usuario ya estaba logeado, el carrito ya debe estar en la DB y no se modifica aquí.
+        if (!req.user || esNuevoRegistro) { // Si no está logeado O si es un registro nuevo (viene de invitado)
+            await connection.execute(
+                `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
+                [fk_id_usuario]
+            );
+            console.log(`Carrito de compras existente en DB limpiado para el usuario ID: ${fk_id_usuario}`);
 
-        // Insertar los nuevos artículos del carrito enviados desde el frontend
-        if (carrito && Array.isArray(carrito) && carrito.length > 0) {
-            console.log(`DEBUG: Insertando ${carrito.length} ítems del carrito en CARRITO_COMPRAS.`);
-            for (const item of carrito) {
-                // Validación básica de ítems del carrito
+            // Insertar los nuevos artículos del carrito que vinieron del frontend (o se cargaron para el usuario logeado)
+            for (const item of carritoDesdeDB) { // Usamos carritoDesdeDB que contiene los ítems correctos
                 if (!item.cantidad || item.cantidad <= 0) {
                     console.warn("DEBUG ADVERTENCIA: Ítem de carrito con cantidad inválida:", item);
                     continue;
                 }
-                // Asegúrate de que los IDs existan y sean válidos para tu DB
                 const fk_referencia_producto = item.tipo === 'producto' ? item.id_producto : null;
                 const fk_id_calcomania = item.tipo === 'calcomania' ? item.id_calcomania : null;
                 const tamano_calcomania = item.tipo === 'calcomania' ? item.tamano : null;
@@ -193,8 +231,9 @@ async function DireccionEnvio(req, res) {
                 );
                 console.log(`DEBUG: Ítem añadido a CARRITO_COMPRAS para usuario ${fk_id_usuario}: `, item);
             }
+            console.log(`Carrito de compras para usuario ID: ${fk_id_usuario} (nuevo/invitado) repoblado en DB.`);
         } else {
-            console.warn("ADVERTENCIA: Carrito vacío enviado, no se insertarán ítems en CARRITO_COMPRAS.");
+             console.log(`Usuario logeado. Se asume que el carrito en la DB es la fuente de verdad y no se repobló.`);
         }
 
 
@@ -203,6 +242,7 @@ async function DireccionEnvio(req, res) {
         req.session.checkout.id_factura_temp = id_factura; // Guardamos el ID de la factura creada
         req.session.checkout.fk_id_usuario_para_compra = fk_id_usuario;
         req.session.checkout.es_nuevo_registro = esNuevoRegistro;
+        req.session.checkout.correo_cliente_factura = correo; // Guardamos el correo para usarlo en Wompi
         if (esNuevoRegistro) {
             req.session.checkout.contrasena_generada = contrasenaGenerada;
         }
@@ -211,6 +251,18 @@ async function DireccionEnvio(req, res) {
 
         await connection.commit();
         console.log("DEBUG: Transacción de DireccionEnvio completada y datos guardados en DB.");
+
+        // Si es un nuevo registro, envía el correo con las credenciales
+        if (esNuevoRegistro) {
+            try {
+                await enviarCredencialesNuevoUsuario(correo, contrasenaGenerada);
+                console.log(`Correo con credenciales enviado a ${correo}.`);
+            } catch (emailError) {
+                console.error(`ERROR: No se pudo enviar el correo de credenciales a ${correo}:`, emailError);
+                // No se detiene el flujo de compra, pero se registra el error
+            }
+        }
+
 
         req.session.save((err) => {
             if (err) {
@@ -232,8 +284,8 @@ async function DireccionEnvio(req, res) {
                     direccion,
                     informacion_adicional
                 },
-                // Si es un nuevo usuario, podrías querer retornar la contraseña aquí para que el frontend la muestre/envíe
-                ...(esNuevoRegistro && { contrasena_generada: contrasenaGenerada })
+                // No retornamos la contraseña aquí por seguridad, el correo es la forma
+                // ...(esNuevoRegistro && { contrasena_generada: contrasenaGenerada })
             });
         });
 
