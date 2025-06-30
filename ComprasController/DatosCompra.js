@@ -1,62 +1,35 @@
-const pool = require('../db');
-const bcrypt = require('bcrypt');
-const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado'); // Ajusta la ruta a tu archivo de servicio de correo
-
-/**
- * Función auxiliar para generar contraseñas seguras.
- * Genera una contraseña que cumple con los requisitos:
- * - Mínimo 8 caracteres
- * - Al menos una mayúscula
- * - Al menos un símbolo especial
- * - Al menos un número
- */
-function generarContrasenaSegura() {
-    const chars = {
-        lower: "abcdefghijklmnopqrstuvwxyz",
-        upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        numbers: "0123456789",
-        symbols: "!@#$%^&*()_+~`|}{[]:;?><,./-="
-    };
-
-    let password = [];
-    // Asegurar al menos una de cada tipo para cumplir los requisitos
-    password.push(chars.upper[Math.floor(Math.random() * chars.upper.length)]);
-    password.push(chars.symbols[Math.floor(Math.random() * chars.symbols.length)]);
-    password.push(chars.numbers[Math.floor(Math.random() * chars.numbers.length)]);
-    password.push(chars.lower[Math.floor(Math.random() * chars.lower.length)]); // Una minúscula inicial para empezar
-
-    // Rellenar hasta al menos 8 caracteres
-    const allChars = chars.lower + chars.upper + chars.numbers + chars.symbols;
-    for (let i = password.length; i < 8; i++) {
-        password.push(allChars[Math.floor(Math.random() * allChars.length)]);
-    }
-
-    // Mezclar para que no siga un patrón predecible
-    for (let i = password.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [password[i], password[j]] = [password[j], password[i]];
-    }
-
-    return password.join('');
-}
+// ... (código existente: pool, bcrypt, enviarCorreoBienvenida, generarContrasenaSegura)
 
 async function ConsultarCarritoYResumen(req, res) {
     try {
         console.log("=== DEBUG BACKEND - Consultar Carrito y Resumen ===");
 
-        // Si esta ruta SÓLO es para usuarios autenticados, entonces el middleware verificarToken (estricto) es el adecuado.
-        // Si puede ser usada por usuarios no autenticados para ver su carrito temporal (por ejemplo, en la sesión), entonces la lógica cambia.
-        // Asumiendo que ConsultarCarritoYResumen se usa con `verificarToken` (estricto), esta validación es correcta.
-        if (!req.user || !req.user.id_usuario) {
+        // --- CAMBIO CLAVE AQUÍ: Permite consultar el carrito sin autenticación ---
+        // Si el usuario no está autenticado, podemos usar un ID de sesión o algún otro identificador temporal para el carrito.
+        // Asumiendo que el carrito de un invitado se asocia al req.sessionID (si usas express-session)
+        // O si ya tienes un identificador de carrito para invitados.
+        let fk_id_usuario;
+        if (req.user && req.user.id_usuario) {
+            fk_id_usuario = req.user.id_usuario;
+            console.log("Usuario AUTENTICADO consultando carrito. ID:", fk_id_usuario);
+        } else {
+            // Esto es un placeholder. Necesitarías una forma de identificar el carrito de un invitado.
+            // Por ejemplo, si el ID del carrito se pasa en los headers o la URL, o si está en req.session
+            // Por ahora, si no hay usuario, devolverá un error 401 si no hay una forma de identificar el carrito de invitado.
+            // Para fines de esta demostración, asumiremos que si no hay req.user, no se puede consultar el carrito.
+            // Si deseas soportar carritos de invitado, la lógica de FK_id_usuario y carrito_compras debe adaptarse.
             return res.status(401).json({
                 success: false,
-                mensaje: 'Acceso no autorizado. El usuario debe estar autenticado para consultar su carrito.'
+                mensaje: 'Acceso no autorizado. El usuario debe estar autenticado para consultar su carrito, o la funcionalidad de carrito de invitado no está implementada para esta ruta.'
             });
+            // Si manejas carritos de invitado en la DB, tendrías que tener un FK_id_session o similar
+            // Y pasar el req.sessionID aquí, o un ID de carrito generado por el frontend.
+            // Por ejemplo: fk_id_usuario = req.sessionID; // Si tu tabla carrito_compras usa sessionID para invitados
+            // Luego, la consulta SQL para carrito_compras tendría que buscar por FK_id_usuario O FK_id_sesion
         }
 
-        const fk_id_usuario = req.user.id_usuario;
-
         // 1. Obtener los artículos del carrito (productos y calcomanías)
+        // ... (el resto de tu lógica de ConsultarCarritoYResumen permanece igual)
         const [carritoItems] = await pool.execute(
             `SELECT
                 cc.FK_referencia_producto AS referencia_producto,
@@ -186,36 +159,31 @@ async function ConsultarCarritoYResumen(req, res) {
     }
 }
 
+
 async function FinalizarCompraYRegistro(req, res) {
-    let connection; // Declarar la conexión fuera del try para que esté disponible en finally
+    let connection;
     try {
         console.log("=== DEBUG BACKEND - Finalizar Compra y Registro (Corregida) ===");
 
-        // Aseguramos que los datos necesarios para el usuario siempre vengan en el body
-        const {
-            nombre,
-            cedula,
-            telefono,
-            correo,
-            direccion, // Se espera para la interfaz, pero no se guarda en factura aquí
-            informacion_adicional // Se espera para la interfaz, pero no se guarda en factura aquí
-        } = req.body;
+        // --- OBTENER DATOS DEL USUARIO Y DIRECCIÓN DESDE LA SESIÓN ---
+        const checkoutData = req.session.checkout && req.session.checkout.direccion_envio;
 
-        // Validar que los datos de contacto y dirección sean obligatorios
-        if (!nombre || !cedula || !telefono || !correo || !direccion) {
+        if (!checkoutData || !checkoutData.nombre || !checkoutData.cedula || !checkoutData.telefono || !checkoutData.correo || !checkoutData.direccion) {
             return res.status(400).json({
                 success: false,
-                mensaje: 'Los campos nombre, cédula, teléfono, correo y dirección son obligatorios para finalizar la compra.'
+                mensaje: 'Información de usuario o dirección de envío incompleta en la sesión. Por favor, vuelva a la sección de dirección.'
             });
         }
 
+        const { nombre, cedula, telefono, correo, direccion, informacion_adicional } = checkoutData;
+
         connection = await pool.getConnection();
-        await connection.beginTransaction(); // Iniciar transacción
+        await connection.beginTransaction();
 
         let fk_id_usuario;
         let esNuevoRegistro = false;
         let contrasenaGenerada = null;
-        let usuarioEmail = correo; // Usamos el correo del body como el correo principal para esta operación
+        let usuarioEmail = correo;
 
         // 1. Determinar el usuario y si necesita ser registrado o actualizado
         if (req.user && req.user.id_usuario) {
@@ -223,10 +191,10 @@ async function FinalizarCompraYRegistro(req, res) {
             console.log("Usuario AUTENTICADO. ID:", req.user.id_usuario);
             fk_id_usuario = req.user.id_usuario;
 
-            // Verificar que el correo del token coincida con el correo del body para seguridad
+            // Verificar que el correo del token coincida con el correo guardado en sesión
             if (correo !== req.user.correo) {
-                console.warn(`[Seguridad] Correo proporcionado (${correo}) no coincide con el del token (${req.user.correo}).`);
-                throw new Error('El correo proporcionado no coincide con el de su cuenta autenticada.');
+                console.warn(`[Seguridad] Correo proporcionado en sesión (${correo}) no coincide con el del token (${req.user.correo}).`);
+                throw new Error('El correo asociado a la compra no coincide con su cuenta autenticada. Por favor, inicie sesión con el correo correcto.');
             }
 
             // Actualizar datos del usuario existente si son diferentes
@@ -306,17 +274,167 @@ async function FinalizarCompraYRegistro(req, res) {
             }
         }
 
-        // 2. Limpiar el carrito de compras del usuario
-        // Esto se hace siempre al "finalizar" esta etapa, ya que se asume que los artículos se van a procesar.
+        // 2. Mover el carrito del usuario a la factura
+        // Primero, obtener los artículos del carrito del usuario (¡Importante: usa fk_id_usuario aquí!)
+        const [carritoItems] = await connection.execute(
+            `SELECT
+                cc.FK_referencia_producto AS referencia_producto,
+                cc.FK_id_calcomania AS id_calcomania,
+                cc.cantidad,
+                cc.tamano,
+                p.nombre AS nombre_producto,
+                p.precio_unidad AS precio_unidad_producto,
+                p.precio_descuento AS precio_descuento_producto,
+                c.nombre AS nombre_calcomania,
+                c.precio_unidad AS precio_base_calcomania,
+                c.precio_descuento AS precio_descuento_calcomania_base
+            FROM
+                carrito_compras cc
+            LEFT JOIN
+                producto p ON cc.FK_referencia_producto = p.referencia
+            LEFT JOIN
+                calcomania c ON cc.FK_id_calcomania = c.id_calcomania
+            WHERE
+                cc.FK_id_usuario = ?`,
+            [fk_id_usuario]
+        );
+
+        if (carritoItems.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({
+                success: false,
+                mensaje: 'El carrito de compras está vacío. No se puede finalizar una compra sin artículos.'
+            });
+        }
+
+        let totalArticulosFinal = 0;
+        let descuentoTotalArticulos = 0;
+        let totalArticulosSinDescuento = 0; // Necesario para calcular el descuento de forma precisa
+
+        carritoItems.forEach(item => {
+            let precio_unidad_calculado, precio_descuento_calculado;
+
+            if (item.referencia_producto !== null) { // Es un producto
+                precio_unidad_calculado = parseFloat(item.precio_unidad_producto);
+                precio_descuento_calculado = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
+            } else { // Es una calcomanía
+                let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
+                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
+
+                switch (item.tamano.toLowerCase()) {
+                    case 'pequeño':
+                        precio_unidad_calculado = precio_base_calcomania;
+                        precio_descuento_calculado = precio_descuento_base_calcomania;
+                        break;
+                    case 'mediano':
+                        precio_unidad_calculado = precio_base_calcomania * 2.25; // Precio base + 125%
+                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
+                        break;
+                    case 'grande':
+                        precio_unidad_calculado = precio_base_calcomania * 4.00; // Precio base + 300%
+                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
+                        break;
+                    default:
+                        precio_unidad_calculado = precio_base_calcomania;
+                        precio_descuento_calculado = precio_descuento_base_calcomania;
+                        break;
+                }
+            }
+
+            const cantidad = item.cantidad;
+            totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
+
+            if (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) {
+                totalArticulosFinal += precio_descuento_calculado * cantidad;
+                descuentoTotalArticulos += (precio_unidad_calculado - precio_descuento_calculado) * cantidad;
+            } else {
+                totalArticulosFinal += precio_unidad_calculado * cantidad;
+            }
+        });
+
+        const PRECIO_ENVIO = 14900;
+        const subtotalFactura = parseFloat(totalArticulosFinal.toFixed(2));
+        const totalFactura = parseFloat((subtotalFactura + PRECIO_ENVIO).toFixed(2));
+        const descuentoAplicado = parseFloat(descuentoTotalArticulos.toFixed(2)); // Suma de todos los descuentos
+
+        // Insertar la factura principal
+        const [facturaResult] = await connection.execute(
+            `INSERT INTO factura (fk_id_usuario, fecha_venta, total, subtotal, descuento, precio_envio, direccion, informacion_adicional, estado_pedido) VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, ?)`,
+            [fk_id_usuario, totalFactura, subtotalFactura, descuentoAplicado, PRECIO_ENVIO, direccion, informacion_adicional, 'Pendiente']
+        );
+        const id_factura = facturaResult.insertId;
+        console.log(`Factura creada con ID: ${id_factura} para usuario ID: ${fk_id_usuario}`);
+
+        // Insertar los detalles de la factura
+        for (const item of carritoItems) {
+            let precio_unitario_factura;
+            let precio_descuento_factura;
+
+            if (item.referencia_producto !== null) { // Es un producto
+                precio_unitario_factura = parseFloat(item.precio_unidad_producto);
+                precio_descuento_factura = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
+            } else { // Es una calcomanía
+                let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
+                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
+
+                switch (item.tamano.toLowerCase()) {
+                    case 'pequeño':
+                        precio_unitario_factura = precio_base_calcomania;
+                        precio_descuento_factura = precio_descuento_base_calcomania;
+                        break;
+                    case 'mediano':
+                        precio_unitario_factura = precio_base_calcomania * 2.25;
+                        precio_descuento_factura = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
+                        break;
+                    case 'grande':
+                        precio_unitario_factura = precio_base_calcomania * 4.00;
+                        precio_descuento_factura = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
+                        break;
+                    default:
+                        precio_unitario_factura = precio_base_calcomania;
+                        precio_descuento_factura = precio_descuento_base_calcomania;
+                        break;
+                }
+            }
+
+            // Usar el precio con descuento si aplica, si no, el unitario calculado
+            const precio_final_aplicado = (precio_descuento_factura !== null && precio_descuento_factura < precio_unitario_factura)
+                                        ? precio_descuento_factura
+                                        : precio_unitario_factura;
+
+            await connection.execute(
+                `INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, FK_id_calcomania, cantidad, precio_unitario, precio_descuento, tamano_calcomania) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    id_factura,
+                    item.referencia_producto,
+                    item.id_calcomania,
+                    item.cantidad,
+                    parseFloat(precio_unitario_factura.toFixed(2)), // Precio antes de cualquier descuento directo del artículo
+                    precio_descuento_factura ? parseFloat(precio_descuento_factura.toFixed(2)) : null, // Precio con descuento directo del artículo
+                    item.id_calcomania ? item.tamano : null // Solo para calcomanías
+                ]
+            );
+        }
+        console.log(`Detalles de factura insertados para la factura ID: ${id_factura}`);
+
+        // 3. Limpiar el carrito de compras del usuario
+        // Esto se hace siempre al "finalizar" esta etapa, ya que los artículos se han procesado en la factura.
         await connection.execute(
             `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
             [fk_id_usuario]
         );
         console.log(`Carrito de compras limpiado para el usuario ID: ${fk_id_usuario}`);
 
-        await connection.commit(); // Confirmar la transacción (registro/actualización de usuario y limpieza de carrito)
+        // 4. Limpiar la información de envío de la sesión una vez completada la compra
+        if (req.session.checkout) {
+            delete req.session.checkout.direccion_envio;
+            console.log("Información de dirección de envío eliminada de la sesión.");
+        }
 
-        // 3. Enviar correo de bienvenida si es un nuevo registro
+
+        await connection.commit(); // Confirmar la transacción
+
+        // 5. Enviar correo de bienvenida si es un nuevo registro
         if (esNuevoRegistro && usuarioEmail && contrasenaGenerada) {
             await enviarCorreoBienvenida(usuarioEmail, contrasenaGenerada);
             console.log(`Correo de bienvenida enviado a ${usuarioEmail}`);
@@ -324,9 +442,11 @@ async function FinalizarCompraYRegistro(req, res) {
 
         res.status(200).json({
             success: true,
-            mensaje: 'Información de usuario y carrito procesados exitosamente. Tu compra está lista para ser finalizada en el siguiente paso.',
+            mensaje: '¡Compra finalizada exitosamente! Tu pedido está en camino.',
+            id_factura: id_factura,
             nuevo_usuario_registrado: esNuevoRegistro,
-            contrasena_generada: esNuevoRegistro ? contrasenaGenerada : undefined // Solo si es nuevo registro
+            contrasena_generada: esNuevoRegistro ? contrasenaGenerada : undefined, // Solo si es nuevo registro
+            total_factura: totalFactura
         });
 
     } catch (error) {
