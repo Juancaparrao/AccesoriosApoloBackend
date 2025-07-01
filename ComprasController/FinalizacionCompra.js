@@ -49,9 +49,9 @@ async function completarFacturaPagada(facturaId, userId) {
                 cal.stock_pequeno,
                 cal.stock_mediano,
                 cal.stock_grande
-            FROM CARRITO_COMPRAS c
-            LEFT JOIN PRODUCTO p ON c.FK_referencia_producto = p.referencia
-            LEFT JOIN CALCOMANIA cal ON c.FK_id_calcomania = cal.id_calcomania
+            FROM carrito_compras c
+            LEFT JOIN producto p ON c.FK_referencia_producto = p.referencia
+            LEFT JOIN calcomania cal ON c.FK_id_calcomania = cal.id_calcomania
             WHERE c.FK_id_usuario = ?
         `, [userId]);
 
@@ -77,7 +77,7 @@ async function completarFacturaPagada(facturaId, userId) {
 
                 // Insertar en detalle_factura
                 await connection.execute(`
-                    INSERT INTO DETALLE_FACTURA (FK_id_factura, FK_referencia_producto, cantidad, precio_unidad)
+                    INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, cantidad, precio_unidad)
                     VALUES (?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE 
                         cantidad = cantidad + VALUES(cantidad)
@@ -85,7 +85,7 @@ async function completarFacturaPagada(facturaId, userId) {
 
                 // Reducir stock del producto
                 await connection.execute(`
-                    UPDATE PRODUCTO 
+                    UPDATE producto 
                     SET stock = stock - ? 
                     WHERE referencia = ? AND stock >= ?
                 `, [item.cantidad, item.FK_referencia_producto, item.cantidad]);
@@ -126,7 +126,7 @@ async function completarFacturaPagada(facturaId, userId) {
 
                 // Insertar en detalle_factura_calcomania
                 await connection.execute(`
-                    INSERT INTO DETALLE_FACTURA_CALCOMANIA (FK_id_factura, FK_id_calcomania, cantidad, precio_unidad, tamano)
+                    INSERT INTO detalle_factura_calcomania (FK_id_factura, FK_id_calcomania, cantidad, precio_unidad, tamano)
                     VALUES (?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE 
                         cantidad = cantidad + VALUES(cantidad)
@@ -134,7 +134,7 @@ async function completarFacturaPagada(facturaId, userId) {
 
                 // Reducir stock de la calcomanía según el tamaño
                 await connection.execute(`
-                    UPDATE CALCOMANIA 
+                    UPDATE calcomania 
                     SET ${campoStock} = ${campoStock} - ? 
                     WHERE id_calcomania = ? AND ${campoStock} >= ?
                 `, [item.cantidad, item.FK_id_calcomania, item.cantidad]);
@@ -145,7 +145,7 @@ async function completarFacturaPagada(facturaId, userId) {
 
         // 4. Eliminar todos los items del carrito del usuario
         const [deleteResult] = await connection.execute(`
-            DELETE FROM CARRITO_COMPRAS WHERE FK_id_usuario = ?
+            DELETE FROM carrito_compras WHERE FK_id_usuario = ?
         `, [userId]);
 
         console.log(`🗑️ ${deleteResult.affectedRows} items eliminados del carrito`);
@@ -222,8 +222,8 @@ async function eliminarFacturasExpiradas() {
         // 3. Eliminar los detalles asociados a esas facturas (en una sola consulta para eficiencia).
         //    (IMPORTANTE: Asegúrate de tener FK con ON DELETE CASCADE para simplificar esto, 
         //     si no, este borrado manual es la forma correcta).
-        await connection.execute(`DELETE FROM DETALLE_FACTURA WHERE FK_id_factura IN (?)`, [idsFacturas]);
-        await connection.execute(`DELETE FROM DETALLE_FACTURA_CALCOMANIA WHERE FK_id_factura IN (?)`, [idsFacturas]);
+        await connection.execute(`DELETE FROM detalle_factura WHERE FK_id_factura IN (?)`, [idsFacturas]);
+        await connection.execute(`DELETE FROM detalle_factura_calcomania WHERE FK_id_factura IN (?)`, [idsFacturas]);
 
         // 4. Eliminar las facturas principales.
         const [deleteResult] = await connection.execute(`
