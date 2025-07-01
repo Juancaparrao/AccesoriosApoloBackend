@@ -40,9 +40,9 @@ async function DireccionEnvio(req, res) {
         await connection.beginTransaction();
 
         let fk_id_usuario;
-        let esNuevoRegistro = false; // Flag para saber si se registró un nuevo usuario
-        let contrasenaGenerada = null; // Para almacenar la contraseña generada si aplica
-        let carritoDesdeDB = []; // Para almacenar los ítems del carrito, ya sea del frontend o DB
+        let esNuevoRegistro = false;
+        let contrasenaGenerada = null;
+        let carritoDesdeDB = [];
 
         // 2. Manejo del Usuario (Autenticado o Invitado)
         if (req.user && req.user.id_usuario) {
@@ -68,11 +68,9 @@ async function DireccionEnvio(req, res) {
             let updateFields = [];
             let updateValues = [];
 
-            // Actualizar datos del usuario si hay cambios (excepto correo, ya verificado por token)
             if (nombre !== currentUser.nombre) { updateFields.push('nombre = ?'); updateValues.push(nombre); }
             if (parseInt(cedula, 10) !== currentUser.cedula) { updateFields.push('cedula = ?'); updateValues.push(cedula); }
             if (telefono !== currentUser.telefono) { updateFields.push('telefono = ?'); updateValues.push(telefono); }
-            // Comprobación de correo: Si está autenticado, el correo del body DEBE COINCIDIR con el del token.
             if (correo !== currentUser.correo) {
                 console.warn(`[Seguridad] Correo proporcionado en body (${correo}) no coincide con el del token (${currentUser.correo}).`);
                 await connection.rollback();
@@ -89,7 +87,6 @@ async function DireccionEnvio(req, res) {
                 console.log(`Usuario ID ${fk_id_usuario} actualizado con nuevos datos en DB.`);
             }
 
-            // Para usuarios logeados, OBTENER EL CARRITO DIRECTAMENTE DE LA BASE DE DATOS
             const [dbCartItems] = await connection.execute(
                 `SELECT
                     cc.FK_referencia_producto AS id_producto,
@@ -113,16 +110,15 @@ async function DireccionEnvio(req, res) {
             // --- Usuario NO AUTENTICADO (Invitado) ---
             console.log("Usuario NO AUTENTICADO. Intentando encontrar o registrar.");
 
-            // Validar que el carrito NO esté vacío para usuarios no autenticados
             if (!carrito || !Array.isArray(carrito) || carrito.length === 0) {
                 console.log("DEBUG ERROR: Carrito vacío o inválido para usuario no autenticado.");
-                await connection.rollback(); // Asegurarse de hacer rollback
+                await connection.rollback();
                 return res.status(400).json({
                     success: false,
                     mensaje: 'Para finalizar la compra como invitado, su carrito no puede estar vacío.'
                 });
             }
-            carritoDesdeDB = carrito; // Usar el carrito enviado por el frontend
+            carritoDesdeDB = carrito;
 
             const [existingUserByEmail] = await connection.execute(
                 `SELECT id_usuario, nombre, cedula, telefono, correo FROM usuario WHERE correo = ?`,
@@ -130,7 +126,6 @@ async function DireccionEnvio(req, res) {
             );
 
             if (existingUserByEmail.length > 0) {
-                // El correo existe, usar su ID y actualizar datos si es necesario
                 fk_id_usuario = existingUserByEmail[0].id_usuario;
                 console.log("Correo ya registrado, usuario no autenticado. Usando ID:", fk_id_usuario);
 
@@ -148,25 +143,20 @@ async function DireccionEnvio(req, res) {
                     await connection.execute(updateQuery, updateValues);
                     console.log(`Datos de usuario existente (ID: ${fk_id_usuario}, no autenticado) actualizados en DB.`);
                 }
-
             } else {
-                // El correo NO existe, REGISTRAR un nuevo usuario
                 console.log("Correo NO registrado en DB. Registrando nuevo usuario y generando contraseña.");
-                esNuevoRegistro = true; // Es un nuevo registro
+                esNuevoRegistro = true;
 
-                contrasenaGenerada = generarContrasenaSegura(); // Genera la contraseña
-                const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10); // Hashear para guardar
+                contrasenaGenerada = generarContrasenaSegura();
+                const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10);
 
                 const [result] = await connection.execute(
                     `INSERT INTO usuario (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
-                    [nombre, cedula, telefono, correo, hashedPassword, true] // Estado true por defecto
+                    [nombre, cedula, telefono, correo, hashedPassword, true]
                 );
                 fk_id_usuario = result.insertId;
 
-                // Asignar el rol 'cliente' al nuevo usuario
-                const [clienteRole] = await connection.execute(
-                    `SELECT id_rol FROM rol WHERE nombre = 'cliente'`
-                );
+                const [clienteRole] = await connection.execute(`SELECT id_rol FROM rol WHERE nombre = 'cliente'`);
                 if (clienteRole.length > 0) {
                     await connection.execute(
                         `INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`,
@@ -178,9 +168,7 @@ async function DireccionEnvio(req, res) {
                 }
                 console.log(`Nuevo usuario registrado automáticamente con ID: ${fk_id_usuario}`);
 
-                // *** AQUI ENVIAMOS EL CORREO DE BIENVENIDA CON LA CONTRASEÑA GENERADA ***
-                // Es el único lugar donde tenemos la contraseña en texto plano de forma segura.
-                if (correo) { // Asegurarse de que el correo existe
+                if (correo) {
                     const correoEnviado = await enviarCorreoBienvenida(correo, contrasenaGenerada);
                     if (correoEnviado) {
                         console.log(`Correo de bienvenida con contraseña enviado a ${correo}`);
@@ -191,7 +179,6 @@ async function DireccionEnvio(req, res) {
             }
         }
 
-        // Validación final del carrito_desde_DB después de todo el procesamiento de usuario
         if (!carritoDesdeDB || !Array.isArray(carritoDesdeDB) || carritoDesdeDB.length === 0) {
             console.log("DEBUG ERROR: Carrito vacío o inválido después de determinar el usuario.");
             await connection.rollback();
@@ -201,27 +188,31 @@ async function DireccionEnvio(req, res) {
             });
         }
 
+        // ======================================================================
+        // --- INICIO DE LA CORRECCIÓN ---
+        // Se elimina la variable `fecha_venta` de JS y se usa `NOW()` de MySQL.
+        // ======================================================================
+
         // 3. Crear la FACTURA con los datos de envío
-        const fecha_venta = new Date(); // Fecha actual
         const [facturaResult] = await connection.execute(
-            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [fk_id_usuario, fecha_venta, direccion, informacion_adicional || null, 0.00, null, 0.00] // Estado inicial y pago Wompi
+            `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio, estado_pedido)
+             VALUES (?, NOW(), ?, ?, ?, ?, ?, 'Pendiente')`, // Se usa NOW() directamente
+            // Se quita la variable de fecha de los parámetros
+            [fk_id_usuario, direccion, informacion_adicional || null, 0.00, null, 0.00]
         );
         const id_factura = facturaResult.insertId;
         console.log(`Nueva factura (ID: ${id_factura}) creada con datos de envío para usuario ID: ${fk_id_usuario}.`);
-
+        
+        // ======================================================================
+        // --- FIN DE LA CORRECCIÓN ---
+        // ======================================================================
 
         // 4. Limpiar y Repoblar el CARRITO_COMPRAS en la DB si es un usuario invitado/nuevo
-        if (!req.user || esNuevoRegistro) { // Si no está logeado O si es un registro nuevo (viene de invitado)
-            await connection.execute(
-                `DELETE FROM carrito_compras WHERE FK_id_usuario = ?`,
-                [fk_id_usuario]
-            );
+        if (!req.user || esNuevoRegistro) {
+            await connection.execute(`DELETE FROM carrito_compras WHERE FK_id_usuario = ?`, [fk_id_usuario]);
             console.log(`Carrito de compras existente en DB limpiado para el usuario ID: ${fk_id_usuario}`);
 
-            // Insertar los nuevos artículos del carrito que vinieron del frontend (o se cargaron para el usuario logeado)
-            for (const item of carritoDesdeDB) { // Usamos carritoDesdeDB que contiene los ítems correctos
+            for (const item of carritoDesdeDB) {
                 if (!item.cantidad || item.cantidad <= 0) {
                     console.warn("DEBUG ADVERTENCIA: Ítem de carrito con cantidad inválida:", item);
                     continue;
@@ -253,10 +244,10 @@ async function DireccionEnvio(req, res) {
         res.status(200).json({
             success: true,
             mensaje: 'Información de envío y factura inicial procesadas. Puedes continuar con la compra.',
-            id_factura_creada: id_factura, // Se retorna el ID de la factura creada
-            fk_id_usuario_para_compra: fk_id_usuario, // Se retorna el ID del usuario para el siguiente paso
-            nuevo_usuario_registrado: esNuevoRegistro, // Se retorna el flag de nuevo registro
-            datos_usuario_para_checkout: { // Estos son los datos del usuario tal como se ingresaron
+            id_factura_creada: id_factura,
+            fk_id_usuario_para_compra: fk_id_usuario,
+            nuevo_usuario_registrado: esNuevoRegistro,
+            datos_usuario_para_checkout: {
                 nombre,
                 cedula,
                 telefono,
@@ -264,8 +255,6 @@ async function DireccionEnvio(req, res) {
                 direccion,
                 informacion_adicional
             },
-            // La contraseña generada no se retorna al frontend por seguridad,
-            // ya que ya se envió por correo.
         });
 
     } catch (error) {
@@ -278,9 +267,8 @@ async function DireccionEnvio(req, res) {
                 console.error("DEBUG ERROR: Error al hacer rollback:", rollbackError);
             }
         }
-        // Manejar errores específicos como correo duplicado si ocurre en la fase de INSERT
         if (error.code === 'ER_DUP_ENTRY' && error.sqlMessage.includes('correo')) {
-            return res.status(409).json({ // 409 Conflict
+            return res.status(409).json({
                 success: false,
                 mensaje: 'El correo electrónico ya está registrado. Si ya tiene una cuenta, inicie sesión antes de finalizar la compra.'
             });
