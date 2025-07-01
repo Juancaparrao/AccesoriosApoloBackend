@@ -1,7 +1,7 @@
 // controllers/wompiController.js
 const crypto = require('crypto');
 const pool = require('../db'); // Asume que tienes un archivo db.js para la conexión a la base de datos
-const invoiceManager = require('./invoiceManager'); // Importar el nuevo módulo
+const FinalizacionCompra = require('./FinalizacionCompra'); // Importar el nuevo módulo
 
 const WOMPI_EVENTS_SECRET = process.env.WOMPI_EVENTS_SECRET;
 const WOMPI_INTEGRITY_KEY = process.env.WOMPI_INTEGRITY_KEY;
@@ -222,7 +222,7 @@ async function handleWompiWebhook(req, res) {
                     // No esperamos la respuesta para no bloquear la respuesta del webhook
                     setImmediate(async () => {
                         try {
-                            await invoiceManager.completarFacturaPagada(
+                            await FinalizacionCompra.completarFacturaPagada(
                                 parseInt(reference), 
                                 facturaExistente.fk_id_usuario
                             );
