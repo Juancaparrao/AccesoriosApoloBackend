@@ -196,11 +196,6 @@ async function eliminarFacturasExpiradas() {
 
         console.log(`[TAREA AUTOMÁTICA] Buscando facturas pendientes expiradas (más de ${TIEMPO_EXPIRACION_MINUTOS} min)...`);
 
-        // 1. Buscar facturas que cumplen AMBAS condiciones:
-        //    a) Su estado NO es 'Pagada' o 'Completada'.
-        //    b) Su fecha de creación fue hace MÁS de `TIEMPO_EXPIRACION_MINUTOS`.
-        //       `DATE_SUB(NOW(), INTERVAL ? MINUTE)` calcula la hora de corte.
-        //       Cualquier factura creada ANTES de esa hora, ha expirado.
         const [facturasParaEliminar] = await connection.execute(`
             SELECT id_factura, estado_pedido, fecha_venta, fk_id_usuario
             FROM factura 
@@ -210,25 +205,34 @@ async function eliminarFacturasExpiradas() {
 
         if (facturasParaEliminar.length === 0) {
             console.log('[TAREA AUTOMÁTICA] No se encontraron facturas expiradas para eliminar.');
-            await connection.commit(); // Es importante hacer commit incluso si no hay nada que hacer.
+            await connection.commit();
             return { facturasEliminadas: 0 };
         }
 
         console.log(`[TAREA AUTOMÁTICA] Se encontraron ${facturasParaEliminar.length} facturas expiradas. Procediendo a eliminar.`);
 
-        // 2. Extraer los IDs de las facturas para usarlos en las consultas de borrado.
         const idsFacturas = facturasParaEliminar.map(f => f.id_factura);
 
-        // 3. Eliminar los detalles asociados a esas facturas (en una sola consulta para eficiencia).
-        //    (IMPORTANTE: Asegúrate de tener FK con ON DELETE CASCADE para simplificar esto, 
-        //     si no, este borrado manual es la forma correcta).
-        await connection.execute(`DELETE FROM detalle_factura WHERE FK_id_factura IN (?)`, [idsFacturas]);
-        await connection.execute(`DELETE FROM detalle_factura_calcomania WHERE FK_id_factura IN (?)`, [idsFacturas]);
+        // --- INICIO DE LA CORRECCIÓN ---
 
+        // 1. Generar dinámicamente los marcadores de posición (?) para la cláusula IN.
+        // Si idsFacturas es [1, 2, 3], esto creará la cadena "?,?,?"
+        const placeholders = idsFacturas.map(() => '?').join(',');
+
+        // 2. Construir las consultas DELETE con los marcadores de posición correctos.
+        const sqlDeleteDetalleFactura = `DELETE FROM detalle_factura WHERE FK_id_factura IN (${placeholders})`;
+        const sqlDeleteDetalleCalcomania = `DELETE FROM detalle_factura_calcomania WHERE FK_id_factura IN (${placeholders})`;
+        const sqlDeleteFactura = `DELETE FROM factura WHERE id_factura IN (${placeholders})`;
+
+        // 3. Ejecutar las consultas pasando el array de IDs directamente.
+        // mysql2 ahora asignará cada ID a su propio '?' de forma segura.
+        await connection.execute(sqlDeleteDetalleFactura, idsFacturas);
+        await connection.execute(sqlDeleteDetalleCalcomania, idsFacturas);
+        
         // 4. Eliminar las facturas principales.
-        const [deleteResult] = await connection.execute(`
-            DELETE FROM factura WHERE id_factura IN (?)
-        `, [idsFacturas]);
+        const [deleteResult] = await connection.execute(sqlDeleteFactura, idsFacturas);
+        
+        // --- FIN DE LA CORRECCIÓN ---
         
         const facturasEliminadas = deleteResult.affectedRows;
 
@@ -236,7 +240,6 @@ async function eliminarFacturasExpiradas() {
         
         console.log(`[TAREA AUTOMÁTICA] ✅ Limpieza completada. Se eliminaron ${facturasEliminadas} facturas.`);
         
-        // Opcional: Registrar qué facturas se eliminaron
         facturasParaEliminar.forEach(factura => {
             console.log(`  -> 🗑️ Factura ${factura.id_factura} (Estado: ${factura.estado_pedido}) creada el ${factura.fecha_venta} ha sido eliminada.`);
         });
