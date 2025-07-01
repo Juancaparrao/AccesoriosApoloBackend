@@ -87,6 +87,7 @@ const { ConsultarCalcomaniaPorId } = require('./NavbarController/ConsultarCalcom
 const { DireccionEnvio } = require('./ComprasController/DireccionEnvio');
 const { ConsultarCarritoYResumen} = require('./ComprasController/DatosCompra');
 const { handleWompiWebhook } = require('./ComprasController/WompiController');
+const { createCheckout, getOrderStatus } = require('./ComprasController/PagoWompi');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -111,14 +112,7 @@ app.use(session({
 }));
 
 
-app.post('/api/wompi/webhook', bodyParser.json({
-    // La función `verify` permite acceder al cuerpo crudo de la solicitud
-    verify: (req, res, buf) => {
-        // Almacena el buffer crudo del cuerpo en `req.rawBody`
-        // `wompiController.handleWompiWebhook` lo usará para verificar la firma
-        req.rawBody = buf;
-    }
-}), handleWompiWebhook);
+
 
 // Rutas de registro con OTP
 app.post('/solicitar-otp', solicitarOTP);
@@ -284,7 +278,13 @@ app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 // Compras
 app.post('/direccion-envio', verificarTokenOpcional, DireccionEnvio);
 app.get('/carrito-resumen', verificarTokenOpcional, ConsultarCarritoYResumen);
-
+app.post('/api/wompi/webhook', bodyParser.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}), handleWompiWebhook);
+app.post('/create-checkout', createCheckout);
+app.get('/estado-orden/:id_factura/status', getOrderStatus);
 
 
 // Formulario de contacto

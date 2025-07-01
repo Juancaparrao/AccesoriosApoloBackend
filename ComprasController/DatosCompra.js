@@ -1,5 +1,4 @@
 const pool = require('../db');
-// const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado'); // Se elimina esta línea
 
 async function ConsultarCarritoYResumen(req, res) {
     try {
@@ -64,7 +63,7 @@ async function ConsultarCarritoYResumen(req, res) {
                 nombre = item.nombre_calcomania;
                 url_imagen_o_archivo = item.url_archivo_calcomania;
                 let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
-                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
+                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_base_calcomania) : null;
 
                 switch (item.tamano.toLowerCase()) {
                     case 'pequeño':
@@ -116,6 +115,48 @@ async function ConsultarCarritoYResumen(req, res) {
         const PRECIO_ENVIO = 14900; // Asumiendo pesos colombianos COP
         const subtotalPedido = parseFloat((totalArticulosFinal).toFixed(2));
         const totalPedido = parseFloat((subtotalPedido + PRECIO_ENVIO).toFixed(2));
+
+        // --- INICIO: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA ---
+        let connection;
+        try {
+            connection = await pool.getConnection();
+            await connection.beginTransaction();
+
+            // Buscar la factura más reciente o la que esté en estado 'pendiente'/'borrador' para este usuario.
+            // ADVERTENCIA: Esta consulta asume que hay una única factura "actual" o "en borrador" para el usuario
+            // que debe ser actualizada cada vez que el carrito se consulta.
+            // Idealmente, la factura se crea y se le asigna el total en un paso de checkout más avanzado.
+            const [existingFactura] = await connection.execute(
+                `SELECT id_factura FROM factura WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
+                [fk_id_usuario]
+            );
+
+            if (existingFactura.length > 0) {
+                const id_factura_a_actualizar = existingFactura[0].id_factura;
+
+                await connection.execute(
+                    `UPDATE factura SET valor_total = ? WHERE id_factura = ?`,
+                    [totalPedido, id_factura_a_actualizar]
+                );
+                console.log(`Factura ${id_factura_a_actualizar} actualizada con valor_total: ${totalPedido}`);
+            } else {
+                console.warn(`No se encontró una factura existente para el usuario ${fk_id_usuario} para actualizar el valor_total.`);
+                // Considera si aquí deberías crear una nueva factura en estado "borrador"
+                // si el usuario ha añadido algo al carrito y no tiene una factura reciente.
+                // Sin embargo, esta función (`ConsultarCarritoYResumen`) no es el lugar ideal para crear facturas.
+            }
+
+            await connection.commit();
+        } catch (updateError) {
+            if (connection) await connection.rollback();
+            console.error('Error al actualizar valor_total en la factura:', updateError);
+            // El error de actualización de la factura NO debería impedir que el carrito se muestre.
+            // Pero es crucial loguearlo para depuración y monitoreo.
+        } finally {
+            if (connection) connection.release();
+        }
+        // --- FIN: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA ---
+
 
         const resumenPedido = {
             TotalArticulosSinDescuento: parseFloat(totalArticulosSinDescuento.toFixed(2)),
