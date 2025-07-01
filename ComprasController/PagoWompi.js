@@ -88,7 +88,7 @@ async function createCheckout(req, res) {
             }
 
             // 3. Generar la firma de integridad con la función de wompiController
-            const signature = wompiController.generateWompiPaymentSignature(
+            const signatureHash = wompiController.generateWompiPaymentSignature(
                 finalReference, // Usar la referencia final
                 finalAmountInCents,
                 'COP'
@@ -100,7 +100,10 @@ async function createCheckout(req, res) {
                 currency: 'COP',
                 amountInCents: finalAmountInCents,
                 reference: finalReference,
-                signature: signature,
+                // CORRECCIÓN CRÍTICA: El widget de Wompi espera la firma en formato { integrity: "hash" }
+                signature: {
+                    integrity: signatureHash
+                },
                 redirectUrl: payment_redirect_url || 
                            process.env.WOMPI_REDIRECT_URL || 
                            process.env.FRONTEND_URL 
@@ -124,7 +127,8 @@ async function createCheckout(req, res) {
                     reference: finalReference,
                     amountInCents: finalAmountInCents,
                     email: finalEmail,
-                    dbAmount: dbAmountInCents
+                    dbAmount: dbAmountInCents,
+                    signatureHash: signatureHash // Para debug
                 }
             });
 
