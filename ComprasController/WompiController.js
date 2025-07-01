@@ -149,11 +149,11 @@ async function handleWompiWebhook(req, res) {
             await connection.execute(
                 `UPDATE factura 
                  SET 
-                     estado_pago_wompi = ?, 
-                     estado_pedido = ?, 
-                     wompi_transaction_id = ?, 
-                     metodo_pago_wompi = ?, -- Si añades esta columna
-                     fecha_actualizacion = NOW() 
+                    estado_pago_wompi = ?, 
+                    estado_pedido = ?, 
+                    wompi_transaction_id = ?, 
+                    metodo_pago_wompi = ?, 
+                    fecha_actualizacion = NOW() 
                  WHERE id_factura = ?`,
                 [status, newEstadoPedido, id, payment_method_type, reference] // Añadido payment_method_type
             );
@@ -177,5 +177,5 @@ async function handleWompiWebhook(req, res) {
 
 module.exports = {
     handleWompiWebhook,
-    generateWompiPaymentSignature // <-- Exportar la nueva función para que puedas usarla
+    generateWompiPaymentSignature // <-- Exportar la función para que puedas usarla
 };
