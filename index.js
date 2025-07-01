@@ -282,15 +282,7 @@ app.post('/direccion-envio', verificarTokenOpcional, DireccionEnvio);
 app.get('/carrito-resumen', verificarTokenOpcional, ConsultarCarritoYResumen);
 app.post('/create-checkout', createCheckout);
 app.get('/estado-orden/:id_factura/status', getOrderStatus);
-app.post('/webhook/wompi', handleWompiWebhook);
-app.get('/health', (req, res) => {
-    res.json({
-        success: true,
-        message: 'Payment service is running',
-        timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development'
-    });
-});
+app.post('/webhook/wompi', handleWompiWebhook); 
 app.post('/forzar-limpieza-facturas', verificarToken, forzarLimpiezaFacturas);
 
 
