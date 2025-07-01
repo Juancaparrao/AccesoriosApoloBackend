@@ -3,7 +3,7 @@ const pool = require('../db');
 
 // --- CONSTANTES DE CONFIGURACIÓN ---
 // Define el tiempo de vida de una factura pendiente en minutos.
-const TIEMPO_EXPIRACION_MINUTOS = 5; 
+const TIEMPO_EXPIRACION_MINUTOS = 15; 
 // Define cada cuánto se ejecutará la tarea de limpieza (en milisegundos).
 // 1 minuto (60000 ms) es un buen valor. Es frecuente pero no sobrecarga el sistema.
 const INTERVALO_VERIFICACION_MS = 60000; 
