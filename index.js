@@ -88,6 +88,7 @@ const { DireccionEnvio } = require('./ComprasController/DireccionEnvio');
 const { ConsultarCarritoYResumen} = require('./ComprasController/DatosCompra');
 const { handleWompiWebhook } = require('./ComprasController/WompiController');
 const { createCheckout, getOrderStatus } = require('./ComprasController/PagoWompi');
+const { forzarLimpiezaFacturas } = require('./ComprasController/FinalizacionCompra');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -289,6 +290,7 @@ app.get('/health', (req, res) => {
         environment: process.env.NODE_ENV || 'development'
     });
 });
+app.post('/forzar-limpieza-facturas', verificarToken, forzarLimpiezaFacturas);
 
 
 // Formulario de contacto
@@ -297,4 +299,7 @@ app.post('/contacto', handleContactForm);
 // Inicializar servidor
 app.listen(port, () => {
   console.log(`✅ Servidor corriendo`);
+
+    iniciarVerificacionDeFacturas();
+
 });

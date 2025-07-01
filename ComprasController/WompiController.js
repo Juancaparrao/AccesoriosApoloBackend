@@ -1,6 +1,7 @@
 // controllers/wompiController.js
 const crypto = require('crypto');
 const pool = require('../db'); // Asume que tienes un archivo db.js para la conexión a la base de datos
+const invoiceManager = require('./invoiceManager'); // Importar el nuevo módulo
 
 const WOMPI_EVENTS_SECRET = process.env.WOMPI_EVENTS_SECRET;
 const WOMPI_INTEGRITY_KEY = process.env.WOMPI_INTEGRITY_KEY;
@@ -141,7 +142,7 @@ async function handleWompiWebhook(req, res) {
 
             // La 'reference' en Wompi debe corresponder al 'id_factura' de tu tabla
             const [facturaRows] = await connection.execute(
-                `SELECT id_factura, estado_pedido FROM factura WHERE id_factura = ?`,
+                `SELECT id_factura, estado_pedido, fk_id_usuario FROM factura WHERE id_factura = ?`,
                 [reference]
             );
 
@@ -211,6 +212,33 @@ async function handleWompiWebhook(req, res) {
             console.log(`- Método de pago: ${payment_method_type}`);
 
             await connection.commit();
+
+            // 🆕 NUEVA FUNCIONALIDAD: Si la factura fue pagada, completar el proceso
+            if (newEstadoPedido === 'Pagada' && facturaExistente.fk_id_usuario) {
+                console.log(`🎯 Factura ${reference} pagada - iniciando proceso de completado`);
+                
+                try {
+                    // Ejecutar el completado de la factura de forma asíncrona
+                    // No esperamos la respuesta para no bloquear la respuesta del webhook
+                    setImmediate(async () => {
+                        try {
+                            await invoiceManager.completarFacturaPagada(
+                                parseInt(reference), 
+                                facturaExistente.fk_id_usuario
+                            );
+                            console.log(`✅ Factura ${reference} completada exitosamente`);
+                        } catch (completarError) {
+                            console.error(`❌ Error al completar factura ${reference}:`, completarError);
+                            // Aquí podrías agregar lógica para reintentos o notificaciones
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error(`Error al iniciar el completado de factura ${reference}:`, error);
+                    // No fallar el webhook por esto - solo logear el error
+                }
+            }
+
             res.status(200).send('OK'); // ¡Siempre responder 200 OK a Wompi!
 
         } catch (dbError) {
