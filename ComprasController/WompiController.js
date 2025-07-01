@@ -3,41 +3,72 @@ const crypto = require('crypto');
 const pool = require('../db'); // Asume que tienes un archivo db.js para la conexión a la base de datos
 
 const WOMPI_EVENTS_SECRET = process.env.WOMPI_EVENTS_SECRET;
-const WOMPI_INTEGRITY_KEY = process.env.WOMPI_INTEGRITY_KEY; // <-- Esta es la clave que necesitas para la firma de pago
+const WOMPI_INTEGRITY_KEY = process.env.WOMPI_INTEGRITY_KEY;
 
+/**
+ * Genera la firma de pago requerida por Wompi
+ * @param {string} reference - Referencia de la transacción
+ * @param {number} amountInCents - Monto en centavos
+ * @param {string} currency - Moneda (ej: 'COP')
+ * @returns {string} - Hash SHA256 de la firma
+ */
 function generateWompiPaymentSignature(reference, amountInCents, currency) {
-    if (!WOMPI_INTEGRITY_KEY) {
-        console.error("Error: WOMPI_INTEGRITY_KEY no está configurada en las variables de entorno.");
-        throw new Error("WOMPI_INTEGRITY_KEY no configurada.");
+    try {
+        // Validar variables de entorno
+        if (!WOMPI_INTEGRITY_KEY) {
+            console.error("Error: WOMPI_INTEGRITY_KEY no está configurada en las variables de entorno.");
+            throw new Error("WOMPI_INTEGRITY_KEY no configurada.");
+        }
+
+        // Validar parámetros de entrada
+        if (!reference || !amountInCents || !currency) {
+            console.error('Parámetros faltantes:', { reference, amountInCents, currency });
+            throw new Error('Faltan parámetros requeridos para la generación de la firma de pago de Wompi.');
+        }
+
+        // Asegurar que reference sea string
+        const referenceStr = String(reference);
+        
+        // Asegurar que amountInCents sea número entero
+        const amountInt = parseInt(amountInCents);
+        if (isNaN(amountInt) || amountInt <= 0) {
+            throw new Error('amountInCents debe ser un número entero positivo.');
+        }
+
+        // Crear string concatenado según especificación de Wompi
+        const concatenatedString = `${referenceStr}${amountInt}${currency}${WOMPI_INTEGRITY_KEY}`;
+
+        // Generar el hash SHA256
+        const hash = crypto.createHash('sha256').update(concatenatedString).digest('hex');
+
+        console.log("--- Wompi Payment Signature Generation Debug ---");
+        console.log("Reference:", referenceStr);
+        console.log("Amount in Cents:", amountInt);
+        console.log("Currency:", currency);
+        console.log("Generated Signature (SHA256):", hash);
+        // Solo para desarrollo - NUNCA en producción
+        if (process.env.NODE_ENV === 'development') {
+            console.log("Integrity Key (last 4 chars):", WOMPI_INTEGRITY_KEY.slice(-4));
+        }
+        console.log("---------------------------------------");
+
+        return hash;
+    } catch (error) {
+        console.error('Error generando firma de Wompi:', error);
+        throw error;
     }
-    if (!reference || !amountInCents || !currency) {
-        throw new Error('Faltan parámetros requeridos para la generación de la firma de pago de Wompi.');
-    }
-
-    const concatenatedString = `${reference}${amountInCents}${currency}${WOMPI_INTEGRITY_KEY}`;
-
-    // Generar el hash SHA256
-    const hash = crypto.createHash('sha256').update(concatenatedString).digest('hex');
-
-    console.log("--- Wompi Payment Signature Generation Debug ---");
-    console.log("Reference:", reference);
-    console.log("Amount in Cents:", amountInCents);
-    console.log("Currency:", currency);
-    // console.log("Integrity Key (last 4 chars):", WOMPI_INTEGRITY_KEY.slice(-4)); // Descomentar para depuración, pero CUIDADO en producción
-    // console.log("Concatenated String:", concatenatedString); // Descomentar para depuración, pero contiene la clave
-    console.log("Generated Signature (SHA256):", hash);
-    console.log("---------------------------------------");
-
-    return hash;
 }
 
-
+/**
+ * Maneja los webhooks de Wompi para actualizar el estado de las transacciones
+ * @param {object} req - Request de Express
+ * @param {object} res - Response de Express
+ */
 async function handleWompiWebhook(req, res) {
     console.log('--- Wompi Webhook Recepción ---');
-    console.log('Body completo del webhook:', JSON.stringify(req.body, null, 2)); // Para depuración inicial, usa JSON.stringify
+    console.log('Body completo del webhook:', JSON.stringify(req.body, null, 2));
 
     // 1. Verificar la autenticidad del Webhook (CRÍTICO para la seguridad)
-    // Wompi envía un checksum en el cuerpo del evento bajo 'signature'
     try {
         if (!WOMPI_EVENTS_SECRET) {
             console.error("Error: WOMPI_EVENTS_SECRET no está configurada en las variables de entorno.");
@@ -72,7 +103,10 @@ async function handleWompiWebhook(req, res) {
             console.warn('Checksum no coincide. El webhook no es auténtico o fue modificado.');
             console.warn('Calculado:', hash);
             console.warn('Recibido:', signature.checksum);
-            console.warn('Cadena concanetenada para hash (contiene secreto de eventos):', concatenatedString); // CUIDADO en producción con logs de secretos
+            // Solo en desarrollo - NUNCA en producción
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('Cadena concatenada para hash:', concatenatedString);
+            }
             return res.status(403).send('Forbidden: Invalid signature.');
         }
         console.log('Webhook de Wompi autenticado correctamente.');
@@ -88,7 +122,15 @@ async function handleWompiWebhook(req, res) {
 
     // Solo nos interesan los eventos de 'transaction.updated' que contienen datos de transacción
     if (event.event === 'transaction.updated' && transaction) {
-        const { id, status, reference, amount_in_cents, currency, customer_email, payment_method_type } = transaction; // Añadido payment_method_type
+        const { 
+            id, 
+            status, 
+            reference, 
+            amount_in_cents, 
+            currency, 
+            customer_email, 
+            payment_method_type 
+        } = transaction;
 
         console.log(`Evento de transacción actualizada: ID ${id}, Estado: ${status}, Referencia: ${reference}`);
 
@@ -97,9 +139,9 @@ async function handleWompiWebhook(req, res) {
             connection = await pool.getConnection();
             await connection.beginTransaction();
 
-            // La 'reference' en Wompi debe ser el 'id_factura' de tu tabla
+            // La 'reference' en Wompi debe corresponder al 'id_factura' de tu tabla
             const [facturaRows] = await connection.execute(
-                `SELECT id_factura, estado_pedido FROM factura WHERE id_factura = ?`, // Ahora también selecciona 'estado_pedido'
+                `SELECT id_factura, estado_pedido FROM factura WHERE id_factura = ?`,
                 [reference]
             );
 
@@ -109,43 +151,46 @@ async function handleWompiWebhook(req, res) {
                 return res.status(404).send('Factura no encontrada.');
             }
 
-            const facturaExistente = facturaRows[0]; // Ahora sí se usará
+            const facturaExistente = facturaRows[0];
 
             // Idempotencia: Evitar procesar un estado final múltiples veces
-            // Requiere la columna 'estado_pedido' en tu tabla FACTURA
-            if (facturaExistente.estado_pedido === 'Pagada' || facturaExistente.estado_pedido === 'Rechazada' || facturaExistente.estado_pedido === 'Cancelada') {
+            const estadosFinales = ['Pagada', 'Rechazada', 'Cancelada'];
+            if (estadosFinales.includes(facturaExistente.estado_pedido)) {
                 console.log(`Factura ${reference} ya está en estado final '${facturaExistente.estado_pedido}'. No se requiere actualización.`);
                 await connection.commit();
                 return res.status(200).send('OK (Already processed)');
             }
 
+            // Mapear estados de Wompi a estados internos
             let newEstadoPedido;
             switch (status) {
                 case 'APPROVED':
                     newEstadoPedido = 'Pagada';
-                    // Aquí podrías enviar un correo de confirmación de pago al cliente
-                    // y/o notificar al administrador.
+                    console.log(`✅ Pago aprobado para factura ${reference}`);
                     break;
                 case 'DECLINED':
                     newEstadoPedido = 'Rechazada';
-                    // Notificar al cliente que su pago fue rechazado.
+                    console.log(`❌ Pago rechazado para factura ${reference}`);
                     break;
                 case 'VOIDED': // Transacción anulada/reembolsada
                     newEstadoPedido = 'Cancelada';
+                    console.log(`🔄 Pago anulado para factura ${reference}`);
                     break;
                 case 'ERROR': // Error técnico en la pasarela
                     newEstadoPedido = 'Error en pago';
+                    console.log(`⚠️ Error en pago para factura ${reference}`);
                     break;
                 case 'PENDING': // Pago en proceso (ej. por PSE)
                     newEstadoPedido = 'Pendiente de pago';
+                    console.log(`⏳ Pago pendiente para factura ${reference}`);
                     break;
                 default:
-                    newEstadoPedido = 'Pendiente'; // Para cualquier otro estado desconocido/intermedio
+                    newEstadoPedido = 'Pendiente'; // Para cualquier otro estado desconocido
+                    console.log(`❓ Estado desconocido '${status}' para factura ${reference}`);
                     break;
             }
 
             // ACTUALIZACIÓN CRÍTICA DE LA FACTURA
-            // ESTO ASUME QUE YA HAS AÑADIDO LAS COLUMNAS A TU TABLA FACTURA
             await connection.execute(
                 `UPDATE factura 
                  SET 
@@ -155,9 +200,15 @@ async function handleWompiWebhook(req, res) {
                     metodo_pago_wompi = ?, 
                     fecha_actualizacion = NOW() 
                  WHERE id_factura = ?`,
-                [status, newEstadoPedido, id, payment_method_type, reference] // Añadido payment_method_type
+                [status, newEstadoPedido, id, payment_method_type, reference]
             );
-            console.log(`Estado de factura ${reference} actualizado a ${newEstadoPedido} (Wompi: ${status}).`);
+            
+            console.log(`Estado de factura ${reference} actualizado exitosamente:`);
+            console.log(`- Estado anterior: ${facturaExistente.estado_pedido}`);
+            console.log(`- Estado nuevo: ${newEstadoPedido}`);
+            console.log(`- Estado Wompi: ${status}`);
+            console.log(`- Transaction ID: ${id}`);
+            console.log(`- Método de pago: ${payment_method_type}`);
 
             await connection.commit();
             res.status(200).send('OK'); // ¡Siempre responder 200 OK a Wompi!
@@ -171,11 +222,13 @@ async function handleWompiWebhook(req, res) {
         }
     } else {
         console.log('Evento de Wompi no relevante o incompleto. Ignorando.');
+        console.log('Tipo de evento:', event.event);
+        console.log('Tiene transacción:', !!transaction);
         res.status(200).send('Event type not processed'); // Responder 200 OK incluso si se ignora
     }
 }
 
 module.exports = {
     handleWompiWebhook,
-    generateWompiPaymentSignature // <-- Exportar la función para que puedas usarla
+    generateWompiPaymentSignature
 };

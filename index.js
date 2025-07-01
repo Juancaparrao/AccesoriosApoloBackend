@@ -278,13 +278,17 @@ app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 // Compras
 app.post('/direccion-envio', verificarTokenOpcional, DireccionEnvio);
 app.get('/carrito-resumen', verificarTokenOpcional, ConsultarCarritoYResumen);
-app.post('/api/wompi/webhook', bodyParser.json({
-    verify: (req, res, buf) => {
-        req.rawBody = buf;
-    }
-}), handleWompiWebhook);
 app.post('/create-checkout', createCheckout);
 app.get('/estado-orden/:id_factura/status', getOrderStatus);
+app.post('/webhook/wompi', handleWompiWebhook);
+app.get('/health', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Payment service is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
 
 
 // Formulario de contacto
