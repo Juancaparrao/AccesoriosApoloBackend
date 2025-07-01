@@ -89,6 +89,7 @@ const { ConsultarCarritoYResumen} = require('./ComprasController/DatosCompra');
 const { handleWompiWebhook } = require('./ComprasController/WompiController');
 const { createCheckout, getOrderStatus } = require('./ComprasController/PagoWompi');
 const { forzarLimpiezaFacturas } = require('./ComprasController/FinalizacionCompra');
+const { iniciarVerificacionDeFacturas } = require('./ComprasController/FinalizacionCompra');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
