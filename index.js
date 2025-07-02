@@ -91,6 +91,8 @@ const { createCheckout, getOrderStatus } = require('./ComprasController/PagoWomp
 const { forzarLimpiezaFacturas } = require('./ComprasController/FinalizacionCompra');
 const { iniciarVerificacionDeFacturas } = require('./ComprasController/FinalizacionCompra');
 const { obtenerUltimaDireccion } = require('./ComprasController/ConsultarUltimaDireccion');
+const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./NavbarController/FiltroPorMarca');
+const { ObtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -277,6 +279,10 @@ app.post('/agregar-calcomanias-staff', verificarToken, AgregarCalcomaniasStaff);
 app.post('/agregar-producto-carrito', verificarToken, AgregarProductoAlCarrito);
 app.get('/consultar-producto-por-referencia/:referencia', ConsultarProductoPorReferencia);
 app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
+app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
+app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
+app.get('/productos-por-categoria/:nombre_categoria', ObtenerProductosPorCategoria);
+
 
 // Compras
 app.post('/direccion-envio', verificarTokenOpcional, DireccionEnvio);
