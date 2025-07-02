@@ -1,7 +1,7 @@
 const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
 async function obtenerProductosPorMarca(req, res) {
-  const { nombreMarca } = req.params; // Usamos 'nombreMarca' como parámetro en la URL
+  const { marca } = req.params; // Usamos 'nombreMarca' como parámetro en la URL
   try {
     let query;
     let queryParams;
@@ -9,7 +9,7 @@ async function obtenerProductosPorMarca(req, res) {
     // Define las marcas "principales" a excluir cuando se busca "Otros"
     const marcasPrincipales = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
 
-    if (nombreMarca === 'Otros') {
+    if (marca === 'Otros') {
       // Si la marca es 'Otros', seleccionamos productos cuya marca NO esté en la lista de marcas principales
       query = `
         SELECT
@@ -55,7 +55,7 @@ async function obtenerProductosPorMarca(req, res) {
             AND p.stock > 0
         GROUP BY p.referencia;
       `;
-      queryParams = [nombreMarca];
+      queryParams = [marca];
     }
 
     const [rows] = await pool.execute(query, queryParams);
@@ -80,12 +80,12 @@ async function obtenerProductosPorMarca(req, res) {
     });
 
     if (productosFormateados.length === 0) {
-      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la marca '${nombreMarca}'.` });
+      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la marca '${marca}'.` });
     }
 
     res.status(200).json(productosFormateados);
   } catch (error) {
-    console.error(`Error al obtener productos para la marca ${nombreMarca}:`, error);
+    console.error(`Error al obtener productos para la marca ${marca}:`, error);
     res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la marca.' });
   }
 }

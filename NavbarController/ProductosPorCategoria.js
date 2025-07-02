@@ -3,7 +3,7 @@
 const pool = require('../db'); // Suponiendo que tienes un archivo de configuración de base de datos
 
 async function obtenerProductosPorCategoria(req, res) {
-  const { nombreCategoria } = req.params;
+  const { nombre_categoria } = req.params;
   try {
     const query = `
       SELECT
@@ -26,7 +26,7 @@ async function obtenerProductosPorCategoria(req, res) {
       GROUP BY p.referencia;
     `;
 
-    const [rows] = await pool.execute(query, [nombreCategoria]);
+    const [rows] = await pool.execute(query, [nombre_categoria]);
 
     const productosFormateados = rows.map(row => {
       const producto = {
@@ -47,12 +47,12 @@ async function obtenerProductosPorCategoria(req, res) {
     });
 
     if (productosFormateados.length === 0) {
-      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la categoría '${nombreCategoria}'.` });
+      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la categoría '${nombre_categoria}'.` });
     }
 
     res.status(200).json(productosFormateados);
   } catch (error) {
-    console.error(`Error al obtener productos para la categoría ${nombreCategoria}:`, error);
+    console.error(`Error al obtener productos para la categoría ${nombre_categoria}:`, error);
     res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la categoría.' });
   }
 }

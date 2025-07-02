@@ -1,19 +1,24 @@
-// /InicioController/HistorialPedidos.js
-
 const pool = require('../db'); // Asegúrate que la ruta a tu conexión sea correcta
 
 /**
  * Manejador de ruta para obtener el historial de compras de un usuario.
  * Extrae el ID de usuario del token, consulta la base de datos y envía una respuesta HTTP.
- * 
- * @param {object} req - El objeto de solicitud de Express.
+ * * @param {object} req - El objeto de solicitud de Express.
  * @param {object} res - El objeto de respuesta de Express.
  */
 async function obtenerMisCompras(req, res) {
     let connection;
     try {
-        // 1. Extraer el ID de usuario que el middleware 'verificarToken' adjuntó.
-        const userId = req.usuario.id_usuario;
+        // CAMBIO AQUÍ: Accede a req.user.id_usuario en lugar de req.usuario.id_usuario
+        // Esto asume que tu middleware 'verificarToken' adjunta el usuario decodificado a `req.user`.
+        if (!req.user || !req.user.id_usuario) {
+            console.error("[Handler] req.user o req.user.id_usuario es undefined. Autenticación fallida o incompleta.");
+            return res.status(401).json({
+                success: false,
+                message: 'No autenticado o información de usuario incompleta. Por favor, asegúrate de iniciar sesión.'
+            });
+        }
+        const userId = req.user.id_usuario; // <-- ¡El cambio está aquí!
         
         console.log(`[Handler] Buscando historial de compras para el usuario ${userId}`);
         
@@ -61,7 +66,6 @@ async function obtenerMisCompras(req, res) {
         const [compras] = await connection.execute(sqlQuery, [userId, userId]);
         console.log(`[Handler] Se encontraron ${compras.length} items para el usuario ${userId}.`);
 
-        // 2. Enviar la respuesta exitosa.
         return res.status(200).json({
             success: true,
             message: 'Historial de compras obtenido exitosamente.',
@@ -71,7 +75,6 @@ async function obtenerMisCompras(req, res) {
     } catch (error) {
         console.error(`[Handler] ❌ Error al obtener el historial de compras:`, error);
         
-        // 3. Enviar una respuesta de error.
         return res.status(500).json({
             success: false,
             message: 'Error interno del servidor.'
@@ -81,7 +84,6 @@ async function obtenerMisCompras(req, res) {
     }
 }
 
-// Exportamos el manejador. Ahora el nombre 'obtenerMisCompras' se refiere a esta función completa.
 module.exports = {
     obtenerMisCompras
 };

@@ -3,7 +3,7 @@
 const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
 async function obtenerProductosPorSubcategoria(req, res) {
-  const { nombreSubcategoria } = req.params; // Usamos 'nombreSubcategoria' como parámetro en la URL
+  const { nombre_subcategoria } = req.params; // Usamos 'nombreSubcategoria' como parámetro en la URL
   try {
     const query = `
       SELECT
@@ -28,7 +28,7 @@ async function obtenerProductosPorSubcategoria(req, res) {
       GROUP BY p.referencia;
     `;
 
-    const [rows] = await pool.execute(query, [nombreSubcategoria]);
+    const [rows] = await pool.execute(query, [nombre_subcategoria]);
 
     const productosFormateados = rows.map(row => {
       const producto = {
@@ -50,7 +50,7 @@ async function obtenerProductosPorSubcategoria(req, res) {
     });
 
     if (productosFormateados.length === 0) {
-      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la subcategoría '${nombreSubcategoria}'.` });
+      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la subcategoría '${nombre_subcategoria}'.` });
     }
 
     res.status(200).json(productosFormateados);
