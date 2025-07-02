@@ -26,11 +26,12 @@ async function completarFacturaPagada(facturaId, userId) {
         if (facturaRows.length === 0) throw new Error(`Factura ${facturaId} no encontrada o no está 'Pagada'`);
         if (facturaRows[0].fk_id_usuario !== userId) throw new Error(`Usuario ${userId} no es propietario de factura ${facturaId}`);
 
-        // 2. Obtener items del carrito del usuario
+        // 2. Obtener items del carrito del usuario (con precios de descuento)
+        // <-- CAMBIO: Se añaden los campos p.precio_descuento y cal.precio_descuento a la consulta.
         const [carritoItems] = await connection.execute(`
             SELECT c.FK_referencia_producto, c.FK_id_calcomania, c.cantidad, c.tamano,
-                   p.precio_unidad as precio_producto, p.stock as stock_producto,
-                   cal.precio_unidad as precio_calcomania_base, cal.stock_pequeno, cal.stock_mediano, cal.stock_grande
+                   p.precio_unidad as precio_producto, p.precio_descuento as precio_descuento_producto, p.stock as stock_producto,
+                   cal.precio_unidad as precio_calcomania_base, cal.precio_descuento as precio_descuento_calcomania, cal.stock_pequeno, cal.stock_mediano, cal.stock_grande
             FROM carrito_compras c
             LEFT JOIN producto p ON c.FK_referencia_producto = p.referencia
             LEFT JOIN calcomania cal ON c.FK_id_calcomania = cal.id_calcomania
@@ -45,23 +46,41 @@ async function completarFacturaPagada(facturaId, userId) {
         // 3. Procesar cada item del carrito
         for (const item of carritoItems) {
             if (item.FK_referencia_producto) {
+                // <-- CAMBIO: Lógica para determinar el precio final del producto.
+                const precioFinalProducto = (item.precio_descuento_producto && item.precio_descuento_producto > 0) 
+                                            ? item.precio_descuento_producto 
+                                            : item.precio_producto;
+                
                 if (item.stock_producto < item.cantidad) throw new Error(`Stock insuficiente para producto ${item.FK_referencia_producto}`);
-                await connection.execute(`INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, cantidad, precio_unidad) VALUES (?, ?, ?, ?)`, [facturaId, item.FK_referencia_producto, item.cantidad, item.precio_producto]);
+                
+                // <-- CAMBIO: Se usa precioFinalProducto en el INSERT.
+                await connection.execute(`INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, cantidad, precio_unidad) VALUES (?, ?, ?, ?)`, [facturaId, item.FK_referencia_producto, item.cantidad, precioFinalProducto]);
                 await connection.execute(`UPDATE producto SET stock = stock - ? WHERE referencia = ?`, [item.cantidad, item.FK_referencia_producto]);
-                console.log(`✅ Producto ${item.FK_referencia_producto}: ${item.cantidad} unidades agregadas, stock reducido`);
+                console.log(`✅ Producto ${item.FK_referencia_producto}: ${item.cantidad} unidades agregadas a precio ${precioFinalProducto}, stock reducido`);
+            
             } else if (item.FK_id_calcomania) {
                 const tamano = item.tamano || 'mediano';
-                let stockDisponible = 0, campoStock = '', precioVenta = item.precio_calcomania_base;
+                
+                // <-- CAMBIO: Lógica para determinar el precio base de la calcomanía (con o sin descuento).
+                const precioBaseCalcomania = (item.precio_descuento_calcomania && item.precio_descuento_calcomania > 0)
+                                             ? item.precio_descuento_calcomania
+                                             : item.precio_calcomania_base;
+
+                let stockDisponible = 0, campoStock = '', precioVenta = precioBaseCalcomania; // <-- CAMBIO: precioVenta se inicializa con el precio base correcto.
+                
                 switch (tamano.toLowerCase()) {
                     case 'pequeño': stockDisponible = item.stock_pequeno; campoStock = 'stock_pequeno'; break;
                     case 'mediano': stockDisponible = item.stock_mediano; campoStock = 'stock_mediano'; precioVenta *= 2.25; break;
                     case 'grande': stockDisponible = item.stock_grande; campoStock = 'stock_grande'; precioVenta *= 4.00; break;
                     default: throw new Error(`Tamaño de calcomanía no válido: ${tamano}`);
                 }
+
                 if (stockDisponible < item.cantidad) throw new Error(`Stock insuficiente para calcomanía ${item.FK_id_calcomania} (${tamano})`);
+                
+                // <-- CAMBIO: Se usa precioVenta, que ya considera el descuento si aplica.
                 await connection.execute(`INSERT INTO detalle_factura_calcomania (FK_id_factura, FK_id_calcomania, cantidad, precio_unidad, tamano) VALUES (?, ?, ?, ?, ?)`, [facturaId, item.FK_id_calcomania, item.cantidad, precioVenta, tamano]);
                 await connection.execute(`UPDATE calcomania SET ${campoStock} = ${campoStock} - ? WHERE id_calcomania = ?`, [item.cantidad, item.FK_id_calcomania]);
-                console.log(`✅ Calcomanía ${item.FK_id_calcomania} (${tamano}): ${item.cantidad} unidades agregadas, stock reducido`);
+                console.log(`✅ Calcomanía ${item.FK_id_calcomania} (${tamano}): ${item.cantidad} unidades agregadas a precio ${precioVenta}, stock reducido`);
             }
         }
 

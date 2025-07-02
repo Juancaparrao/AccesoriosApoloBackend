@@ -21,7 +21,7 @@ async function ConsultarProductosPorMarca(req, res) {
         const marcasAExcluir = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
 
         // Lógica condicional para construir la consulta SQL
-        if (marca.toLowerCase() === 'otros') {
+        if (marca.toLowerCase() === 'Otros') {
             // Si la marca es "Otros", excluimos las marcas específicas
             query = `
                 SELECT
