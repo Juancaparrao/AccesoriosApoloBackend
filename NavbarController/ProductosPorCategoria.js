@@ -1,4 +1,4 @@
-const pool = require('../config/db'); // Suponiendo que tienes un archivo de configuración de base de datos
+const pool = require('../db'); // Suponiendo que tienes un archivo de configuración de base de datos
 
 async function obtenerProductosPorCategoria(req, res) {
   const { nombre_categoria } = req.params;
