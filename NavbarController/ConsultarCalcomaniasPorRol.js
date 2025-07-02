@@ -20,7 +20,7 @@ async function ConsultarCalcomaniasPorRol(req, res) {
        JOIN
          rol r ON ur.id_rol = r.id_rol
        WHERE
-         (r.nombre = 'gerente' OR r.nombre = 'vendedor') AND c.estado = TRUE
+         (r.nombre = 'gerente' OR r.nombre = 'vendedor') AND c.estado = TRUE AND c.stock_pequeno > 0 AND c.stock_mediano > 0 AND c.stock_grande > 0
        GROUP BY
          c.id_calcomania, c.nombre, c.url_archivo, c.precio_unidad, c.precio_descuento`,
       [] // No hay parámetros para esta consulta WHERE

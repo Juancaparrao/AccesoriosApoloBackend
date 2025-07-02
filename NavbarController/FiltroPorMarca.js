@@ -81,7 +81,7 @@ async function ObtenerProductosPorFiltro(req, res) {
             WHERE
                 s.nombre_subcategoria = ?
                 AND p.marca = ?
-                AND p.estado = true`,
+                AND p.estado = true AND p.stock > 0`,
             [nombre_subcategoria, marca]
         );
 

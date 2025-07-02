@@ -28,7 +28,7 @@ async function ObtenerProductosPorCategoria(req, res) {
                 categoria c ON p.FK_id_categoria = c.id_categoria
             WHERE
                 c.nombre_categoria = ?
-                AND p.estado = true`,
+                AND p.estado = true AND p.stock > 0`,
             [nombre_categoria]
         );
 

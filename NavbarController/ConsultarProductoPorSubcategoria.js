@@ -16,6 +16,7 @@ async function ConsultarProductoPorSubcategoria(req, res) {
 
         // 2. Ejecutar la consulta SQL para obtener los productos activos,
         // incluyendo la URL de la primera imagen asociada de la tabla producto_imagen.
+        // Se añade una condición para filtrar solo productos con stock > 0.
         const [productosQueryResult] = await pool.execute(
             `SELECT
                 p.referencia,
@@ -37,7 +38,9 @@ async function ConsultarProductoPorSubcategoria(req, res) {
             JOIN
                 subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
             WHERE
-                s.nombre_subcategoria = ? AND p.estado = TRUE`,
+                s.nombre_subcategoria = ? 
+                AND p.estado = TRUE
+                AND p.stock > 0`, // <-- NUEVA CONDICIÓN: Asegura que el stock sea mayor que 0
             [nombre_subcategoria]
         );
 
@@ -70,14 +73,14 @@ async function ConsultarProductoPorSubcategoria(req, res) {
         if (productos.length === 0) {
             return res.status(404).json({
                 success: false,
-                mensaje: `No se encontraron productos activos para la subcategoría con nombre "${nombre_subcategoria}".`
+                mensaje: `No se encontraron productos activos y con stock para la subcategoría con nombre "${nombre_subcategoria}".`
             });
         }
 
         // 5. Devolver la respuesta con los productos encontrados
         return res.status(200).json({
             success: true,
-            mensaje: `Productos activos de la subcategoría "${nombre_subcategoria}" consultados exitosamente.`,
+            mensaje: `Productos activos y con stock de la subcategoría "${nombre_subcategoria}" consultados exitosamente.`,
             productos: productos
         });
 

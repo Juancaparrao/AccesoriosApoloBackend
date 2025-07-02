@@ -66,7 +66,7 @@ async function ConsultarProductosPorMarca(req, res) {
                 FROM
                     producto p
                 WHERE
-                    p.marca = ? AND p.estado = TRUE
+                    p.marca = ? AND p.estado = TRUE AND p.stock > 0,
             `;
             queryParams = [marca];
         }
