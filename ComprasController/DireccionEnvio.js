@@ -198,7 +198,7 @@ async function DireccionEnvio(req, res) {
             `INSERT INTO factura (fk_id_usuario, fecha_venta, direccion, informacion_adicional, valor_total, metodo_pago, valor_envio, estado_pedido)
              VALUES (?, NOW(), ?, ?, ?, ?, ?, 'Pendiente')`, // Se usa NOW() directamente
             // Se quita la variable de fecha de los parámetros
-            [fk_id_usuario, direccion, informacion_adicional || null, 0.00, null, 0.00]
+            [fk_id_usuario, direccion, informacion_adicional || null, 0.00, null, 14900.00]
         );
         const id_factura = facturaResult.insertId;
         console.log(`Nueva factura (ID: ${id_factura}) creada con datos de envío para usuario ID: ${fk_id_usuario}.`);
