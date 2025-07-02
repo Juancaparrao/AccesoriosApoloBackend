@@ -1,14 +1,16 @@
-const pool = require('../db'); // Suponiendo que tienes un archivo de configuración de base de datos
+// controllers/productosController.js
+
+const pool = require('../db');
 
 async function obtenerProductosPorCategoria(req, res) {
   const { nombre_categoria } = req.params;
+
   try {
     const query = `
       SELECT
           p.referencia,
           p.nombre,
           p.marca,
-          -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
           MIN(pi.url_imagen) AS url_imagen,
           p.promedio_calificacion AS calificacion,
           p.descuento,
@@ -21,31 +23,39 @@ async function obtenerProductosPorCategoria(req, res) {
       LEFT JOIN
           producto_imagen pi ON p.referencia = pi.fk_referencia_producto
       WHERE
-          c.nombre_categoria = ? AND p.estado = TRUE AND p.stock > 0
+          c.nombre_categoria = ?
+          AND p.estado = TRUE
+          AND p.stock > 0
       GROUP BY
-          p.referencia, -- Agrupamos por la referencia del producto
+          p.referencia,
           p.nombre,
           p.marca,
           p.promedio_calificacion,
           p.descuento,
           p.precio_descuento,
-          p.precio_unidad; -- Es buena práctica incluir todas las columnas no agregadas en GROUP BY
+          p.precio_unidad;
     `;
 
     const [rows] = await pool.execute(query, [nombre_categoria]);
 
     const productosFormateados = rows.map(row => {
+      const precioUnidad = parseFloat(row.precio_unidad);
+      const precioDescuento = parseFloat(row.precio_descuento);
+
       const producto = {
         referencia: row.referencia,
         nombre: row.nombre,
         marca: row.marca,
         url_imagen: row.url_imagen,
         calificacion: parseFloat(row.calificacion),
-        precio_unidad: parseFloat(row.precio_unidad),
+        precio_unidad: precioUnidad,
       };
 
-      if (row.precio_descuento !== null) {
-        producto.precio_descuento = parseFloat(row.precio_descuento);
+      if (
+        row.precio_descuento !== null &&
+        precioDescuento !== precioUnidad
+      ) {
+        producto.precio_descuento = precioDescuento;
         producto.descuento = row.descuento ? `${row.descuento}%` : null;
       }
 
@@ -53,19 +63,17 @@ async function obtenerProductosPorCategoria(req, res) {
     });
 
     if (productosFormateados.length === 0) {
-  return res.status(404).json({ 
-    success: false, 
-    mensaje: `No se encontraron productos disponibles para la categoría '${nombre_categoria}'.`
-  });
-}
+      return res.status(404).json({
+        success: false,
+        mensaje: `No se encontraron productos disponibles para la categoría '${nombre_categoria}'.`
+      });
+    }
 
-res.status(200).json({
-  success: true,
-  data: productosFormateados
-});
+    res.status(200).json({
+      success: true,
+      data: productosFormateados
+    });
 
-
-    res.status(200).json(productosFormateados);
   } catch (error) {
     console.error(`Error al obtener productos para la categoría ${nombre_categoria}:`, error);
     res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la categoría.' });
