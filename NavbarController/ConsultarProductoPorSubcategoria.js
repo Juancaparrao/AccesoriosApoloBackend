@@ -1,3 +1,4 @@
+// controllers/productosController.js
 
 const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
@@ -26,7 +27,7 @@ async function obtenerProductosPorSubcategoria(req, res) {
           AND p.estado = TRUE
           AND p.stock > 0
       GROUP BY
-          p.referencia, -- Agrupamos por la referencia del producto
+          p.referencia, 
           p.nombre,
           p.marca,
           p.promedio_calificacion,
@@ -47,7 +48,6 @@ async function obtenerProductosPorSubcategoria(req, res) {
         precio_unidad: parseFloat(row.precio_unidad),
       };
 
-      // Si hay precio_descuento, entonces agregamos el precio_descuento y el descuento
       if (row.precio_descuento !== null) {
         producto.precio_descuento = parseFloat(row.precio_descuento);
         producto.descuento = row.descuento ? `${row.descuento}%` : null;
@@ -56,21 +56,25 @@ async function obtenerProductosPorSubcategoria(req, res) {
       return producto;
     });
 
-   if (productosFormateados.length === 0) {
-  return res.status(404).json({ 
-    success: false, 
-    mensaje: `No se encontraron productos disponibles para la subcategoría '${nombre_subcategoria}'.`});
-}
+    if (productosFormateados.length === 0) {
+      console.log(`[Backend] No se encontraron productos para la subcategoría '${nombre_subcategoria}'. Enviando respuesta 404.`);
+      return res.status(404).json({ 
+        success: false, 
+        mensaje: `No se encontraron productos disponibles para la subcategoría '${nombre_subcategoria}'.`
+      });
+    }
 
-res.status(200).json({
-  success: true,
-  productos: productosFormateados
-});
+    // --- ¡Aquí está el console.log para ver qué se envía al frontend! ---
+    console.log(`[Backend] Enviando ${productosFormateados.length} productos para la subcategoría '${nombre_subcategoria}':`, productosFormateados);
+    // ------------------------------------------------------------------
 
+    // Había una duplicación en la respuesta, eliminé `res.status(200).json(productosFormateados);`
+    res.status(200).json({
+      success: true,
+      productos: productosFormateados
+    });
 
-    res.status(200).json(productosFormateados);
   } catch (error) {
-    // **CAMBIO AQUÍ: Corregido a nombre_subcategoria para el mensaje de error**
     console.error(`Error al obtener productos para la subcategoría ${nombre_subcategoria}:`, error);
     res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la subcategoría.' });
   }
