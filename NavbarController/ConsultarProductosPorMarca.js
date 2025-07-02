@@ -104,7 +104,7 @@ async function obtenerProductosPorMarca(req, res) {
 
     res.status(200).json({
       success: true,
-      data: productosFormateados
+      productos: productosFormateados // <-- aquí se corrige la clave
     });
 
   } catch (error) {
