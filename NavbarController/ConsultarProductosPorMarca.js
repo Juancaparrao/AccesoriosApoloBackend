@@ -106,7 +106,6 @@ res.status(200).json({
   data: productosFormateados
 });
 
-    res.status(200).json(productosFormateados);
   } catch (error) {
     console.error(`Error al obtener productos para la marca ${marca}:`, error);
     res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la marca.' });
