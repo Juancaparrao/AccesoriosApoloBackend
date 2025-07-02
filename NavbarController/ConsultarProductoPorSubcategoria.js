@@ -1,4 +1,3 @@
-// controllers/productosController.js
 
 const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
@@ -11,7 +10,6 @@ async function obtenerProductosPorSubcategoria(req, res) {
           p.referencia,
           p.nombre,
           p.marca,
-          -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
           MIN(pi.url_imagen) AS url_imagen,
           p.promedio_calificacion AS calificacion,
           p.descuento,
@@ -34,7 +32,7 @@ async function obtenerProductosPorSubcategoria(req, res) {
           p.promedio_calificacion,
           p.descuento,
           p.precio_descuento,
-          p.precio_unidad; -- Es buena práctica incluir todas las columnas no agregadas en GROUP BY
+          p.precio_unidad; 
     `;
 
     const [rows] = await pool.execute(query, [nombre_subcategoria]);
@@ -58,9 +56,17 @@ async function obtenerProductosPorSubcategoria(req, res) {
       return producto;
     });
 
-    if (productosFormateados.length === 0) {
-      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la subcategoría '${nombre_subcategoria}'.` });
-    }
+   if (productosFormateados.length === 0) {
+  return res.status(404).json({ 
+    success: false, 
+    mensaje: `No se encontraron productos disponibles para la subcategoría '${nombre_subcategoria}'.`});
+}
+
+res.status(200).json({
+  success: true,
+  productos: productosFormateados
+});
+
 
     res.status(200).json(productosFormateados);
   } catch (error) {

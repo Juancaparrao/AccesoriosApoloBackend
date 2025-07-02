@@ -53,8 +53,17 @@ async function obtenerProductosPorCategoria(req, res) {
     });
 
     if (productosFormateados.length === 0) {
-      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la categoría '${nombre_categoria}'.` });
-    }
+  return res.status(404).json({ 
+    success: false, 
+    mensaje: `No se encontraron productos disponibles para la categoría '${nombre_categoria}'.`
+  });
+}
+
+res.status(200).json({
+  success: true,
+  data: productosFormateados
+});
+
 
     res.status(200).json(productosFormateados);
   } catch (error) {

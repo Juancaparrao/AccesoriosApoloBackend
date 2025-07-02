@@ -16,7 +16,6 @@ async function obtenerProductosPorMarca(req, res) {
             p.referencia,
             p.nombre,
             p.marca,
-            -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
             MIN(pi.url_imagen) AS url_imagen,
             p.promedio_calificacion AS calificacion,
             p.descuento,
@@ -96,8 +95,16 @@ async function obtenerProductosPorMarca(req, res) {
     });
 
     if (productosFormateados.length === 0) {
-      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la marca '${marca}'.` });
-    }
+  return res.status(404).json({ 
+    success: false, 
+    mensaje: `No se encontraron productos disponibles para la marca '${marca}'.`
+  });
+}
+
+res.status(200).json({
+  success: true,
+  data: productosFormateados
+});
 
     res.status(200).json(productosFormateados);
   } catch (error) {

@@ -1,11 +1,6 @@
 const pool = require('../db'); // Asegúrate que la ruta a tu conexión sea correcta
 
-/**
- * Manejador de ruta para obtener el historial de compras de un usuario.
- * Extrae el ID de usuario del token, consulta la base de datos y envía una respuesta HTTP.
- * * @param {object} req - El objeto de solicitud de Express.
- * @param {object} res - El objeto de respuesta de Express.
- */
+
 async function obtenerMisCompras(req, res) {
     let connection;
     try {
