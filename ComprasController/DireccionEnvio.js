@@ -133,10 +133,28 @@ async function DireccionEnvio(req, res) {
             return res.status(400).json({ success: false, mensaje: 'No se encontraron artículos en su carrito para procesar.' });
         }
 
-        // 3. Crear o Actualizar la Factura
+        // --- INICIO DEL CAMBIO SOLICITADO ---
+
+        // 3. Poblar el carrito en la DB para usuarios nuevos o invitados (MOVIDO AQUÍ)
+        // Esto asegura que el carrito del usuario (especialmente si es nuevo o invitado)
+        // esté actualizado antes de calcular la factura.
+        if (!req.user || esNuevoRegistro) {
+            await connection.execute(`DELETE FROM carrito_compras WHERE FK_id_usuario = ?`, [fk_id_usuario]);
+            console.log(`Carrito DB limpiado para usuario ID: ${fk_id_usuario}`);
+
+            for (const item of carritoDesdeDB) {
+                await connection.execute(
+                    `INSERT INTO carrito_compras (FK_id_usuario, FK_referencia_producto, FK_id_calcomania, cantidad, tamano) VALUES (?, ?, ?, ?, ?)`,
+                    [fk_id_usuario, item.tipo === 'producto' ? item.id_producto : null, item.tipo === 'calcomania' ? item.id_calcomania : null, item.cantidad, item.tamano]
+                );
+            }
+            console.log(`Carrito DB repoblado para usuario ID: ${fk_id_usuario}.`);
+        }
+
+        // 4. Crear o Actualizar la Factura (MOVIDO DESPUÉS DEL CARRITO)
         let id_factura;
         const [existingFacturas] = await connection.execute(
-            `SELECT id_factura FROM factura 
+            `SELECT id_factura FROM factura
              WHERE fk_id_usuario = ? AND estado_pedido = 'Pendiente' AND fecha_venta >= NOW() - INTERVAL 15 MINUTE
              ORDER BY fecha_venta DESC LIMIT 1`,
             [fk_id_usuario]
@@ -159,19 +177,7 @@ async function DireccionEnvio(req, res) {
             console.log(`Nueva factura (ID: ${id_factura}) creada para usuario ID: ${fk_id_usuario}.`);
         }
 
-        // 4. Poblar el carrito en la DB para usuarios nuevos o invitados
-        if (!req.user || esNuevoRegistro) {
-            await connection.execute(`DELETE FROM carrito_compras WHERE FK_id_usuario = ?`, [fk_id_usuario]);
-            console.log(`Carrito DB limpiado para usuario ID: ${fk_id_usuario}`);
-
-            for (const item of carritoDesdeDB) {
-                await connection.execute(
-                    `INSERT INTO carrito_compras (FK_id_usuario, FK_referencia_producto, FK_id_calcomania, cantidad, tamano) VALUES (?, ?, ?, ?, ?)`,
-                    [fk_id_usuario, item.tipo === 'producto' ? item.id_producto : null, item.tipo === 'calcomania' ? item.id_calcomania : null, item.cantidad, item.tamano]
-                );
-            }
-            console.log(`Carrito DB repoblado para usuario ID: ${fk_id_usuario}.`);
-        }
+        // --- FIN DEL CAMBIO SOLICITADO ---
 
         await connection.commit();
         console.log("DEBUG: Transacción de DireccionEnvio completada y datos guardados en DB.");

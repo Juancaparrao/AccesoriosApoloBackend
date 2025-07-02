@@ -77,7 +77,7 @@ const { ConsultarCarrito } = require('./CarritoController/ConsultarCarrito');
 const { ActualizarCarrito } = require('./CarritoController/ActualizarCarrito');
 const { EliminarItemCarrito } = require('./CarritoController/EliminarCarrito');
 const { ConsultarSubcategoriasPorCategoria } = require('./NavbarController/ConsultarSubcategoriasPorCategorias');
-const { ConsultarProductoPorSubcategoria } = require('./NavbarController/ConsultarProductoPorSubcategoria');
+const { ConsultarProductoPorSubcategoria, obtenerProductosPorSubcategoria } = require('./NavbarController/ConsultarProductoPorSubcategoria');
 const { ConsultarCalcomaniasPorRol } = require('./NavbarController/ConsultarCalcomaniasPorRol');
 const { ConsultarProductosPorMarca } = require('./NavbarController/ConsultarProductosPorMarca');
 const { AgregarCalcomaniasStaff } = require('./NavbarController/AgregarCalcomaniasStaff');
@@ -92,8 +92,9 @@ const { forzarLimpiezaFacturas } = require('./ComprasController/FinalizacionComp
 const { iniciarVerificacionDeFacturas } = require('./ComprasController/FinalizacionCompra');
 const { obtenerUltimaDireccion } = require('./ComprasController/ConsultarUltimaDireccion');
 const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./NavbarController/FiltroPorMarca');
-const { ObtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
+const { obtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
 const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
+const { registrarCalificacion } = require('./InicioController/RegistrarCalificacion');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -151,6 +152,9 @@ app.get('/validar-gerente', verificarToken, validarGerente);
 
 // Historial de Pedidos
 app.get('/historial-pedidos', verificarToken, obtenerMisCompras)
+
+// Calificaciones
+app.post('/calificar', verificarToken, registrarCalificacion);
 
 //Modulo de usuarios
 app.post('/registrar-directo', registrarUsuarioDirecto);
@@ -276,7 +280,7 @@ app.delete('/carrito/:id_carrito_item', verificarToken, EliminarItemCarrito);
 
 // Navbar
 app.get('/subcategorias-por-categoria-por-nombre/:nombre_categoria', ConsultarSubcategoriasPorCategoria);
-app.get('/productos-por-subcategoria/:nombre_subcategoria', ConsultarProductoPorSubcategoria);
+app.get('/productos-por-subcategoria/:nombre_subcategoria', obtenerProductosPorSubcategoria);
 app.get('/calcomanias/staff', ConsultarCalcomaniasPorRol);
 app.get('/productos-por-marca/:marca', ConsultarProductosPorMarca);
 app.post('/agregar-calcomanias-staff', verificarToken, AgregarCalcomaniasStaff);
@@ -285,7 +289,7 @@ app.get('/consultar-producto-por-referencia/:referencia', ConsultarProductoPorRe
 app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
 app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
-app.get('/productos-por-categoria/:nombre_categoria', ObtenerProductosPorCategoria);
+app.get('/productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
 
 
 // Compras

@@ -1,86 +1,96 @@
-const pool = require('../db');
+const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
-async function ConsultarProductosPorMarca(req, res) {
-    try {
-        console.log("=== DEBUG BACKEND - Consultar Productos por Marca ===");
+async function obtenerProductosPorMarca(req, res) {
+  const { nombreMarca } = req.params; // Usamos 'nombreMarca' como parámetro en la URL
+  try {
+    let query;
+    let queryParams;
 
-        const { marca } = req.params;
+    // Define las marcas "principales" a excluir cuando se busca "Otros"
+    const marcasPrincipales = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
 
-        if (!marca || marca.trim() === '') {
-            return res.status(400).json({
-                success: false,
-                mensaje: 'Nombre de marca no proporcionado o no es válido.'
-            });
-        }
-
-        let query;
-        let queryParams = [];
-        const marcasAExcluir = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
-
-        // Lógica de consulta (se mantiene igual)
-        if (marca.toLowerCase() === 'otros') {
-            query = `
-                SELECT p.referencia, p.nombre, p.precio_unidad, p.descuento, p.precio_descuento, p.marca, p.promedio_calificacion,
-                       (SELECT url_imagen FROM producto_imagen pi WHERE pi.FK_referencia_producto = p.referencia ORDER BY pi.id_imagen ASC LIMIT 1) AS url_imagen
-                FROM producto p
-                WHERE p.marca NOT IN (?) AND p.estado = TRUE AND p.stock > 0`;
-            queryParams = [marcasAExcluir];
-        } else {
-            query = `
-                SELECT p.referencia, p.nombre, p.precio_unidad, p.descuento, p.precio_descuento, p.marca, p.promedio_calificacion,
-                       (SELECT url_imagen FROM producto_imagen pi WHERE pi.FK_referencia_producto = p.referencia ORDER BY pi.id_imagen ASC LIMIT 1) AS url_imagen
-                FROM producto p
-                WHERE p.marca = ? AND p.estado = TRUE AND p.stock > 0`;
-            queryParams = [marca];
-        }
-
-        const [productosDesdeDB] = await pool.execute(query, queryParams);
-
-        if (productosDesdeDB.length === 0) {
-            return res.status(200).json({
-                success: true,
-                mensaje: `No se encontraron productos activos para la selección de marca '${marca}'.`,
-                data: []
-            });
-        }
-
-        // --- Bloque de Transformación ---
-
-        const productosFormateados = productosDesdeDB.map(producto => {
-            const productoRespuesta = {
-                referencia: producto.referencia,
-                nombre: producto.nombre,
-                url_imagen: producto.url_imagen,
-                precio_unidad: parseFloat(producto.precio_unidad),
-                marca: producto.marca,
-                promedio_calificacion: parseFloat(producto.promedio_calificacion) || 0.0
-            };
-
-            // Condición unificada: si hay un precio de descuento válido...
-            if (producto.precio_descuento && parseFloat(producto.precio_descuento) > 0) {
-                productoRespuesta.precio_descuento = parseFloat(producto.precio_descuento);
-                // --- CAMBIO APLICADO: Formatear el descuento como string con "%" ---
-                productoRespuesta.descuento = `${parseInt(producto.descuento, 10)}%`;
-            }
-
-            return productoRespuesta;
-        });
-        
-        return res.status(200).json({
-            success: true,
-            mensaje: `Productos para la marca '${marca}' consultados exitosamente.`,
-            data: productosFormateados
-        });
-
-    } catch (error) {
-        console.error('Error al consultar productos por marca:', error);
-        res.status(500).json({
-            success: false,
-            mensaje: 'Error interno del servidor al consultar productos por marca.'
-        });
+    if (nombreMarca === 'Otros') {
+      // Si la marca es 'Otros', seleccionamos productos cuya marca NO esté en la lista de marcas principales
+      query = `
+        SELECT
+            p.referencia,
+            p.nombre,
+            p.marca,
+            pi.url_imagen,
+            p.promedio_calificacion AS calificacion,
+            p.descuento,
+            p.precio_descuento,
+            p.precio_unidad
+        FROM
+            producto p
+        LEFT JOIN
+            producto_imagen pi ON p.referencia = pi.fk_referencia_producto
+        WHERE
+            p.marca NOT IN (?)
+            AND p.estado = TRUE
+            AND p.stock > 0
+        GROUP BY p.referencia;
+      `;
+      // Convertimos el array de marcas a una lista separada por comas para el NOT IN
+      queryParams = [marcasPrincipales];
+    } else {
+      // Si es una marca específica, filtramos directamente por ella
+      query = `
+        SELECT
+            p.referencia,
+            p.nombre,
+            p.marca,
+            pi.url_imagen,
+            p.promedio_calificacion AS calificacion,
+            p.descuento,
+            p.precio_descuento,
+            p.precio_unidad
+        FROM
+            producto p
+        LEFT JOIN
+            producto_imagen pi ON p.referencia = pi.fk_referencia_producto
+        WHERE
+            p.marca = ?
+            AND p.estado = TRUE
+            AND p.stock > 0
+        GROUP BY p.referencia;
+      `;
+      queryParams = [nombreMarca];
     }
+
+    const [rows] = await pool.execute(query, queryParams);
+
+    const productosFormateados = rows.map(row => {
+      const producto = {
+        referencia: row.referencia,
+        nombre: row.nombre,
+        marca: row.marca,
+        url_imagen: row.url_imagen,
+        calificacion: parseFloat(row.calificacion),
+        precio_unidad: parseFloat(row.precio_unidad),
+      };
+
+      // Si hay precio_descuento, entonces agregamos el precio_descuento y el descuento
+      if (row.precio_descuento !== null) {
+        producto.precio_descuento = parseFloat(row.precio_descuento);
+        producto.descuento = row.descuento ? `${row.descuento}%` : null;
+      }
+
+      return producto;
+    });
+
+    if (productosFormateados.length === 0) {
+      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la marca '${nombreMarca}'.` });
+    }
+
+    res.status(200).json(productosFormateados);
+  } catch (error) {
+    console.error(`Error al obtener productos para la marca ${nombreMarca}:`, error);
+    res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la marca.' });
+  }
 }
 
+// Exporta esta nueva función junto con las anteriores
 module.exports = {
-    ConsultarProductosPorMarca
+  obtenerProductosPorMarca // ¡Añadida esta!
 };

@@ -1,82 +1,62 @@
-const pool = require('../db');
+// controllers/productosController.js
 
-async function ObtenerProductosPorCategoria(req, res) {
-    try {
-        const { nombre_categoria } = req.params;
+const pool = require('../db'); // Suponiendo que tienes un archivo de configuración de base de datos
 
-        if (!nombre_categoria) {
-            return res.status(400).json({
-                success: false,
-                mensaje: "El nombre de la categoría es requerido."
-            });
-        }
+async function obtenerProductosPorCategoria(req, res) {
+  const { nombreCategoria } = req.params;
+  try {
+    const query = `
+      SELECT
+          p.referencia,
+          p.nombre,
+          p.marca,
+          pi.url_imagen,
+          p.promedio_calificacion AS calificacion,
+          p.descuento,
+          p.precio_descuento,
+          p.precio_unidad
+      FROM
+          producto p
+      JOIN
+          categoria c ON p.fk_id_categoria = c.id_categoria
+      LEFT JOIN
+          producto_imagen pi ON p.referencia = pi.fk_referencia_producto
+      WHERE
+          c.nombre_categoria = ? AND p.estado = TRUE AND p.stock > 0 -- ¡Aquí se añade la condición de stock!
+      GROUP BY p.referencia;
+    `;
 
-        // Consulta que trae todos los productos activos de una categoría por su nombre
-        const [productos] = await pool.execute(
-            `SELECT
-                p.referencia,
-                p.nombre,
-                p.descripcion,
-                p.precio_unidad,
-                p.precio_descuento,
-                p.descuento, -- <-- CAMBIO 1: Se añade el campo de descuento (porcentaje)
-                p.marca,
-                p.promedio_calificacion,
-                (SELECT url_imagen FROM producto_imagen pi WHERE pi.FK_referencia_producto = p.referencia ORDER BY pi.id_imagen ASC LIMIT 1) AS url_imagen
-            FROM
-                producto p
-            JOIN
-                categoria c ON p.FK_id_categoria = c.id_categoria
-            WHERE
-                c.nombre_categoria = ?
-                AND p.estado = true AND p.stock > 0`,
-            [nombre_categoria]
-        );
+    const [rows] = await pool.execute(query, [nombreCategoria]);
 
-        if (productos.length === 0) {
-            return res.status(200).json({
-                success: true,
-                mensaje: `No se encontraron productos para la categoría '${nombre_categoria}'.`,
-                data: []
-            });
-        }
+    const productosFormateados = rows.map(row => {
+      const producto = {
+        referencia: row.referencia,
+        nombre: row.nombre,
+        marca: row.marca,
+        url_imagen: row.url_imagen,
+        calificacion: parseFloat(row.calificacion),
+        precio_unidad: parseFloat(row.precio_unidad),
+      };
 
-        const productosFormateados = productos.map(producto => {
-            const productoRespuesta = {
-                referencia: producto.referencia,
-                nombre: producto.nombre,
-                descripcion: producto.descripcion,
-                precio_unidad: producto.precio_unidad,
-                marca: producto.marca,
-                promedio_calificacion: producto.promedio_calificacion,
-                url_imagen: producto.url_imagen
-            };
+      if (row.precio_descuento !== null) {
+        producto.precio_descuento = parseFloat(row.precio_descuento);
+        producto.descuento = row.descuento ? `${row.descuento}%` : null;
+      }
 
-            // Condición: Si existe un precio de descuento y es mayor que cero...
-            if (producto.precio_descuento && parseFloat(producto.precio_descuento) > 0) {
-                // ...lo añadimos al objeto de respuesta.
-                productoRespuesta.precio_descuento = producto.precio_descuento;
-                productoRespuesta.descuento = producto.descuento; // <-- CAMBIO 2: Se añade el descuento aquí también
-            }
+      return producto;
+    });
 
-            return productoRespuesta;
-        });
-
-        res.status(200).json({
-            success: true,
-            mensaje: `Productos de la categoría '${nombre_categoria}' obtenidos exitosamente.`,
-            data: productosFormateados
-        });
-
-    } catch (error) {
-        console.error('Error al obtener productos por categoría:', error);
-        res.status(500).json({
-            success: false,
-            mensaje: 'Error interno del servidor al obtener los productos de la categoría.'
-        });
+    if (productosFormateados.length === 0) {
+      return res.status(404).json({ mensaje: `No se encontraron productos disponibles para la categoría '${nombreCategoria}'.` });
     }
+
+    res.status(200).json(productosFormateados);
+  } catch (error) {
+    console.error(`Error al obtener productos para la categoría ${nombreCategoria}:`, error);
+    res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la categoría.' });
+  }
 }
 
 module.exports = {
-    ObtenerProductosPorCategoria
+  obtenerProductosPorCategoria
 };
