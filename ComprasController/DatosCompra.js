@@ -9,17 +9,12 @@ async function ConsultarCarritoYResumen(req, res) {
             fk_id_usuario = req.user.id_usuario;
             console.log("Usuario AUTENTICADO consultando carrito. ID:", fk_id_usuario);
         } else {
-            // Lógica para carritos de invitado (si la implementas):
-            // Necesitarías una forma de identificar el carrito de un invitado,
-            // por ejemplo, usando req.session.guestId o un token del frontend.
-            // Por ahora, si no hay usuario autenticado, devuelve un error 401.
             return res.status(401).json({
                 success: false,
                 mensaje: 'Acceso no autorizado. Para consultar el carrito, el usuario debe estar autenticado.'
             });
         }
 
-        // 1. Obtener los artículos del carrito (productos y calcomanías)
         const [carritoItems] = await pool.execute(
             `SELECT
                 cc.FK_referencia_producto AS referencia_producto,
@@ -51,41 +46,57 @@ async function ConsultarCarritoYResumen(req, res) {
         let totalArticulosFinal = 0;
 
         carritoItems.forEach(item => {
-            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_descuento_calculado, subtotalArticulo;
+            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_descuento_calculado, subtotalArticulo, porcentaje_descuento = 0;
             let esProducto = item.referencia_producto !== null;
 
             if (esProducto) {
+                // --- Lógica para PRODUCTOS (sin cambios) ---
                 nombre = item.nombre_producto;
                 url_imagen_o_archivo = item.url_imagen_producto;
                 precio_unidad_calculado = parseFloat(item.precio_unidad_producto);
                 precio_descuento_calculado = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
-            } else { // Es una calcomanía
+            
+            } else { // --- Lógica REFACTORIZADA para CALCOMANÍAS ---
                 nombre = item.nombre_calcomania;
                 url_imagen_o_archivo = item.url_archivo_calcomania;
-                let precio_base_calcomania = parseFloat(item.precio_base_calcomania);
-                let precio_descuento_base_calcomania = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_base_calcomania) : null;
+                
+                const precio_base = parseFloat(item.precio_base_calcomania);
+                const precio_descuento_base = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
 
+                // 1. Calcular el porcentaje de descuento basado en los precios base (tamaño pequeño)
+                if (precio_descuento_base !== null && precio_descuento_base < precio_base && precio_base > 0) {
+                    porcentaje_descuento = ((precio_base - precio_descuento_base) / precio_base);
+                }
+
+                // 2. Determinar el multiplicador de precio según el tamaño
+                let multiplicador_tamano = 1.0;
                 switch (item.tamano.toLowerCase()) {
                     case 'pequeño':
-                        precio_unidad_calculado = precio_base_calcomania;
-                        precio_descuento_calculado = precio_descuento_base_calcomania;
+                        multiplicador_tamano = 1.0;
                         break;
                     case 'mediano':
-                        precio_unidad_calculado = precio_base_calcomania * 2.25;
-                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 2.25 : null;
+                        multiplicador_tamano = 2.25;
                         break;
                     case 'grande':
-                        precio_unidad_calculado = precio_base_calcomania * 4.00;
-                        precio_descuento_calculado = precio_descuento_base_calcomania ? precio_descuento_base_calcomania * 4.00 : null;
+                        multiplicador_tamano = 4.00;
                         break;
                     default:
-                        console.warn(`Tamaño de calcomanía desconocido: ${item.tamano}. Usando precio base.`);
-                        precio_unidad_calculado = precio_base_calcomania;
-                        precio_descuento_calculado = precio_descuento_base_calcomania;
+                        console.warn(`Tamaño de calcomanía desconocido: ${item.tamano}. Usando multiplicador base 1.0.`);
+                        multiplicador_tamano = 1.0;
                         break;
+                }
+
+                // 3. Calcular el precio original para el tamaño seleccionado
+                precio_unidad_calculado = precio_base * multiplicador_tamano;
+
+                // 4. Calcular el precio con descuento para el tamaño seleccionado, usando el porcentaje
+                precio_descuento_calculado = null;
+                if (porcentaje_descuento > 0) {
+                    precio_descuento_calculado = precio_unidad_calculado * (1 - porcentaje_descuento);
                 }
             }
 
+            // --- Lógica de cálculo de totales (común para productos y calcomanías) ---
             const cantidad = item.cantidad;
 
             totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
@@ -98,7 +109,7 @@ async function ConsultarCarritoYResumen(req, res) {
             }
             totalArticulosFinal += subtotalArticulo;
 
-
+            // --- Añadir el artículo procesado al array para la respuesta ---
             articulosEnCarrito.push({
                 referencia_producto: item.referencia_producto,
                 id_calcomania: item.id_calcomania,
@@ -108,6 +119,8 @@ async function ConsultarCarritoYResumen(req, res) {
                 tamano: item.tamano,
                 precio_unidad_original: parseFloat(precio_unidad_calculado.toFixed(2)),
                 precio_con_descuento: precio_descuento_calculado ? parseFloat(precio_descuento_calculado.toFixed(2)) : null,
+                // Añadimos el porcentaje de descuento para las calcomanías
+                porcentaje_descuento: !esProducto ? Math.round(porcentaje_descuento * 100) : null,
                 subtotalArticulo: parseFloat(subtotalArticulo.toFixed(2))
             });
         });
@@ -115,17 +128,13 @@ async function ConsultarCarritoYResumen(req, res) {
         const PRECIO_ENVIO = 14900; // Asumiendo pesos colombianos COP
         const subtotalPedido = parseFloat((totalArticulosFinal).toFixed(2));
         const totalPedido = parseFloat((subtotalPedido + PRECIO_ENVIO).toFixed(2));
-
-        // --- INICIO: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA ---
+        
+        // --- INICIO: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA (sin cambios) ---
         let connection;
         try {
             connection = await pool.getConnection();
             await connection.beginTransaction();
 
-            // Buscar la factura más reciente o la que esté en estado 'pendiente'/'borrador' para este usuario.
-            // ADVERTENCIA: Esta consulta asume que hay una única factura "actual" o "en borrador" para el usuario
-            // que debe ser actualizada cada vez que el carrito se consulta.
-            // Idealmente, la factura se crea y se le asigna el total en un paso de checkout más avanzado.
             const [existingFactura] = await connection.execute(
                 `SELECT id_factura FROM factura WHERE fk_id_usuario = ? ORDER BY fecha_venta DESC LIMIT 1`,
                 [fk_id_usuario]
@@ -141,22 +150,16 @@ async function ConsultarCarritoYResumen(req, res) {
                 console.log(`Factura ${id_factura_a_actualizar} actualizada con valor_total: ${totalPedido}`);
             } else {
                 console.warn(`No se encontró una factura existente para el usuario ${fk_id_usuario} para actualizar el valor_total.`);
-                // Considera si aquí deberías crear una nueva factura en estado "borrador"
-                // si el usuario ha añadido algo al carrito y no tiene una factura reciente.
-                // Sin embargo, esta función (`ConsultarCarritoYResumen`) no es el lugar ideal para crear facturas.
             }
 
             await connection.commit();
         } catch (updateError) {
             if (connection) await connection.rollback();
             console.error('Error al actualizar valor_total en la factura:', updateError);
-            // El error de actualización de la factura NO debería impedir que el carrito se muestre.
-            // Pero es crucial loguearlo para depuración y monitoreo.
         } finally {
             if (connection) connection.release();
         }
         // --- FIN: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA ---
-
 
         const resumenPedido = {
             TotalArticulosSinDescuento: parseFloat(totalArticulosSinDescuento.toFixed(2)),
