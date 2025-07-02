@@ -36,10 +36,10 @@ async function obtenerMisCompras(req, res) {
                 f.id_factura,
                 (SELECT url_imagen FROM producto_imagen WHERE FK_referencia_producto = p.referencia LIMIT 1) AS url_imagen,
                 cal.puntuacion AS calificacion_usuario
-            FROM DETALLE_FACTURA df
-            JOIN FACTURA f ON df.FK_id_factura = f.id_factura
-            JOIN PRODUCTO p ON df.FK_referencia_producto = p.referencia
-            LEFT JOIN CALIFICACION cal ON p.referencia = cal.FK_referencia_producto AND f.fk_id_usuario = cal.FK_id_usuario
+            FROM detalle_factura df
+            JOIN factura f ON df.FK_id_factura = f.id_factura
+            JOIN producto p ON df.FK_referencia_producto = p.referencia
+            LEFT JOIN calificacion cal ON p.referencia = cal.FK_referencia_producto AND f.fk_id_usuario = cal.FK_id_usuario
             WHERE f.fk_id_usuario = ? AND f.estado_pedido = 'Completada'
 
             UNION ALL
@@ -55,9 +55,9 @@ async function obtenerMisCompras(req, res) {
                 f.id_factura,
                 c.url_archivo AS url_imagen,
                 NULL AS calificacion_usuario
-            FROM DETALLE_FACTURA_CALCOMANIA dfc
-            JOIN FACTURA f ON dfc.FK_id_factura = f.id_factura
-            JOIN CALCOMANIA c ON dfc.FK_id_calcomania = c.id_calcomania
+            FROM detalle_factura_calcomania dfc
+            JOIN factura f ON dfc.FK_id_factura = f.id_factura
+            JOIN calcomania c ON dfc.FK_id_calcomania = c.id_calcomania
             WHERE f.fk_id_usuario = ? AND f.estado_pedido = 'Completada'
 
             ORDER BY id_factura DESC;

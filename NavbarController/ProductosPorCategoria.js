@@ -1,6 +1,4 @@
-// controllers/productosController.js
-
-const pool = require('../db'); // Suponiendo que tienes un archivo de configuración de base de datos
+const pool = require('../config/db'); // Suponiendo que tienes un archivo de configuración de base de datos
 
 async function obtenerProductosPorCategoria(req, res) {
   const { nombre_categoria } = req.params;
@@ -10,7 +8,8 @@ async function obtenerProductosPorCategoria(req, res) {
           p.referencia,
           p.nombre,
           p.marca,
-          pi.url_imagen,
+          -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
+          MIN(pi.url_imagen) AS url_imagen,
           p.promedio_calificacion AS calificacion,
           p.descuento,
           p.precio_descuento,
@@ -22,8 +21,15 @@ async function obtenerProductosPorCategoria(req, res) {
       LEFT JOIN
           producto_imagen pi ON p.referencia = pi.fk_referencia_producto
       WHERE
-          c.nombre_categoria = ? AND p.estado = TRUE AND p.stock > 0 -- ¡Aquí se añade la condición de stock!
-      GROUP BY p.referencia;
+          c.nombre_categoria = ? AND p.estado = TRUE AND p.stock > 0
+      GROUP BY
+          p.referencia, -- Agrupamos por la referencia del producto
+          p.nombre,
+          p.marca,
+          p.promedio_calificacion,
+          p.descuento,
+          p.precio_descuento,
+          p.precio_unidad; -- Es buena práctica incluir todas las columnas no agregadas en GROUP BY
     `;
 
     const [rows] = await pool.execute(query, [nombre_categoria]);

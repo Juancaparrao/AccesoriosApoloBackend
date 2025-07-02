@@ -1,16 +1,18 @@
-// controllers/productosController.js (Puedes añadirla al mismo archivo o crear uno nuevo si prefieres)
+// controllers/productosController.js
 
 const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
 async function obtenerProductosPorSubcategoria(req, res) {
-  const { nombre_subcategoria } = req.params; // Usamos 'nombreSubcategoria' como parámetro en la URL
+  // Asegúrate de que este nombre (nombre_subcategoria) coincida con el nombre del parámetro en tu ruta.
+  const { nombre_subcategoria } = req.params; 
   try {
     const query = `
       SELECT
           p.referencia,
           p.nombre,
           p.marca,
-          pi.url_imagen,
+          -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
+          MIN(pi.url_imagen) AS url_imagen,
           p.promedio_calificacion AS calificacion,
           p.descuento,
           p.precio_descuento,
@@ -18,14 +20,21 @@ async function obtenerProductosPorSubcategoria(req, res) {
       FROM
           producto p
       JOIN
-          subcategoria s ON p.fk_id_subcategoria = s.id_subcategoria -- Unimos con la tabla subcategoria
+          subcategoria s ON p.fk_id_subcategoria = s.id_subcategoria
       LEFT JOIN
           producto_imagen pi ON p.referencia = pi.fk_referencia_producto
       WHERE
-          s.nombre_subcategoria = ? -- Filtramos por el nombre de la subcategoría
+          s.nombre_subcategoria = ?
           AND p.estado = TRUE
           AND p.stock > 0
-      GROUP BY p.referencia;
+      GROUP BY
+          p.referencia, -- Agrupamos por la referencia del producto
+          p.nombre,
+          p.marca,
+          p.promedio_calificacion,
+          p.descuento,
+          p.precio_descuento,
+          p.precio_unidad; -- Es buena práctica incluir todas las columnas no agregadas en GROUP BY
     `;
 
     const [rows] = await pool.execute(query, [nombre_subcategoria]);
@@ -55,12 +64,12 @@ async function obtenerProductosPorSubcategoria(req, res) {
 
     res.status(200).json(productosFormateados);
   } catch (error) {
-    console.error(`Error al obtener productos para la subcategoría ${nombreSubcategoria}:`, error);
+    // **CAMBIO AQUÍ: Corregido a nombre_subcategoria para el mensaje de error**
+    console.error(`Error al obtener productos para la subcategoría ${nombre_subcategoria}:`, error);
     res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la subcategoría.' });
   }
 }
 
-// Exporta también esta nueva función
-module.exports = { // Si la tenías en el mismo archivo, la sigues exportando
+module.exports = {
   obtenerProductosPorSubcategoria
 };

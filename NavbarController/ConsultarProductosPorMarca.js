@@ -1,7 +1,7 @@
 const pool = require('../db'); // Asegúrate de que la ruta a tu conexión DB sea correcta
 
 async function obtenerProductosPorMarca(req, res) {
-  const { marca } = req.params; // Usamos 'nombreMarca' como parámetro en la URL
+  const { marca } = req.params; // Usamos 'marca' como parámetro en la URL
   try {
     let query;
     let queryParams;
@@ -16,7 +16,8 @@ async function obtenerProductosPorMarca(req, res) {
             p.referencia,
             p.nombre,
             p.marca,
-            pi.url_imagen,
+            -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
+            MIN(pi.url_imagen) AS url_imagen,
             p.promedio_calificacion AS calificacion,
             p.descuento,
             p.precio_descuento,
@@ -29,7 +30,14 @@ async function obtenerProductosPorMarca(req, res) {
             p.marca NOT IN (?)
             AND p.estado = TRUE
             AND p.stock > 0
-        GROUP BY p.referencia;
+        GROUP BY
+            p.referencia, -- Agrupamos por la referencia del producto
+            p.nombre,
+            p.marca,
+            p.promedio_calificacion,
+            p.descuento,
+            p.precio_descuento,
+            p.precio_unidad; -- Es buena práctica incluir todas las columnas no agregadas en GROUP BY
       `;
       // Convertimos el array de marcas a una lista separada por comas para el NOT IN
       queryParams = [marcasPrincipales];
@@ -40,7 +48,8 @@ async function obtenerProductosPorMarca(req, res) {
             p.referencia,
             p.nombre,
             p.marca,
-            pi.url_imagen,
+            -- **CAMBIO AQUÍ: Usamos MIN() para seleccionar una única url_imagen**
+            MIN(pi.url_imagen) AS url_imagen,
             p.promedio_calificacion AS calificacion,
             p.descuento,
             p.precio_descuento,
@@ -53,7 +62,14 @@ async function obtenerProductosPorMarca(req, res) {
             p.marca = ?
             AND p.estado = TRUE
             AND p.stock > 0
-        GROUP BY p.referencia;
+        GROUP BY
+            p.referencia, -- Agrupamos por la referencia del producto
+            p.nombre,
+            p.marca,
+            p.promedio_calificacion,
+            p.descuento,
+            p.precio_descuento,
+            p.precio_unidad; -- Es buena práctica incluir todas las columnas no agregadas en GROUP BY
       `;
       queryParams = [marca];
     }
@@ -92,5 +108,5 @@ async function obtenerProductosPorMarca(req, res) {
 
 // Exporta esta nueva función junto con las anteriores
 module.exports = {
-  obtenerProductosPorMarca // ¡Añadida esta!
+  obtenerProductosPorMarca
 };
