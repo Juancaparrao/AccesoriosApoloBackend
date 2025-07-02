@@ -1,5 +1,7 @@
 // controllers/invoiceManager.js
 const pool = require('../db');
+const { enviarFacturaOnlinePorCorreo } = require('../templates/FacturaVentaOnlineCorreo');
+
 
 // --- CONSTANTES DE CONFIGURACIÓN ---
 // Define el tiempo de vida de una factura pendiente en minutos.
@@ -11,7 +13,6 @@ const INTERVALO_VERIFICACION_MS = 60000;
 
 async function completarFacturaPagada(facturaId, userId) {
     let connection;
-    
     try {
         connection = await pool.getConnection();
         await connection.beginTransaction();
@@ -20,164 +21,92 @@ async function completarFacturaPagada(facturaId, userId) {
 
         // 1. Verificar que la factura existe y está pagada
         const [facturaRows] = await connection.execute(
-            `SELECT id_factura, estado_pedido, fk_id_usuario FROM factura 
-             WHERE id_factura = ? AND estado_pedido = 'Pagada'`,
-            [facturaId]
+            `SELECT id_factura, estado_pedido, fk_id_usuario FROM factura WHERE id_factura = ? AND estado_pedido = 'Pagada'`, [facturaId]
         );
-
-        if (facturaRows.length === 0) {
-            throw new Error(`Factura ${facturaId} no encontrada o no está en estado 'Pagada'`);
-        }
-
-        const factura = facturaRows[0];
-        
-        // Verificar que el usuario sea el dueño de la factura
-        if (factura.fk_id_usuario !== userId) {
-            throw new Error(`Usuario ${userId} no es el propietario de la factura ${facturaId}`);
-        }
+        if (facturaRows.length === 0) throw new Error(`Factura ${facturaId} no encontrada o no está 'Pagada'`);
+        if (facturaRows[0].fk_id_usuario !== userId) throw new Error(`Usuario ${userId} no es propietario de factura ${facturaId}`);
 
         // 2. Obtener items del carrito del usuario
         const [carritoItems] = await connection.execute(`
-            SELECT 
-                c.FK_referencia_producto,
-                c.FK_id_calcomania,
-                c.cantidad,
-                c.tamano,
-                p.precio_unidad as precio_producto,
-                p.stock as stock_producto,
-                cal.precio_unidad as precio_calcomania,
-                cal.stock_pequeno,
-                cal.stock_mediano,
-                cal.stock_grande
+            SELECT c.FK_referencia_producto, c.FK_id_calcomania, c.cantidad, c.tamano,
+                   p.precio_unidad as precio_producto, p.stock as stock_producto,
+                   cal.precio_unidad as precio_calcomania_base, cal.stock_pequeno, cal.stock_mediano, cal.stock_grande
             FROM carrito_compras c
             LEFT JOIN producto p ON c.FK_referencia_producto = p.referencia
             LEFT JOIN calcomania cal ON c.FK_id_calcomania = cal.id_calcomania
-            WHERE c.FK_id_usuario = ?
-        `, [userId]);
-
+            WHERE c.FK_id_usuario = ?`, [userId]
+        );
         if (carritoItems.length === 0) {
-            console.log(`No hay items en el carrito para el usuario ${userId}`);
+            console.log(`No hay items en el carrito para el usuario ${userId}, la factura ya pudo haber sido procesada.`);
             await connection.commit();
             return { success: true, message: 'No hay items para procesar' };
         }
 
-        console.log(`Procesando ${carritoItems.length} items del carrito`);
-
         // 3. Procesar cada item del carrito
         for (const item of carritoItems) {
             if (item.FK_referencia_producto) {
-                // PROCESAR PRODUCTO
-                const precioUnitario = item.precio_producto;
-                const stockActual = item.stock_producto;
-                
-                // Verificar stock suficiente
-                if (stockActual < item.cantidad) {
-                    throw new Error(`Stock insuficiente para producto ${item.FK_referencia_producto}. Stock: ${stockActual}, Solicitado: ${item.cantidad}`);
-                }
-
-                // Insertar en detalle_factura
-                await connection.execute(`
-                    INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, cantidad, precio_unidad)
-                    VALUES (?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE 
-                        cantidad = cantidad + VALUES(cantidad)
-                `, [facturaId, item.FK_referencia_producto, item.cantidad, precioUnitario]);
-
-                // Reducir stock del producto
-                await connection.execute(`
-                    UPDATE producto 
-                    SET stock = stock - ? 
-                    WHERE referencia = ? AND stock >= ?
-                `, [item.cantidad, item.FK_referencia_producto, item.cantidad]);
-
+                if (item.stock_producto < item.cantidad) throw new Error(`Stock insuficiente para producto ${item.FK_referencia_producto}`);
+                await connection.execute(`INSERT INTO detalle_factura (FK_id_factura, FK_referencia_producto, cantidad, precio_unidad) VALUES (?, ?, ?, ?)`, [facturaId, item.FK_referencia_producto, item.cantidad, item.precio_producto]);
+                await connection.execute(`UPDATE producto SET stock = stock - ? WHERE referencia = ?`, [item.cantidad, item.FK_referencia_producto]);
                 console.log(`✅ Producto ${item.FK_referencia_producto}: ${item.cantidad} unidades agregadas, stock reducido`);
-
             } else if (item.FK_id_calcomania) {
-                // PROCESAR CALCOMANIA
-                const precioUnitario = item.precio_calcomania;
-                const tamano = item.tamano || 'mediano'; // Default mediano si no se especifica
-
-                let stockDisponible = 0;
-                let campoStock = '';
-
-                // Determinar qué stock usar según el tamaño
+                const tamano = item.tamano || 'mediano';
+                let stockDisponible = 0, campoStock = '', precioVenta = item.precio_calcomania_base;
                 switch (tamano.toLowerCase()) {
-                    case 'pequeno':
-                    case 'pequeño':
-                        stockDisponible = item.stock_pequeno;
-                        campoStock = 'stock_pequeno';
-                        break;
-                    case 'mediano':
-                        stockDisponible = item.stock_mediano;
-                        campoStock = 'stock_mediano';
-                        break;
-                    case 'grande':
-                        stockDisponible = item.stock_grande;
-                        campoStock = 'stock_grande';
-                        break;
-                    default:
-                        throw new Error(`Tamaño de calcomanía no válido: ${tamano}`);
+                    case 'pequeño': stockDisponible = item.stock_pequeno; campoStock = 'stock_pequeno'; break;
+                    case 'mediano': stockDisponible = item.stock_mediano; campoStock = 'stock_mediano'; precioVenta *= 2.25; break;
+                    case 'grande': stockDisponible = item.stock_grande; campoStock = 'stock_grande'; precioVenta *= 4.00; break;
+                    default: throw new Error(`Tamaño de calcomanía no válido: ${tamano}`);
                 }
-
-                // Verificar stock suficiente
-                if (stockDisponible < item.cantidad) {
-                    throw new Error(`Stock insuficiente para calcomanía ${item.FK_id_calcomania} tamaño ${tamano}. Stock: ${stockDisponible}, Solicitado: ${item.cantidad}`);
-                }
-
-                // Insertar en detalle_factura_calcomania
-                await connection.execute(`
-                    INSERT INTO detalle_factura_calcomania (FK_id_factura, FK_id_calcomania, cantidad, precio_unidad, tamano)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE 
-                        cantidad = cantidad + VALUES(cantidad)
-                `, [facturaId, item.FK_id_calcomania, item.cantidad, precioUnitario, tamano]);
-
-                // Reducir stock de la calcomanía según el tamaño
-                await connection.execute(`
-                    UPDATE calcomania 
-                    SET ${campoStock} = ${campoStock} - ? 
-                    WHERE id_calcomania = ? AND ${campoStock} >= ?
-                `, [item.cantidad, item.FK_id_calcomania, item.cantidad]);
-
+                if (stockDisponible < item.cantidad) throw new Error(`Stock insuficiente para calcomanía ${item.FK_id_calcomania} (${tamano})`);
+                await connection.execute(`INSERT INTO detalle_factura_calcomania (FK_id_factura, FK_id_calcomania, cantidad, precio_unidad, tamano) VALUES (?, ?, ?, ?, ?)`, [facturaId, item.FK_id_calcomania, item.cantidad, precioVenta, tamano]);
+                await connection.execute(`UPDATE calcomania SET ${campoStock} = ${campoStock} - ? WHERE id_calcomania = ?`, [item.cantidad, item.FK_id_calcomania]);
                 console.log(`✅ Calcomanía ${item.FK_id_calcomania} (${tamano}): ${item.cantidad} unidades agregadas, stock reducido`);
             }
         }
 
-        // 4. Eliminar todos los items del carrito del usuario
-        const [deleteResult] = await connection.execute(`
-            DELETE FROM carrito_compras WHERE FK_id_usuario = ?
-        `, [userId]);
-
+        // 4. Limpiar carrito y actualizar factura
+        const [deleteResult] = await connection.execute(`DELETE FROM carrito_compras WHERE FK_id_usuario = ?`, [userId]);
         console.log(`🗑️ ${deleteResult.affectedRows} items eliminados del carrito`);
-
-        // 5. Actualizar fecha de procesamiento de la factura
-        await connection.execute(`
-            UPDATE factura 
-            SET fecha_actualizacion = NOW() 
-            WHERE id_factura = ?
-        `, [facturaId]);
+        await connection.execute(`UPDATE factura SET fecha_actualizacion = NOW(), estado_pedido = 'Completada' WHERE id_factura = ?`, [facturaId]);
 
         await connection.commit();
-        
-        console.log(`✅ Factura ${facturaId} completada exitosamente`);
-        
-        return {
-            success: true,
-            message: 'Factura completada exitosamente',
-            itemsProcesados: carritoItems.length,
-            itemsEliminados: deleteResult.affectedRows
-        };
+        console.log(`✅ Factura ${facturaId} completada exitosamente en la base de datos.`);
 
-    } catch (error) {
-        if (connection) {
-            await connection.rollback();
+        // 5. Enviar correo de confirmación (DESPUÉS del commit)
+        try {
+            console.log(`[POST-COMPRA] Recopilando datos para el correo de la factura ${facturaId}`);
+            const [facturaData] = await pool.execute(`
+                SELECT f.*, u.nombre, u.cedula, u.correo, u.telefono
+                FROM factura f JOIN usuario u ON f.fk_id_usuario = u.id_usuario WHERE f.id_factura = ?`, [facturaId]
+            );
+            const [productosData] = await pool.execute(`SELECT * FROM detalle_factura WHERE FK_id_factura = ?`, [facturaId]);
+            const [calcomaniasData] = await pool.execute(`SELECT * FROM detalle_factura_calcomania WHERE FK_id_factura = ?`, [facturaId]);
+
+            if (facturaData.length > 0) {
+                const infoFactura = facturaData[0];
+                const datosParaEmail = {
+                    id_factura: infoFactura.id_factura,
+                    fecha_venta: infoFactura.fecha_venta,
+                    metodo_pago: infoFactura.metodo_pago || infoFactura.metodo_pago_wompi,
+                    valor_total: infoFactura.valor_total,
+                    cliente: { nombre: infoFactura.nombre, cedula: infoFactura.cedula, correo: infoFactura.correo, telefono: infoFactura.telefono },
+                    productos: productosData,
+                    calcomanias: calcomaniasData
+                };
+                await enviarFacturaOnlinePorCorreo(infoFactura.correo, datosParaEmail);
+            }
+        } catch (emailError) {
+            console.warn(`⚠️ ALERTA: La factura ${facturaId} se completó, pero falló el envío del correo. Error: ${emailError.message}`);
         }
+
+        return { success: true, message: 'Factura completada exitosamente' };
+    } catch (error) {
+        if (connection) await connection.rollback();
         console.error(`❌ Error al completar factura ${facturaId}:`, error);
         throw error;
     } finally {
-        if (connection) {
-            connection.release();
-        }
+        if (connection) connection.release();
     }
 }
 
