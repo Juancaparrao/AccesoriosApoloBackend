@@ -19,6 +19,7 @@ async function ObtenerProductosPorCategoria(req, res) {
                 p.descripcion,
                 p.precio_unidad,
                 p.precio_descuento,
+                p.descuento, -- <-- CAMBIO 1: Se añade el campo de descuento (porcentaje)
                 p.marca,
                 p.promedio_calificacion,
                 (SELECT url_imagen FROM producto_imagen pi WHERE pi.FK_referencia_producto = p.referencia ORDER BY pi.id_imagen ASC LIMIT 1) AS url_imagen
@@ -40,10 +41,31 @@ async function ObtenerProductosPorCategoria(req, res) {
             });
         }
 
+        const productosFormateados = productos.map(producto => {
+            const productoRespuesta = {
+                referencia: producto.referencia,
+                nombre: producto.nombre,
+                descripcion: producto.descripcion,
+                precio_unidad: producto.precio_unidad,
+                marca: producto.marca,
+                promedio_calificacion: producto.promedio_calificacion,
+                url_imagen: producto.url_imagen
+            };
+
+            // Condición: Si existe un precio de descuento y es mayor que cero...
+            if (producto.precio_descuento && parseFloat(producto.precio_descuento) > 0) {
+                // ...lo añadimos al objeto de respuesta.
+                productoRespuesta.precio_descuento = producto.precio_descuento;
+                productoRespuesta.descuento = producto.descuento; // <-- CAMBIO 2: Se añade el descuento aquí también
+            }
+
+            return productoRespuesta;
+        });
+
         res.status(200).json({
             success: true,
             mensaje: `Productos de la categoría '${nombre_categoria}' obtenidos exitosamente.`,
-            data: productos
+            data: productosFormateados
         });
 
     } catch (error) {
@@ -55,6 +77,6 @@ async function ObtenerProductosPorCategoria(req, res) {
     }
 }
 
-module.exports = {// La de la subcategoría
-    ObtenerProductosPorCategoria  // <-- La nueva por categoría
+module.exports = {
+    ObtenerProductosPorCategoria
 };

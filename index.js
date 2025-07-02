@@ -93,6 +93,7 @@ const { iniciarVerificacionDeFacturas } = require('./ComprasController/Finalizac
 const { obtenerUltimaDireccion } = require('./ComprasController/ConsultarUltimaDireccion');
 const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./NavbarController/FiltroPorMarca');
 const { ObtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
+const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -147,6 +148,9 @@ app.post('/auth/facebook', loginConFacebook);
 
 //Validar gerente
 app.get('/validar-gerente', verificarToken, validarGerente);
+
+// Historial de Pedidos
+app.get('/historial-pedidos', verificarToken, obtenerMisCompras)
 
 //Modulo de usuarios
 app.post('/registrar-directo', registrarUsuarioDirecto);
