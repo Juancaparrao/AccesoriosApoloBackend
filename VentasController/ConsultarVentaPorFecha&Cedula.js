@@ -6,7 +6,7 @@ async function ConsultarVentaEspecifica(req, res) {
     // Obtener parámetros de consulta del frontend
     const { fecha, cedula } = req.query;
     
-    // Construir la consulta base
+    // --- MODIFICACIÓN 1: Añadir f.metodo_pago_wompi a la consulta base ---
     let query = `
       SELECT 
         f.id_factura,
@@ -14,6 +14,7 @@ async function ConsultarVentaEspecifica(req, res) {
         u.nombre as nombre_cliente,
         f.fecha_venta,
         f.metodo_pago,
+        f.metodo_pago_wompi,
         f.valor_total as total
       FROM factura f
       INNER JOIN usuario u ON f.fk_id_usuario = u.id_usuario
@@ -65,13 +66,14 @@ async function ConsultarVentaEspecifica(req, res) {
       cedula: venta.cedula,
       nombre_cliente: venta.nombre_cliente,
       fecha_compra: new Date(venta.fecha_venta).toLocaleDateString('es-CO'),
-      fecha_compra_iso: venta.fecha_venta, // Para ordenamiento o filtros
+      fecha_compra_iso: venta.fecha_venta,
       total: parseFloat(venta.total),
       total_formateado: new Intl.NumberFormat('es-CO', {
         style: 'currency',
         currency: 'COP'
       }).format(venta.total),
-      metodo_pago: venta.metodo_pago
+      // --- MODIFICACIÓN 2: Lógica para seleccionar el método de pago a mostrar ---
+      metodo_pago: venta.metodo_pago || venta.metodo_pago_wompi || 'No especificado'
     }));
 
     // Calcular total de ventas (suma de todos los valores)

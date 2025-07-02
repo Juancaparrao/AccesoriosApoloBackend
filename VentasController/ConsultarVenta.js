@@ -3,7 +3,7 @@ const pool = require('../db');
 // Controlador para consultar todas las ventas/facturas
 async function ConsultarVenta(req, res) {
   try {
-    // Query simplificado que toma el valor_total directamente de la tabla factura
+    // --- MODIFICACIÓN 1: Añadir f.metodo_pago_wompi a la consulta ---
     const [ventas] = await pool.execute(`
       SELECT 
         f.id_factura,
@@ -11,6 +11,7 @@ async function ConsultarVenta(req, res) {
         u.nombre as nombre_cliente,
         f.fecha_venta,
         f.metodo_pago,
+        f.metodo_pago_wompi,
         f.valor_total as total
       FROM factura f
       INNER JOIN usuario u ON f.fk_id_usuario = u.id_usuario
@@ -38,7 +39,8 @@ async function ConsultarVenta(req, res) {
         style: 'currency',
         currency: 'COP'
       }).format(venta.total),
-      metodo_pago: venta.metodo_pago
+      // --- MODIFICACIÓN 2: Lógica para seleccionar el método de pago a mostrar ---
+      metodo_pago: venta.metodo_pago || venta.metodo_pago_wompi || 'No especificado'
     }));
 
     return res.status(200).json({
