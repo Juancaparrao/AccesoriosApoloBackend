@@ -95,6 +95,7 @@ const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./N
 const { obtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
 const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
 const { registrarCalificacion } = require('./InicioController/RegistrarCalificacion');
+const { infoChat } = require('./ChatBotController/InformcionChat');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -300,6 +301,9 @@ app.get('/estado-orden/:id_factura/status', getOrderStatus);
 app.post('/webhook/wompi', handleWompiWebhook); 
 app.post('/forzar-limpieza-facturas', verificarToken, forzarLimpiezaFacturas);
 app.get('/ultima-direccion', verificarToken, obtenerUltimaDireccion);
+
+//Chatbot
+app.post('/chatbot', infoChat);
 
 
 
