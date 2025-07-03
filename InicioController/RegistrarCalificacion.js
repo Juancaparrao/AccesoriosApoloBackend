@@ -34,7 +34,7 @@ async function registrarCalificacion(req, res) {
 
         // 5. Insertar la nueva calificación o actualizar la existente (atómico)
         const insertOrUpdateSql = `
-            INSERT INTO CALIFICACION (FK_id_usuario, FK_referencia_producto, puntuacion, fecha_calificacion)
+            INSERT INTO calificacion (FK_id_usuario, FK_referencia_producto, puntuacion, fecha_calificacion)
             VALUES (?, ?, ?, NOW())
             ON DUPLICATE KEY UPDATE puntuacion = VALUES(puntuacion), fecha_calificacion = NOW();
         `;
