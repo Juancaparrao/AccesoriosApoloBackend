@@ -142,10 +142,10 @@ ${JSON.stringify(inventario)}`
                 "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
                 "Content-Type": "application/json",
                 "HTTP-Referer": "https://accesorios-apolo-frontend.vercel.app", // Opcional: tu dominio
-                "X-Title": "Accesorios Apolo ChatBot" // Opcional: nombre de tu app
+                "X-Title": "AccesoriosApolo" // Opcional: nombre de tu app
             },
             body: JSON.stringify({
-                model: "openai/gpt-3.5-turbo",
+                model: "openai/gpt-3.5-turbo-0125", // ✅ Modelo corregido
                 messages,
                 max_tokens: 500,
                 temperature: 0.7
