@@ -1,22 +1,12 @@
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-// Asegúrate de que la ruta a tu servicio de correo sea correcta
 const { enviarCorreoBienvenida } = require('../templates/UsuarioNoRegistrado');
 
-/**
- * @description Genera una contraseña aleatoria y segura para nuevos usuarios.
- * @returns {string} Una contraseña de 16 caracteres hexadecimales.
- */
 function generarContrasenaSegura() {
     return crypto.randomBytes(8).toString('hex');
 }
 
-/**
- * @description Procesa los datos de envío del usuario, maneja el registro de nuevos usuarios
- * y crea o actualiza una factura en estado 'Pendiente' para iniciar el proceso de pago.
- * @route POST /api/direccion-envio
- */
 async function DireccionEnvio(req, res) {
     let connection;
     try {
@@ -35,7 +25,6 @@ async function DireccionEnvio(req, res) {
 
         console.log("DEBUG 1: Datos recibidos en req.body:", JSON.stringify(req.body, null, 2));
 
-        // 1. Validación de campos obligatorios
         if (!nombre || !cedula || !telefono || !correo || !direccion) {
             console.log("DEBUG ERROR: Datos de envío obligatorios faltantes.");
             return res.status(400).json({
@@ -52,33 +41,22 @@ async function DireccionEnvio(req, res) {
         let contrasenaGenerada = null;
         let carritoDesdeDB = [];
 
-        // 2. Manejo del Usuario (Autenticado vs. Invitado)
         if (req.user && req.user.id_usuario) {
-            // --- Usuario AUTENTICADO ---
             console.log("Usuario AUTENTICADO. ID:", req.user.id_usuario);
             fk_id_usuario = req.user.id_usuario;
 
-            // Se asume que el carrito en la DB es la fuente de verdad.
             const [dbCartItems] = await connection.execute(
-                `SELECT
-                    cc.FK_referencia_producto AS id_producto,
-                    cc.FK_id_calcomania AS id_calcomania,
-                    cc.cantidad,
-                    cc.tamano,
-                    CASE
-                        WHEN cc.FK_referencia_producto IS NOT NULL THEN 'producto'
-                        WHEN cc.FK_id_calcomania IS NOT NULL THEN 'calcomania'
-                    END AS tipo
-                FROM carrito_compras cc
-                WHERE cc.FK_id_usuario = ?`,
+                `SELECT cc.FK_referencia_producto AS id_producto, cc.FK_id_calcomania AS id_calcomania, cc.cantidad, cc.tamano,
+                        CASE WHEN cc.FK_referencia_producto IS NOT NULL THEN 'producto'
+                             WHEN cc.FK_id_calcomania IS NOT NULL THEN 'calcomania' END AS tipo
+                 FROM carrito_compras cc WHERE cc.FK_id_usuario = ?`,
                 [fk_id_usuario]
             );
             carritoDesdeDB = dbCartItems;
             console.log(`Carrito cargado desde DB para usuario logeado ID ${fk_id_usuario}.`);
-
         } else {
-            // --- Usuario NO AUTENTICADO (Invitado) ---
             console.log("Usuario NO AUTENTICADO. Intentando encontrar o registrar.");
+
             if (!carrito || !Array.isArray(carrito) || carrito.length === 0) {
                 await connection.rollback();
                 return res.status(400).json({ success: false, mensaje: 'Para finalizar la compra como invitado, su carrito no puede estar vacío.' });
@@ -91,19 +69,13 @@ async function DireccionEnvio(req, res) {
             );
 
             if (existingUserByEmail.length > 0) {
-                // El correo ya existe, asociamos la compra a ese usuario.
                 fk_id_usuario = existingUserByEmail[0].id_usuario;
                 console.log("Correo ya registrado, usuario no autenticado. Usando ID:", fk_id_usuario);
             } else {
-                // El correo es nuevo. Se crea una cuenta automáticamente.
-                console.log("Correo NO registrado en DB. Registrando nuevo usuario y generando contraseña.");
                 esNuevoRegistro = true;
-
-                // Generar y hashear la contraseña
                 contrasenaGenerada = generarContrasenaSegura();
                 const hashedPassword = await bcrypt.hash(contrasenaGenerada, 10);
 
-                // Insertar el nuevo usuario con la contraseña hasheada
                 const [result] = await connection.execute(
                     `INSERT INTO usuario (nombre, cedula, telefono, correo, contrasena, estado) VALUES (?, ?, ?, ?, ?, ?)`,
                     [nombre, cedula, telefono, correo, hashedPassword, true]
@@ -111,14 +83,12 @@ async function DireccionEnvio(req, res) {
                 fk_id_usuario = result.insertId;
                 console.log(`Nuevo usuario registrado automáticamente con ID: ${fk_id_usuario}`);
 
-                // Asignar rol 'cliente'
                 const [clienteRole] = await connection.execute(`SELECT id_rol FROM rol WHERE nombre = 'cliente'`);
                 if (clienteRole.length > 0) {
                     await connection.execute(`INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`, [fk_id_usuario, clienteRole[0].id_rol]);
                     console.log(`Rol 'cliente' asignado al nuevo usuario ID: ${fk_id_usuario}`);
                 }
 
-                // Enviar correo de bienvenida con la contraseña en texto plano
                 const correoEnviado = await enviarCorreoBienvenida(correo, contrasenaGenerada);
                 if (correoEnviado) {
                     console.log(`Correo de bienvenida con contraseña enviado a ${correo}`);
@@ -133,25 +103,22 @@ async function DireccionEnvio(req, res) {
             return res.status(400).json({ success: false, mensaje: 'No se encontraron artículos en su carrito para procesar.' });
         }
 
-        // --- INICIO DEL CAMBIO SOLICITADO ---
-
-        // 3. Poblar el carrito en la DB para usuarios nuevos o invitados (MOVIDO AQUÍ)
-        // Esto asegura que el carrito del usuario (especialmente si es nuevo o invitado)
-        // esté actualizado antes de calcular la factura.
         if (!req.user || esNuevoRegistro) {
             await connection.execute(`DELETE FROM carrito_compras WHERE FK_id_usuario = ?`, [fk_id_usuario]);
             console.log(`Carrito DB limpiado para usuario ID: ${fk_id_usuario}`);
 
             for (const item of carritoDesdeDB) {
                 await connection.execute(
-                    `INSERT INTO carrito_compras (FK_id_usuario, FK_referencia_producto, FK_id_calcomania, cantidad, tamano) VALUES (?, ?, ?, ?, ?)`,
-                    [fk_id_usuario, item.tipo === 'producto' ? item.id_producto : null, item.tipo === 'calcomania' ? item.id_calcomania : null, item.cantidad, item.tamano]
+                    `INSERT INTO carrito_compras (FK_id_usuario, FK_referencia_producto, FK_id_calcomania, cantidad, tamano)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [fk_id_usuario, item.tipo === 'producto' ? item.id_producto : null,
+                                   item.tipo === 'calcomania' ? item.id_calcomania : null,
+                                   item.cantidad, item.tamano]
                 );
             }
             console.log(`Carrito DB repoblado para usuario ID: ${fk_id_usuario}.`);
         }
 
-        // 4. Crear o Actualizar la Factura (MOVIDO DESPUÉS DEL CARRITO)
         let id_factura;
         const [existingFacturas] = await connection.execute(
             `SELECT id_factura FROM factura
@@ -177,7 +144,41 @@ async function DireccionEnvio(req, res) {
             console.log(`Nueva factura (ID: ${id_factura}) creada para usuario ID: ${fk_id_usuario}.`);
         }
 
-        // --- FIN DEL CAMBIO SOLICITADO ---
+        // Calcular y actualizar valor_total
+        const [totalResult] = await connection.execute(`
+          SELECT
+            COALESCE(SUM(
+              CASE 
+                WHEN cc.FK_referencia_producto IS NOT NULL THEN 
+                  CASE 
+                    WHEN p.precio_descuento IS NOT NULL AND p.precio_descuento != p.precio_unidad
+                      THEN p.precio_descuento
+                      ELSE p.precio_unidad
+                  END * cc.cantidad
+                ELSE 0
+              END
+            ), 0) +
+            COALESCE(SUM(
+              CASE 
+                WHEN cc.FK_id_calcomania IS NOT NULL THEN cal.precio * cc.cantidad
+                ELSE 0
+              END
+            ), 0) AS total_carrito
+          FROM carrito_compras cc
+          LEFT JOIN producto p ON cc.FK_referencia_producto = p.referencia
+          LEFT JOIN calcomania cal ON cc.FK_id_calcomania = cal.id_calcomania
+          WHERE cc.FK_id_usuario = ?
+        `, [fk_id_usuario]);
+
+        const totalCarrito = parseFloat(totalResult[0].total_carrito || 0);
+        const valorEnvio = 14900;
+        const totalFinal = totalCarrito + valorEnvio;
+
+        await connection.execute(
+            `UPDATE factura SET valor_total = ? WHERE id_factura = ?`,
+            [totalFinal, id_factura]
+        );
+        console.log(`Factura ID ${id_factura} actualizada con total: ${totalFinal}`);
 
         await connection.commit();
         console.log("DEBUG: Transacción de DireccionEnvio completada y datos guardados en DB.");
