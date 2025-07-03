@@ -39,6 +39,68 @@ async function infoChat(req, res) {
     }
 }
 
+// Función para obtener modelos disponibles
+async function obtenerModelosDisponibles() {
+    try {
+        const response = await fetch("https://openrouter.ai/api/v1/models", {
+            headers: {
+                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!response.ok) {
+            console.error("❌ Error al obtener modelos:", response.status);
+            return null;
+        }
+
+        const data = await response.json();
+        const modelos = data.data.map(model => model.id);
+        console.log("✅ Modelos disponibles encontrados:", modelos.slice(0, 10)); // Mostrar solo los primeros 10
+        return modelos;
+    } catch (error) {
+        console.error("❌ Error al consultar modelos:", error);
+        return null;
+    }
+}
+
+// Función para seleccionar el mejor modelo disponible
+async function seleccionarModelo() {
+    const modelos = await obtenerModelosDisponibles();
+    
+    if (!modelos) {
+        console.log("⚠️ No se pudieron obtener modelos, usando modelo por defecto");
+        return "gpt-3.5-turbo"; // Fallback básico
+    }
+
+    // Lista de modelos preferidos en orden de preferencia
+    const modelosPreferidos = [
+        "openai/gpt-4o-mini",
+        "openai/gpt-4o",
+        "openai/gpt-3.5-turbo",
+        "anthropic/claude-3-haiku",
+        "google/gemini-pro",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "microsoft/wizardlm-2-8x22b:free",
+        "google/gemma-2-9b-it:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "qwen/qwen-2-7b-instruct:free"
+    ];
+
+    // Buscar el primer modelo disponible
+    for (const modelo of modelosPreferidos) {
+        if (modelos.includes(modelo)) {
+            console.log(`✅ Usando modelo: ${modelo}`);
+            return modelo;
+        }
+    }
+
+    // Si no encuentra ninguno preferido, usar el primer modelo disponible
+    const primerModelo = modelos[0];
+    console.log(`⚠️ Usando primer modelo disponible: ${primerModelo}`);
+    return primerModelo;
+}
+
 async function getChatResponse(message, inventario) {
     const infoEmpresa = `El aplicativo de Accesorios Apolo será una herramienta integral pensada para modernizar y agilizar 
 la gestión del negocio. Permitirá organizar y controlar de forma eficiente el inventario, registrar 
@@ -114,6 +176,9 @@ Si olvidaste tu contraseña, puedes restablecerla siguiendo estos pasos:
     // Log para debug (solo mostrar los primeros caracteres por seguridad)
     console.log("🔑 API Key encontrada:", process.env.OPENROUTER_API_KEY.substring(0, 10) + "...");
 
+    // Seleccionar modelo disponible
+    const modeloSeleccionado = await seleccionarModelo();
+
     const messages = [
         {
             role: "system",
@@ -145,7 +210,7 @@ ${JSON.stringify(inventario)}`
                 "X-Title": "AccesoriosApolo" // Opcional: nombre de tu app
             },
             body: JSON.stringify({
-                model: "meta-llama/llama-3.1-8b-instruct:free", // ✅ Modelo gratuito alternativo
+                model: modeloSeleccionado, // ✅ Modelo seleccionado dinámicamente
                 messages,
                 max_tokens: 500,
                 temperature: 0.7
