@@ -10,7 +10,7 @@ async function registrarCalificacion(req, res) {
     let connection;
     try {
         // 1. Obtener datos del token y del cuerpo de la solicitud
-        const userId = req.usuario.id_usuario;
+        const userId = req.user.id_usuario;
         const { referencia, puntuacion } = req.body;
 
         // 2. Validación rigurosa de las entradas
