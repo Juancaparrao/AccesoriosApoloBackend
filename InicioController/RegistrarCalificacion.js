@@ -43,7 +43,7 @@ async function registrarCalificacion(req, res) {
 
         // 6. Recalcular el promedio de calificación para ESE producto
         const [promedioResult] = await connection.execute(
-            'SELECT AVG(puntuacion) as nuevoPromedio FROM CALIFICACION WHERE FK_referencia_producto = ?',
+            'SELECT AVG(puntuacion) as nuevoPromedio FROM calificacion WHERE FK_referencia_producto = ?',
             [referencia]
         );
         const nuevoPromedio = promedioResult[0].nuevoPromedio || 0;
