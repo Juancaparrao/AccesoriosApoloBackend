@@ -5,7 +5,7 @@ const db = require("../db");
 
 async function obtenerProductos() {
     try {
-        const [rows] = await db.promise().query(`
+        const [rows] = await db.query(`
             SELECT 
                 p.referencia,
                 p.nombre,
