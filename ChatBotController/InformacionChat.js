@@ -26,7 +26,6 @@ async function obtenerProductos() {
     }
 }
 
-
 async function infoChat(req, res) {
     const { message } = req.body;
 
@@ -104,7 +103,16 @@ Si olvidaste tu contraseña, puedes restablecerla siguiendo estos pasos:
 4. Después de ingresar tu correo, recibirás un correo electrónico con un enlace para restableecer tu contraseña.
 5. Haz clic en el enlace del correo y serás redirigido a una página donde podrás ingresar una nueva contraseña.
 6. Ingresa tu nueva contraseña y confírmala.
-`; // Aquí va todo tu texto sobre la empresa (puedes moverlo a un archivo aparte si quieres limpiar más).
+`;
+
+    // Verificar que la API key existe
+    if (!process.env.OPENROUTER_API_KEY) {
+        console.error("❌ OPENROUTER_API_KEY no está configurada en las variables de entorno");
+        return "Error de configuración del servicio de IA.";
+    }
+
+    // Log para debug (solo mostrar los primeros caracteres por seguridad)
+    console.log("🔑 API Key encontrada:", process.env.OPENROUTER_API_KEY.substring(0, 10) + "...");
 
     const messages = [
         {
@@ -132,25 +140,38 @@ ${JSON.stringify(inventario)}`
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://accesorios-apolo-frontend.vercel.app", // Opcional: tu dominio
+                "X-Title": "Accesorios Apolo ChatBot" // Opcional: nombre de tu app
             },
             body: JSON.stringify({
                 model: "openai/gpt-3.5-turbo",
-                messages
+                messages,
+                max_tokens: 500,
+                temperature: 0.7
             })
         });
 
+        // Verificar el status de la respuesta
+        if (!response.ok) {
+            console.error("❌ Error HTTP:", response.status, response.statusText);
+            const errorText = await response.text();
+            console.error("❌ Error body:", errorText);
+            return "Error al conectar con el servicio de IA.";
+        }
+
         const data = await response.json();
+        console.log("✅ Respuesta recibida:", data);
 
         if (data?.error) {
-            console.error("Error en respuesta IA:", data.error);
+            console.error("❌ Error en respuesta IA:", data.error);
             return "Ocurrió un error con el servicio de IA.";
         }
 
         const respuestaIA = data.choices?.[0]?.message?.content?.trim();
         return respuestaIA?.length >= 5 ? respuestaIA : "No entendí tu pregunta. ¿Podrías reformularla?";
     } catch (err) {
-        console.error("Error general en getChatResponse:", err.message || err);
+        console.error("❌ Error general en getChatResponse:", err.message || err);
         return "Error al procesar la respuesta con IA.";
     }
 }

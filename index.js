@@ -95,7 +95,7 @@ const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./N
 const { obtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
 const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
 const { registrarCalificacion } = require('./InicioController/RegistrarCalificacion');
-const { infoChat } = require('./ChatBotController/InformcionChat');
+const { infoChat } = require('./ChatBotController/InformacionChat');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
