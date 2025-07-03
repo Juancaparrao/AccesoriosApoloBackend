@@ -145,7 +145,7 @@ ${JSON.stringify(inventario)}`
                 "X-Title": "AccesoriosApolo" // Opcional: nombre de tu app
             },
             body: JSON.stringify({
-                model: "openai/gpt-3.5-turbo-0125", // ✅ Modelo corregido
+                model: "meta-llama/llama-3.1-8b-instruct:free", // ✅ Modelo gratuito alternativo
                 messages,
                 max_tokens: 500,
                 temperature: 0.7
