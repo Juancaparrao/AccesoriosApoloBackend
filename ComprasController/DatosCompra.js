@@ -46,31 +46,31 @@ async function ConsultarCarritoYResumen(req, res) {
         let totalArticulosFinal = 0;
 
         carritoItems.forEach(item => {
-            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_descuento_calculado, subtotalArticulo, porcentaje_descuento = 0;
+            let nombre, url_imagen_o_archivo, precio_unidad_calculado, precio_descuento_calculado = null, subtotalArticulo, porcentaje_descuento = 0;
             let esProducto = item.referencia_producto !== null;
 
             if (esProducto) {
-                // --- Lógica para PRODUCTOS (sin cambios) ---
+                // --- Lógica para PRODUCTOS ---
                 nombre = item.nombre_producto;
                 url_imagen_o_archivo = item.url_imagen_producto;
                 precio_unidad_calculado = parseFloat(item.precio_unidad_producto);
                 precio_descuento_calculado = item.precio_descuento_producto ? parseFloat(item.precio_descuento_producto) : null;
-            
-            } else { // --- Lógica REFACTORIZADA para CALCOMANÍAS ---
+            } else {
+                // --- Lógica para CALCOMANÍAS ---
                 nombre = item.nombre_calcomania;
                 url_imagen_o_archivo = item.url_archivo_calcomania;
-                
+
                 const precio_base = parseFloat(item.precio_base_calcomania);
                 const precio_descuento_base = item.precio_descuento_calcomania_base ? parseFloat(item.precio_descuento_calcomania_base) : null;
 
-                // 1. Calcular el porcentaje de descuento basado en los precios base (tamaño pequeño)
+                // 1. Calcular porcentaje de descuento base
                 if (precio_descuento_base !== null && precio_descuento_base < precio_base && precio_base > 0) {
-                    porcentaje_descuento = ((precio_base - precio_descuento_base) / precio_base);
+                    porcentaje_descuento = (precio_base - precio_descuento_base) / precio_base;
                 }
 
-                // 2. Determinar el multiplicador de precio según el tamaño
+                // 2. Determinar el multiplicador según el tamaño
                 let multiplicador_tamano = 1.0;
-                switch (item.tamano.toLowerCase()) {
+                switch ((item.tamano || '').toLowerCase()) {
                     case 'pequeño':
                         multiplicador_tamano = 1.0;
                         break;
@@ -78,27 +78,24 @@ async function ConsultarCarritoYResumen(req, res) {
                         multiplicador_tamano = 2.25;
                         break;
                     case 'grande':
-                        multiplicador_tamano = 4.00;
+                        multiplicador_tamano = 4.0;
                         break;
                     default:
-                        console.warn(`Tamaño de calcomanía desconocido: ${item.tamano}. Usando multiplicador base 1.0.`);
+                        console.warn(`Tamaño desconocido: ${item.tamano}. Se usará multiplicador 1.0.`);
                         multiplicador_tamano = 1.0;
                         break;
                 }
 
-                // 3. Calcular el precio original para el tamaño seleccionado
-                precio_unidad_calculado = precio_base * multiplicador_tamano;
+                // 3. Calcular precio con tamaño
+                precio_unidad_calculado = parseFloat((precio_base * multiplicador_tamano).toFixed(2));
 
-                // 4. Calcular el precio con descuento para el tamaño seleccionado, usando el porcentaje
-                precio_descuento_calculado = null;
+                // 4. Aplicar descuento solo una vez
                 if (porcentaje_descuento > 0) {
-                    precio_descuento_calculado = precio_unidad_calculado * (1 - porcentaje_descuento);
+                    precio_descuento_calculado = parseFloat((precio_unidad_calculado * (1 - porcentaje_descuento)).toFixed(2));
                 }
             }
 
-            // --- Lógica de cálculo de totales (común para productos y calcomanías) ---
             const cantidad = item.cantidad;
-
             totalArticulosSinDescuento += precio_unidad_calculado * cantidad;
 
             if (precio_descuento_calculado !== null && precio_descuento_calculado < precio_unidad_calculado) {
@@ -107,29 +104,28 @@ async function ConsultarCarritoYResumen(req, res) {
             } else {
                 subtotalArticulo = precio_unidad_calculado * cantidad;
             }
+
             totalArticulosFinal += subtotalArticulo;
 
-            // --- Añadir el artículo procesado al array para la respuesta ---
             articulosEnCarrito.push({
                 referencia_producto: item.referencia_producto,
                 id_calcomania: item.id_calcomania,
-                nombre: nombre,
-                url_imagen_o_archivo: url_imagen_o_archivo,
-                cantidad: cantidad,
+                nombre,
+                url_imagen_o_archivo,
+                cantidad,
                 tamano: item.tamano,
                 precio_unidad_original: parseFloat(precio_unidad_calculado.toFixed(2)),
                 precio_con_descuento: precio_descuento_calculado ? parseFloat(precio_descuento_calculado.toFixed(2)) : null,
-                // Añadimos el porcentaje de descuento para las calcomanías
-                porcentaje_descuento: !esProducto ? Math.round(porcentaje_descuento * 100) : null,
+                porcentaje_descuento: !esProducto && porcentaje_descuento > 0 ? Math.round(porcentaje_descuento * 100) : null,
                 subtotalArticulo: parseFloat(subtotalArticulo.toFixed(2))
             });
         });
 
-        const PRECIO_ENVIO = 14900; // Asumiendo pesos colombianos COP
+        const PRECIO_ENVIO = 14900;
         const subtotalPedido = parseFloat((totalArticulosFinal).toFixed(2));
         const totalPedido = parseFloat((subtotalPedido + PRECIO_ENVIO).toFixed(2));
-        
-        // --- INICIO: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA (sin cambios) ---
+
+        // Actualizar la factura más reciente
         let connection;
         try {
             connection = await pool.getConnection();
@@ -149,17 +145,16 @@ async function ConsultarCarritoYResumen(req, res) {
                 );
                 console.log(`Factura ${id_factura_a_actualizar} actualizada con valor_total: ${totalPedido}`);
             } else {
-                console.warn(`No se encontró una factura existente para el usuario ${fk_id_usuario} para actualizar el valor_total.`);
+                console.warn(`No se encontró factura para el usuario ${fk_id_usuario}.`);
             }
 
             await connection.commit();
         } catch (updateError) {
             if (connection) await connection.rollback();
-            console.error('Error al actualizar valor_total en la factura:', updateError);
+            console.error('Error al actualizar valor_total en factura:', updateError);
         } finally {
             if (connection) connection.release();
         }
-        // --- FIN: Lógica para ACTUALIZAR EL CAMPO valor_total en la tabla FACTURA ---
 
         const resumenPedido = {
             TotalArticulosSinDescuento: parseFloat(totalArticulosSinDescuento.toFixed(2)),
