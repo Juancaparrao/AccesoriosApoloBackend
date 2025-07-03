@@ -166,26 +166,29 @@ sus procesos, ofrecer una mejor experiencia a sus clientes y fortalecer su prese
     * **Administración de Clientes:** Base de datos de clientes para una mejor relación y personalización.
     * **Catálogo Digital:** Visualización atractiva y organizada de todos los productos disponibles.
     * **Panel Administrativo Intuitivo:** Herramienta centralizada para análisis de datos y toma de decisiones.
+    * **Maletero (Carrito de Compras):** En nuestra página web, el "carrito de compras" se llama **maletero**. Puedes **agregar productos** a tu maletero desde cualquier página de producto. Una vez que hayas añadido productos, dirígete al icono del **maletero** ubicado en la **parte superior derecha** de la pantalla. Dentro del maletero, podrás **ajustar la cantidad** de cada producto, eliminar artículos y revisar tu pedido antes de finalizar la compra.
+    * **Personalización de Calcomanías:** Si deseas personalizar tus propias calcomanías, ve al apartado de **"Calcomanías"** en la navegación. Dentro de esta sección, encontrarás una opción llamada **"Sube tu calcomanía"**. Aquí podrás **subir tus propias imágenes**, **recortarlas** a tu gusto, **asignarles un nombre** único y **personalizar el tamaño** para que se ajusten perfectamente a tus necesidades.
 * **Beneficios para el Usuario:**
     * Acceso fácil y rápido al catálogo de productos.
     * Información detallada sobre cada accesorio (referencia, nombre, precio, stock, marca, categoría, subcategoría).
-    * Proceso de compra simplificado.
+    * Proceso de compra simplificado y personalización de productos.
     * Historial de pedidos y gestión de cuenta personal.
 * **Cómo Registrarse:**
-    1.  En la página de inicio del aplicativo, busca la barra de navegación superior y haz clic en "Registrarse".
+    1.  En la página de inicio del aplicativo, busca la barra de navegación superior y haz clic en "**Registrarse**".
     2.  Completa el formulario con tus datos personales: nombre, teléfono, correo electrónico y contraseña.
-    3.  Haz clic en "Registrarse" para crear tu cuenta.
+    3.  Haz clic en "**Registrarse**" para crear tu cuenta.
     4.  Recibirás un correo electrónico con un código OTP de confirmación.
     5.  Ingresa el código OTP en el aplicativo para verificar tu cuenta.
     6.  Una vez verificado, verás un mensaje de bienvenida y podrás acceder al aplicativo.
 * **Cómo Iniciar Sesión:**
-    1.  En la página de inicio del aplicativo, dirígete a la barra de navegación superior y haz clic en "Iniciar Sesión".
-    2.  Completa el formulario con tu correo electrónico y contraseña.
-    3.  Asegúrate de que los datos sean correctos y haz clic en "Iniciar Sesión".
+    1.  En la página de inicio del aplicativo, dirígete a la barra de navegación superior
+        donde encontrarás la opción "**Iniciar Sesión**".
+    2.  Haz clic en "**Iniciar Sesión**" y completa el formulario con tu correo electrónico y contraseña.
+    3.  Asegúrate de que los datos sean correctos y haz clic en "**Iniciar Sesión**".
     4.  Si los datos son válidos, serás redirigido al panel de control del aplicativo, donde podrás acceder a todas las funcionalidades disponibles.
 * **Cómo Restablecer Contraseña (si la olvidaste):**
-    1.  En la página de inicio del aplicativo, dirígete a la barra de navegación superior y haz clic en "Iniciar Sesión".
-    2.  En la página de inicio de sesión, encontrarás un enlace que dice "¿Olvidaste tu contraseña?".
+    1.  En la página de inicio del aplicativo, dirígete a la barra de navegación superior y haz clic en "**Iniciar Sesión**".
+    2.  En la página de inicio de sesión, encontrarás un enlace que dice "**¿Olvidaste tu contraseña?**".
     3.  Haz clic en ese enlace y se te pedirá que ingreses tu correo electrónico asociado a tu cuenta.
     4.  Después de ingresar tu correo, recibirás un correo electrónico con un enlace para restablecer tu contraseña.
     5.  Haz clic en el enlace del correo y serás redirigido a una página donde podrás ingresar una nueva contraseña.
@@ -209,7 +212,7 @@ ${JSON.stringify(inventario)}`
     const messages = [
         {
             role: "system",
-            content: `Eres un asistente virtual llamado ApoloBot, creado exclusivamente para responder preguntas sobre Accesorios Apolo, 
+            content: `Eres un asistente virtual llamado Apolito, creado exclusivamente para responder preguntas sobre Accesorios Apolo, 
 incluyendo su inventario, ubicación, horarios, misión, visión, datos de contacto, y funcionamiento del aplicativo web.
 
 Debes responder de forma clara, amigable, respetuosa y útil. Si el usuario saluda (ej. "hola", "buenos días"), respóndele también con un saludo cordial.  
