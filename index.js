@@ -96,6 +96,7 @@ const { obtenerProductosPorCategoria } = require('./NavbarController/ProductosPo
 const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
 const { registrarCalificacion } = require('./InicioController/RegistrarCalificacion');
 const { infoChat } = require('./ChatBotController/InformacionChat');
+const { BusquedaGeneral } = require('./NavbarController/BusquedaGeneral');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -291,6 +292,7 @@ app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
 app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
 app.get('/productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
+app.get('/busqueda-general', BusquedaGeneral);
 
 
 // Compras
