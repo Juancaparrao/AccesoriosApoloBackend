@@ -11,7 +11,6 @@ async function DireccionEnvio(req, res) {
     let connection;
     try {
         console.log("=== DEBUG BACKEND - Función DireccionEnvio ===");
-        console.log("DEBUG: req.user (desde token, si existe):", req.user);
 
         const {
             nombre,
@@ -23,10 +22,7 @@ async function DireccionEnvio(req, res) {
             carrito
         } = req.body;
 
-        console.log("DEBUG 1: Datos recibidos en req.body:", JSON.stringify(req.body, null, 2));
-
         if (!nombre || !cedula || !telefono || !correo || !direccion) {
-            console.log("DEBUG ERROR: Datos de envío obligatorios faltantes.");
             return res.status(400).json({
                 success: false,
                 mensaje: 'Los campos nombre, cédula, teléfono, correo y dirección son obligatorios.'
@@ -42,9 +38,7 @@ async function DireccionEnvio(req, res) {
         let carritoDesdeDB = [];
 
         if (req.user && req.user.id_usuario) {
-            console.log("Usuario AUTENTICADO. ID:", req.user.id_usuario);
             fk_id_usuario = req.user.id_usuario;
-
             const [dbCartItems] = await connection.execute(
                 `SELECT cc.FK_referencia_producto AS id_producto, cc.FK_id_calcomania AS id_calcomania, cc.cantidad, cc.tamano,
                         CASE WHEN cc.FK_referencia_producto IS NOT NULL THEN 'producto'
@@ -53,10 +47,7 @@ async function DireccionEnvio(req, res) {
                 [fk_id_usuario]
             );
             carritoDesdeDB = dbCartItems;
-            console.log(`Carrito cargado desde DB para usuario logeado ID ${fk_id_usuario}.`);
         } else {
-            console.log("Usuario NO AUTENTICADO. Intentando encontrar o registrar.");
-
             if (!carrito || !Array.isArray(carrito) || carrito.length === 0) {
                 await connection.rollback();
                 return res.status(400).json({ success: false, mensaje: 'Para finalizar la compra como invitado, su carrito no puede estar vacío.' });
@@ -70,7 +61,6 @@ async function DireccionEnvio(req, res) {
 
             if (existingUserByEmail.length > 0) {
                 fk_id_usuario = existingUserByEmail[0].id_usuario;
-                console.log("Correo ya registrado, usuario no autenticado. Usando ID:", fk_id_usuario);
             } else {
                 esNuevoRegistro = true;
                 contrasenaGenerada = generarContrasenaSegura();
@@ -81,20 +71,13 @@ async function DireccionEnvio(req, res) {
                     [nombre, cedula, telefono, correo, hashedPassword, true]
                 );
                 fk_id_usuario = result.insertId;
-                console.log(`Nuevo usuario registrado automáticamente con ID: ${fk_id_usuario}`);
 
                 const [clienteRole] = await connection.execute(`SELECT id_rol FROM rol WHERE nombre = 'cliente'`);
                 if (clienteRole.length > 0) {
                     await connection.execute(`INSERT INTO usuario_rol (fk_id_usuario, id_rol) VALUES (?, ?)`, [fk_id_usuario, clienteRole[0].id_rol]);
-                    console.log(`Rol 'cliente' asignado al nuevo usuario ID: ${fk_id_usuario}`);
                 }
 
-                const correoEnviado = await enviarCorreoBienvenida(correo, contrasenaGenerada);
-                if (correoEnviado) {
-                    console.log(`Correo de bienvenida con contraseña enviado a ${correo}`);
-                } else {
-                    console.warn(`Falló el envío del correo de bienvenida a ${correo}.`);
-                }
+                await enviarCorreoBienvenida(correo, contrasenaGenerada);
             }
         }
 
@@ -105,7 +88,6 @@ async function DireccionEnvio(req, res) {
 
         if (!req.user || esNuevoRegistro) {
             await connection.execute(`DELETE FROM carrito_compras WHERE FK_id_usuario = ?`, [fk_id_usuario]);
-            console.log(`Carrito DB limpiado para usuario ID: ${fk_id_usuario}`);
 
             for (const item of carritoDesdeDB) {
                 await connection.execute(
@@ -116,7 +98,6 @@ async function DireccionEnvio(req, res) {
                                    item.cantidad, item.tamano]
                 );
             }
-            console.log(`Carrito DB repoblado para usuario ID: ${fk_id_usuario}.`);
         }
 
         let id_factura;
@@ -129,7 +110,6 @@ async function DireccionEnvio(req, res) {
 
         if (existingFacturas.length > 0) {
             id_factura = existingFacturas[0].id_factura;
-            console.log(`Factura pendiente encontrada (ID: ${id_factura}). Actualizando datos de envío.`);
             await connection.execute(
                 `UPDATE factura SET direccion = ?, informacion_adicional = ?, valor_envio = ? WHERE id_factura = ?`,
                 [direccion, informacion_adicional || null, 14900.00, id_factura]
@@ -141,10 +121,9 @@ async function DireccionEnvio(req, res) {
                 [fk_id_usuario, direccion, informacion_adicional || null, 0.00, 14900.00]
             );
             id_factura = facturaResult.insertId;
-            console.log(`Nueva factura (ID: ${id_factura}) creada para usuario ID: ${fk_id_usuario}.`);
         }
 
-        // Calcular y actualizar valor_total
+        // ✅ Consulta corregida con precio_unidad y multiplicador por tamaño
         const [totalResult] = await connection.execute(`
           SELECT
             COALESCE(SUM(
@@ -160,7 +139,14 @@ async function DireccionEnvio(req, res) {
             ), 0) +
             COALESCE(SUM(
               CASE 
-                WHEN cc.FK_id_calcomania IS NOT NULL THEN cal.precio * cc.cantidad
+                WHEN cc.FK_id_calcomania IS NOT NULL THEN 
+                  COALESCE(cal.precio_descuento, cal.precio_unidad) * 
+                  CASE 
+                    WHEN LOWER(cc.tamano) = 'pequeño' THEN 1.0
+                    WHEN LOWER(cc.tamano) = 'mediano' THEN 2.25
+                    WHEN LOWER(cc.tamano) = 'grande' THEN 4.0
+                    ELSE 1.0
+                  END * cc.cantidad
                 ELSE 0
               END
             ), 0) AS total_carrito
@@ -178,10 +164,8 @@ async function DireccionEnvio(req, res) {
             `UPDATE factura SET valor_total = ? WHERE id_factura = ?`,
             [totalFinal, id_factura]
         );
-        console.log(`Factura ID ${id_factura} actualizada con total: ${totalFinal}`);
 
         await connection.commit();
-        console.log("DEBUG: Transacción de DireccionEnvio completada y datos guardados en DB.");
 
         res.status(200).json({
             success: true,
@@ -198,6 +182,7 @@ async function DireccionEnvio(req, res) {
         if (error.code === 'ER_DUP_ENTRY' && error.sqlMessage.includes('correo')) {
             return res.status(409).json({ success: false, mensaje: 'El correo electrónico ya está registrado. Si ya tiene una cuenta, inicie sesión.' });
         }
+
         res.status(500).json({ success: false, mensaje: 'Error interno del servidor al procesar la dirección de envío.' });
     } finally {
         if (connection) {
