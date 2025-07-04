@@ -18,7 +18,7 @@ async function obtenerProductosConDescuento(req, res) {
             condition = 'c.nombre_categoria = ?';
             queryParams.push('Cascos'); 
             break;
-        case 'equipacion-carretera': // Nuevo caso para la categoría "Equipación Carretera"
+        case 'equipación-carretera': // Nuevo caso para la categoría "Equipación Carretera"
             condition = 'c.nombre_categoria = ?';
             queryParams.push('Equipación Carretera'); 
             break;

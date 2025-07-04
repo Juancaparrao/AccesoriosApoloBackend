@@ -9,7 +9,36 @@ async function obtenerProductosPorMarca(req, res) {
 
     const marcasPrincipales = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
 
-    if (marca === 'Otros') {
+    // Nuevo caso para "ver-mas"
+    if (marca === 'Ver-más') {
+      query = `
+        SELECT
+            p.referencia,
+            p.nombre,
+            p.marca,
+            MIN(pi.url_imagen) AS url_imagen,
+            p.promedio_calificacion AS calificacion,
+            p.descuento,
+            p.precio_descuento,
+            p.precio_unidad
+        FROM
+            producto p
+        LEFT JOIN
+            producto_imagen pi ON p.referencia = pi.fk_referencia_producto
+        WHERE
+            p.estado = TRUE
+            AND p.stock > 0
+        GROUP BY
+            p.referencia,
+            p.nombre,
+            p.marca,
+            p.promedio_calificacion,
+            p.descuento,
+            p.precio_descuento,
+            p.precio_unidad;
+      `;
+      queryParams = []; // No hay parámetros para esta consulta
+    } else if (marca === 'Otros') {
       const placeholders = marcasPrincipales.map(() => '?').join(', ');
       
       query = `
@@ -27,7 +56,7 @@ async function obtenerProductosPorMarca(req, res) {
         LEFT JOIN
             producto_imagen pi ON p.referencia = pi.fk_referencia_producto
         WHERE
-            p.marca NOT IN (${placeholders}) -- Correctly expanded placeholders
+            p.marca NOT IN (${placeholders})
             AND p.estado = TRUE
             AND p.stock > 0
         GROUP BY
@@ -39,7 +68,6 @@ async function obtenerProductosPorMarca(req, res) {
             p.precio_descuento,
             p.precio_unidad;
       `;
-      // Pass the array elements as individual parameters using spread operator
       queryParams = [...marcasPrincipales]; 
     } else {
       query = `
@@ -87,13 +115,12 @@ async function obtenerProductosPorMarca(req, res) {
         precio_unidad: precioUnidad,
       };
 
-      // Ensure discount and discounted price are only included if truly discounted
       if (row.descuento !== null && row.descuento > 0 && precioDescuento < precioUnidad) {
         producto.precio_descuento = precioDescuento;
         producto.descuento = `${row.descuento}%`;
       } else {
-        producto.precio_descuento = null; // Explicitly set to null if no valid discount
-        producto.descuento = null; // Explicitly set to null if no valid discount
+        producto.precio_descuento = null;
+        producto.descuento = null;
       }
 
       return producto;
@@ -102,7 +129,7 @@ async function obtenerProductosPorMarca(req, res) {
     if (productosFormateados.length === 0) {
       return res.status(404).json({
         success: false,
-        mensaje: `No se encontraron productos disponibles para la marca '${marca}'.`
+        mensaje: `No se encontraron productos disponibles para la selección '${marca}'.`
       });
     }
 
@@ -113,7 +140,7 @@ async function obtenerProductosPorMarca(req, res) {
 
   } catch (error) {
     console.error(`Error al obtener productos para la marca ${marca}:`, error);
-    res.status(500).json({ mensaje: 'No se pudieron obtener los productos de la marca.' });
+    res.status(500).json({ mensaje: 'No se pudieron obtener los productos.' });
   }
 }
 
