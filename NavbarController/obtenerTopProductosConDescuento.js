@@ -62,6 +62,7 @@ async function obtenerTopProductosConDescuento(req, res) {
             );
 
             // Formatear los productos encontrados en esta iteración
+            // Formatear los productos encontrados en esta iteración
             const productosIteracion = rows.map(row => {
                 const precioUnidad = parseFloat(row.precio_unidad);
                 const precioDescuento = parseFloat(row.precio_descuento);
@@ -75,9 +76,11 @@ async function obtenerTopProductosConDescuento(req, res) {
                     precio_unidad: precioUnidad,
                 };
 
+                // Aquí está el cambio:
                 if (row.descuento !== null && row.descuento > 0 && precioDescuento < precioUnidad) {
                     producto.precio_descuento = precioDescuento;
-                    producto.descuento = `${row.descuento}%`;
+                    // Anteriormente: producto.descuento = `${row.descuento}%`;
+                    producto.descuento = String(row.descuento); // Convierte el número a string
                 } else {
                     producto.precio_descuento = null;
                     producto.descuento = null;
