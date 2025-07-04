@@ -295,7 +295,7 @@ app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
 app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
 app.get('/productos-por-marca-y-subcategoria', ObtenerMarcasPorCategoria);
 app.get('/productos-por-categoria/:nombre_categoria', ObtenerProductosPorFiltroCategoria);
-app.get('/productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
+app.get('/obtener-productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
 app.get('/busqueda-general', BusquedaGeneral);
 app.get('/productos-con-descuento/:tipo_articulo', obtenerProductosConDescuento);
 
