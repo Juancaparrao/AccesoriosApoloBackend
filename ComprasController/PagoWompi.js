@@ -1,6 +1,5 @@
 // controllers/paymentController.js
 const pool = require('../db');
-// Asegúrate de que el nombre del archivo sea correcto (WompiController.js con mayúscula)
 const wompiController = require('./WompiController'); 
 
 /**
@@ -9,13 +8,12 @@ const wompiController = require('./WompiController');
  * @param {object} res - Objeto de respuesta de Express.
  */
 async function createCheckout(req, res) {
-    let connection; // Mover la declaración de la conexión aquí para que esté disponible en el finally
+    let connection;
 
     try {
         console.log('--- Create Checkout Request ---');
         console.log('Body recibido:', JSON.stringify(req.body, null, 2));
         
-        // Extraer datos del request
         const { 
             facturaId,
             id_factura,
@@ -29,14 +27,12 @@ async function createCheckout(req, res) {
         } = req.body;
 
         const finalFacturaId = facturaId || id_factura;
-        // La referencia debe ser única para cada intento de pago.
         const finalReference = reference || referencia || `REF-${finalFacturaId}-${Date.now()}`;
         const finalAmountInCents = centavos || amount_in_cents;
         const finalEmail = email || customer_email;
 
         console.log('Datos procesados:', { finalFacturaId, finalReference, finalAmountInCents, finalEmail });
 
-        // Validaciones
         if (!finalFacturaId) {
             return res.status(400).json({ success: false, mensaje: 'ID de factura es requerido' });
         }
@@ -44,9 +40,8 @@ async function createCheckout(req, res) {
             return res.status(400).json({ success: false, mensaje: 'Monto en centavos es requerido y debe ser mayor a 0' });
         }
 
-        connection = await pool.getConnection(); // Obtener conexión
+        connection = await pool.getConnection();
         
-        // 1. Verificar que la factura existe
         const [facturaRows] = await connection.execute(
             `SELECT id_factura, valor_total FROM factura WHERE id_factura = ?`,
             [finalFacturaId]
@@ -57,21 +52,19 @@ async function createCheckout(req, res) {
         }
         const factura = facturaRows[0];
         
-        // 2. Verificar que el monto coincida
         const dbAmountInCents = Math.round(factura.valor_total * 100);
-        if (Math.abs(dbAmountInCents - finalAmountInCents) > 1) { // Tolerancia de 1 centavo
+        if (Math.abs(dbAmountInCents - finalAmountInCents) > 1) {
             console.warn(`Monto no coincide. DB: ${dbAmountInCents}, Request: ${finalAmountInCents}`);
             return res.status(400).json({ success: false, mensaje: 'El monto no coincide con la factura registrada.' });
         }
 
-        // 3. Generar la firma de integridad
         const signatureHash = wompiController.generateWompiPaymentSignature(
             finalReference,
             finalAmountInCents,
             'COP'
         );
 
-        // 4. Preparar los datos para el checkout de Wompi
+        // --- CORRECCIÓN AQUÍ: AGREGAR webhookUrl ---
         const wompiCheckoutParams = {
             publicKey: process.env.WOMPI_PUBLIC_KEY || "pub_test_Yv1cW0TNaFsoL9BULLzJeQGirnAgFqwf",
             currency: 'COP',
@@ -80,23 +73,21 @@ async function createCheckout(req, res) {
             signature: {
                 integrity: signatureHash
             },
+            // Asegúrate de que esta URL sea la de tu backend para el webhook
+            webhookUrl: `${process.env.BACKEND_BASE_URL || 'https://accesoriosapolobackend.onrender.com'}/webhook/wompi`, 
             redirectUrl: payment_redirect_url || `${process.env.FRONTEND_BASE_URL || 'https://accesorios-apolo-frontend.vercel.app'}/gracias-por-tu-compra`,
             customerData: {
                 email: finalEmail || 'anonimo@ejemplo.com'
             }
         };
+        // --- FIN CORRECCIÓN ---
 
-        // --- INICIO DE LA CORRECCIÓN ---
-        // 5. **IMPORTANTE**: Actualizar la factura en la base de datos con la referencia de pago de Wompi.
-        // Esto vincula nuestra factura interna con la transacción que se va a crear en Wompi.
         await connection.execute(
             `UPDATE factura SET wompi_reference = ? WHERE id_factura = ?`,
             [finalReference, finalFacturaId]
         );
         console.log(`✅ Factura ${finalFacturaId} actualizada con la referencia de Wompi: ${finalReference}`);
-        // --- FIN DE LA CORRECCIÓN ---
 
-        // 6. Enviar los parámetros al frontend
         res.status(200).json({
             success: true,
             message: 'Parámetros de Wompi generados exitosamente.',
@@ -115,10 +106,6 @@ async function createCheckout(req, res) {
     }
 }
 
-/**
- * Consulta el estado de una factura específica desde la base de datos.
- * (Esta función no necesita cambios, se mantiene igual)
- */
 async function getOrderStatus(req, res) {
     const { id_factura } = req.params;
     let connection;
