@@ -3,7 +3,7 @@
 const pool = require('../db'); // Asegúrate de que esta ruta sea correcta para tu conexión a la DB
 
 async function obtenerProductosConDescuento(req, res) {
-    const { tipo_articulo } = req.params; // Podría ser 'Cascos', 'Chaquetas', 'Guantes', 'Gafas'
+    const { tipo_articulo } = req.params; 
 
     // Normaliza el input para comparación (por si viene en minúsculas, etc.)
     const articuloNormalizado = tipo_articulo.toLowerCase();
@@ -15,28 +15,25 @@ async function obtenerProductosConDescuento(req, res) {
     // Lógica para determinar el filtro según el tipo_articulo
     switch (articuloNormalizado) {
         case 'cascos':
-            // Para 'Cascos', asumimos que es una categoría
             condition = 'c.nombre_categoria = ?';
-            queryParams.push('Cascos'); // Nombre exacto de la categoría
+            queryParams.push('Cascos'); 
             break;
-        case 'chaquetas':
-            // Para 'Chaquetas', 'Guantes', 'Gafas', asumimos que son subcategorías
-            condition = 's.nombre_subcategoria = ?';
-            queryParams.push('Chaquetas');
+        case 'equipacion-carretera': // Nuevo caso para la categoría "Equipación Carretera"
+            condition = 'c.nombre_categoria = ?';
+            queryParams.push('Equipación Carretera'); 
             break;
-        case 'guantes':
-            condition = 's.nombre_subcategoria = ?';
-            queryParams.push('Guantes');
+        case 'accesorios': // Nuevo caso para la categoría "Accesorios"
+            condition = 'c.nombre_categoria = ?';
+            queryParams.push('Accesorios'); 
             break;
-        case 'gafas':
-            condition = 's.nombre_subcategoria = ?';
-            queryParams.push('Gafas');
+        case 'luces': // Nuevo caso para la categoría "Luces"
+            condition = 'c.nombre_categoria = ?';
+            queryParams.push('Luces'); 
             break;
         default:
-            
             return res.status(400).json({
                 success: false,
-                mensaje: "Tipo de artículo no válido. Use 'Cascos', 'Chaquetas', 'Guantes' o 'Gafas'."
+                mensaje: "Tipo de artículo no válido. Use 'Cascos', 'Equipacion-Carretera', 'Accesorios' o 'Luces'."
             });
     }
 
@@ -55,18 +52,18 @@ async function obtenerProductosConDescuento(req, res) {
                 producto p
             JOIN
                 categoria c ON p.fk_id_categoria = c.id_categoria
-            JOIN
-                subcategoria s ON p.fk_id_subcategoria = s.id_subcategoria
+            LEFT JOIN
+                subcategoria s ON p.fk_id_subcategoria = s.id_subcategoria -- Mantener el JOIN por si se necesita para otros filtros, aunque para este caso solo se usa 'c'
             LEFT JOIN
                 producto_imagen pi ON p.referencia = pi.fk_referencia_producto
             WHERE
-                (${condition}) -- La condición dinámica
+                (${condition}) -- La condición dinámica ahora siempre filtra por categoría
                 AND p.estado = TRUE
                 AND p.stock > 0
-                AND p.descuento IS NOT NULL -- Asegura que haya un valor en descuento
-                AND p.descuento > 0 -- Asegura que el descuento sea mayor que 0
-                AND p.precio_descuento IS NOT NULL -- Asegura que el precio_descuento no sea nulo
-                AND p.precio_descuento < p.precio_unidad -- Asegura que realmente sea un precio con descuento
+                AND p.descuento IS NOT NULL 
+                AND p.descuento > 0 
+                AND p.precio_descuento IS NOT NULL 
+                AND p.precio_descuento < p.precio_unidad 
             GROUP BY
                 p.referencia, 
                 p.nombre,
@@ -83,7 +80,6 @@ async function obtenerProductosConDescuento(req, res) {
             const precioUnidad = parseFloat(row.precio_unidad);
             const precioDescuento = parseFloat(row.precio_descuento);
 
-            // Solo incluimos precio_descuento y descuento si existen y son válidos
             const producto = {
                 referencia: row.referencia,
                 nombre: row.nombre,
@@ -93,10 +89,9 @@ async function obtenerProductosConDescuento(req, res) {
                 precio_unidad: precioUnidad,
             };
 
-            // Asegura que el descuento sea un valor real antes de agregarlo
             if (row.descuento !== null && row.descuento > 0 && precioDescuento < precioUnidad) {
                 producto.precio_descuento = precioDescuento;
-                producto.descuento = `${row.descuento}%`; // Añade el símbolo de porcentaje
+                producto.descuento = `${row.descuento}%`; 
             }
 
             return producto;

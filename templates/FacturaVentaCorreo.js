@@ -19,10 +19,9 @@ function generarPDFFactura(datosFactura) {
 
       doc.fontSize(20).fillColor('#2c3e50').text('ACCESORIOS APOLO', 50, 50);
       doc.fontSize(12).fillColor('#7f8c8d')
-        .text('NIT: 123.456.789-0', 50, 75)
-        .text('Dirección: Calle 123 #45-67', 50, 90)
-        .text('Teléfono: (601) 234-5678', 50, 105)
-        .text('Email: info@accesoriosapolo.com', 50, 120);
+        .text('Dirección: Cra. 6 #21-28', 50, 90)
+        .text('Teléfono: 323 326 4572', 50, 105)
+        .text('Email: tiendaaccesoriosapolo@gmail.com', 50, 120);
       doc.moveTo(50, 140).lineTo(550, 140).stroke('#bdc3c7');
 
       doc.fontSize(16).fillColor('#2c3e50').text('FACTURA DE VENTA', 50, 160);
@@ -195,7 +194,7 @@ function generarPDFFactura(datosFactura) {
       doc.fontSize(10).fillColor('#7f8c8d')
         .text(`Total de productos: ${datosFactura.productos?.length || 0}`, 50, posicionY + 60)
         .text('Gracias por su compra en Accesorios Apolo', 50, posicionY + 80)
-        .text('Para soporte técnico: soporte@accesoriosapolo.com', 50, posicionY + 95);
+        .text('Para soporte técnico: tiendaaccesoriosapolo@gmail.com', 50, posicionY + 95);
 
       const fechaActual = new Date();
       // Asegurarse de que la fecha de Colombia se obtiene correctamente sin desfasajes UTC
@@ -381,8 +380,6 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
                 <p><strong>Teléfono:</strong> ${datosFactura.cliente?.telefono || 'N/A'}</p>
                 <p><strong>Correo:</strong> ${datosFactura.cliente?.correo || 'N/A'}</p>
 
-                ${productosHtml}
-                ${calcomaniasHtml}
 
                 <p style="font-size: 1.2em; font-weight: bold; text-align: right; margin-top: 20px;">
                     VALOR TOTAL: <span style="color: #014aad;">${valorTotalFormatted}</span>
@@ -390,7 +387,7 @@ async function enviarFacturaPorCorreo(emailDestino, datosFactura) {
 
                 <p style="text-align: center; margin-top: 30px; font-size: 0.9em; color: #7f8c8d;">
                     Gracias por su compra en Accesorios Apolo.<br>
-                    Para soporte técnico: <a href="mailto:soporte@accesoriosapolo.com" style="color: #014aad;">soporte@accesoriosapolo.com</a>
+                    Para soporte técnico: <a href="mailto:tiendaaccesoriosapolo@gmail.com" style="color: #014aad;">tiendaaccesoriosapolo@gmail.com</a>
                 </p>
             </div>
             `,

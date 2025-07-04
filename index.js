@@ -91,13 +91,14 @@ const { createCheckout, getOrderStatus } = require('./ComprasController/PagoWomp
 const { forzarLimpiezaFacturas } = require('./ComprasController/FinalizacionCompra');
 const { iniciarVerificacionDeFacturas } = require('./ComprasController/FinalizacionCompra');
 const { obtenerUltimaDireccion } = require('./ComprasController/ConsultarUltimaDireccion');
-const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./NavbarController/FiltroPorMarca');
+const { ObtenerMarcasPorSubcategoria, ObtenerProductosPorFiltro } = require('./NavbarController/FiltroPorMarcaSubcategoria');
 const { obtenerProductosPorCategoria } = require('./NavbarController/ProductosPorCategoria');
 const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
 const { registrarCalificacion } = require('./InicioController/RegistrarCalificacion');
 const { infoChat } = require('./ChatBotController/InformacionChat');
 const { BusquedaGeneral } = require('./NavbarController/BusquedaGeneral');
 const { obtenerProductosConDescuento } = require('./NavbarController/ObtenerProductosConDescuento');
+const { ObtenerProductosPorFiltroCategoria, ObtenerMarcasPorCategoria } = require('./NavbarController/FiltroPorMarcaCategoria');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -292,6 +293,8 @@ app.get('/consultar-producto-por-referencia/:referencia', ConsultarProductoPorRe
 app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
 app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
+app.get('/productos-por-marca-y-subcategoria', ObtenerMarcasPorCategoria);
+app.get('/productos-por-categoria/:nombre_categoria', ObtenerProductosPorFiltroCategoria);
 app.get('/productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
 app.get('/busqueda-general', BusquedaGeneral);
 app.get('/productos-con-descuento/:tipo_articulo', obtenerProductosConDescuento);

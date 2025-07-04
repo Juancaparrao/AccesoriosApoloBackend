@@ -29,8 +29,6 @@ function generarPDFFactura(datosFactura) {
       // --- Cabecera ---
       doc.fontSize(20).fillColor('#2c3e50').text('ACCESORIOS APOLO', { align: 'center' });
       doc.moveDown(0.5);
-      doc.fontSize(10).fillColor('#7f8c8d').text('NIT: 123.456.789-0', { align: 'center' });
-      doc.moveDown(2);
 
       // --- Info Factura y Cliente ---
       doc.fontSize(12).fillColor('#34495e')

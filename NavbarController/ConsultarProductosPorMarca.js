@@ -10,6 +10,8 @@ async function obtenerProductosPorMarca(req, res) {
     const marcasPrincipales = ['Ich', 'Shaft', 'Hro', 'Arai', 'Shoei'];
 
     if (marca === 'Otros') {
+      const placeholders = marcasPrincipales.map(() => '?').join(', ');
+      
       query = `
         SELECT
             p.referencia,
@@ -25,7 +27,7 @@ async function obtenerProductosPorMarca(req, res) {
         LEFT JOIN
             producto_imagen pi ON p.referencia = pi.fk_referencia_producto
         WHERE
-            p.marca NOT IN (?)
+            p.marca NOT IN (${placeholders}) -- Correctly expanded placeholders
             AND p.estado = TRUE
             AND p.stock > 0
         GROUP BY
@@ -37,7 +39,8 @@ async function obtenerProductosPorMarca(req, res) {
             p.precio_descuento,
             p.precio_unidad;
       `;
-      queryParams = [marcasPrincipales];
+      // Pass the array elements as individual parameters using spread operator
+      queryParams = [...marcasPrincipales]; 
     } else {
       query = `
         SELECT
@@ -84,12 +87,13 @@ async function obtenerProductosPorMarca(req, res) {
         precio_unidad: precioUnidad,
       };
 
-      if (
-        row.precio_descuento !== null &&
-        precioDescuento !== precioUnidad
-      ) {
+      // Ensure discount and discounted price are only included if truly discounted
+      if (row.descuento !== null && row.descuento > 0 && precioDescuento < precioUnidad) {
         producto.precio_descuento = precioDescuento;
-        producto.descuento = row.descuento ? `${row.descuento}%` : null;
+        producto.descuento = `${row.descuento}%`;
+      } else {
+        producto.precio_descuento = null; // Explicitly set to null if no valid discount
+        producto.descuento = null; // Explicitly set to null if no valid discount
       }
 
       return producto;
@@ -104,7 +108,7 @@ async function obtenerProductosPorMarca(req, res) {
 
     res.status(200).json({
       success: true,
-      productos: productosFormateados // <-- aquí se corrige la clave
+      productos: productosFormateados
     });
 
   } catch (error) {

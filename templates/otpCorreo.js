@@ -59,7 +59,7 @@ function generarHtmlBienvenida(nombre) {
 
         <p style="text-align: center; font-size: 12px; color: #aaaaaa;">
           Este es un mensaje automático de bienvenida. Si tienes preguntas, contáctanos en 
-          <a href="mailto:soporte@accesoriosapolo.com">soporte@accesoriosapolo.com</a>.
+          <a href="mailto:tiendaaccesoriosapolo@gmail.com">tiendaaccesoriosapolo@gmail.com</a>.
         </p>
 
       </div>

@@ -30,7 +30,7 @@ function generarHtmlRecuperarContrasena(link) {
         <hr style="margin: 40px 0; border: none; border-top: 1px solid #eeeeee;" />
 
         <p style="text-align: center; font-size: 12px; color: #aaaaaa;">
-          ¿Tienes dudas? Contáctanos en <a href="mailto:soporte@accesoriosapolo.com">soporte@accesoriosapolo.com</a>.
+          ¿Tienes dudas? Contáctanos en <a href="mailto:tiendaaccesoriosapolo@gmail.com">tiendaaccesoriosapolo@gmail.com</a>.
         </p>
       </div>
     </div>
