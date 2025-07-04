@@ -3,7 +3,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
-async function GenerarPDFInventario(req, res) {
+async function GenerarPDFInventarioDescargar(req, res) {
     try {
         const { id } = req.params;
 
@@ -373,4 +373,4 @@ async function GenerarPDFInventario(req, res) {
     }
 }
 
-module.exports = { GenerarPDFInventario };
+module.exports = { GenerarPDFInventarioDescargar };
