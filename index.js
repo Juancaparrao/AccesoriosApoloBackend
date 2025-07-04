@@ -293,7 +293,7 @@ app.get('/consultar-producto-por-referencia/:referencia', ConsultarProductoPorRe
 app.get('/consultar-calcomanias-por-id/:id', ConsultarCalcomaniaPorId);
 app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
 app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
-app.get('/productos-por-marca-y-subcategoria', ObtenerMarcasPorCategoria);
+app.get('/productos-por-marca-y-categoria', ObtenerMarcasPorCategoria);
 app.get('/productos-por-categoria/:nombre_categoria', ObtenerProductosPorFiltroCategoria);
 app.get('/obtener-productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
 app.get('/busqueda-general', BusquedaGeneral);
