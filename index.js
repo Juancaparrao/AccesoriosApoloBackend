@@ -97,6 +97,7 @@ const { obtenerMisCompras } = require('./InicioController/HistorialPedidos');
 const { registrarCalificacion } = require('./InicioController/RegistrarCalificacion');
 const { infoChat } = require('./ChatBotController/InformacionChat');
 const { BusquedaGeneral } = require('./NavbarController/BusquedaGeneral');
+const { obtenerProductosConDescuento } = require('./NavbarController/ObtenerProductosConDescuento');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -293,6 +294,7 @@ app.get('/obtener-marca/:nombre_subcategoria', ObtenerMarcasPorSubcategoria);
 app.get('/productos-por-subcategoria-y-marca', ObtenerProductosPorFiltro);
 app.get('/productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
 app.get('/busqueda-general', BusquedaGeneral);
+app.get('/productos-con-descuento/:tipo_articulo', obtenerProductosConDescuento);
 
 
 // Compras

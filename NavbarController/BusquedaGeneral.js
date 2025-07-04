@@ -2,9 +2,8 @@
 const db = require("../db"); 
 
 async function BusquedaGeneral(req, res) {
-    const searchTerm = req.query.q; // Obtiene el término de búsqueda del parámetro de consulta 'q'
-
-    // Si no hay término de búsqueda o está vacío, devuelve un array vacío
+    const searchTerm = req.query.q;
+    
     if (!searchTerm || searchTerm.trim() === '') {
         return res.status(200).json([]);
     }
