@@ -99,6 +99,7 @@ const { infoChat } = require('./ChatBotController/InformacionChat');
 const { BusquedaGeneral } = require('./NavbarController/BusquedaGeneral');
 const { obtenerProductosConDescuento } = require('./NavbarController/ObtenerProductosConDescuento');
 const { ObtenerProductosPorFiltroCategoria, ObtenerMarcasPorCategoria } = require('./NavbarController/FiltroPorMarcaCategoria');
+const { obtenerTopProductosConDescuento } = require('./NavbarController/obtenerTopProductosConDescuento');
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://accesorios-apolo-frontend.vercel.app'],
@@ -298,6 +299,8 @@ app.get('/productos-por-categoria/:nombre_categoria', ObtenerProductosPorFiltroC
 app.get('/obtener-productos-por-categoria/:nombre_categoria', obtenerProductosPorCategoria);
 app.get('/busqueda-general', BusquedaGeneral);
 app.get('/productos-con-descuento/:tipo_articulo', obtenerProductosConDescuento);
+app.get('/productos-top-descuento', obtenerTopProductosConDescuento);
+
 
 
 // Compras
