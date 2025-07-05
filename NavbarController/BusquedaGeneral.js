@@ -12,6 +12,7 @@ async function BusquedaGeneral(req, res) {
         const searchPattern = `%${searchTerm}%`;
 
         // Consulta para PRODUCTOS
+        // --- CAMBIO CLAVE AQUÍ: Uso de una subconsulta para obtener una sola imagen ---
         const productosQuery = `
             SELECT 
                 'producto' AS tipo, 
@@ -21,7 +22,11 @@ async function BusquedaGeneral(req, res) {
                 p.marca,
                 c.nombre_categoria AS categoria,
                 s.nombre_subcategoria AS subcategoria,
-                COALESCE(pi.url_imagen, '') AS url_imagen,
+                (SELECT pi.url_imagen 
+                 FROM producto_imagen pi 
+                 WHERE pi.FK_referencia_producto = p.referencia 
+                 ORDER BY pi.id_imagen ASC -- O cualquier criterio para "la primera" imagen
+                 LIMIT 1) AS url_imagen, -- Esto traerá solo la URL de la primera imagen
                 CASE
                     WHEN p.descuento IS NOT NULL AND p.descuento > 0 AND p.precio_descuento IS NOT NULL THEN p.precio_descuento
                     ELSE NULL
@@ -30,7 +35,6 @@ async function BusquedaGeneral(req, res) {
             FROM producto p
             INNER JOIN categoria c ON p.FK_id_categoria = c.id_categoria
             INNER JOIN subcategoria s ON p.FK_id_subcategoria = s.id_subcategoria
-            LEFT JOIN producto_imagen pi ON p.referencia = pi.FK_referencia_producto
             WHERE p.stock > 0
             AND (
                 p.nombre LIKE ? OR
@@ -40,7 +44,7 @@ async function BusquedaGeneral(req, res) {
             )
         `;
 
-        // Consulta para CALCOMANIAS
+        // Consulta para CALCOMANIAS (no necesita cambios)
         const calcomaniasQuery = `
             SELECT 
                 'calcomania' AS tipo, 
@@ -70,8 +74,8 @@ async function BusquedaGeneral(req, res) {
         `;
 
         const [rows] = await db.query(finalQuery, [
-            searchPattern, searchPattern, searchPattern, searchPattern,
-            searchPattern
+            searchPattern, searchPattern, searchPattern, searchPattern, // Parámetros para productosQuery
+            searchPattern // Parámetro para calcomaniasQuery
         ]);
         
         res.json(rows); // Envía los resultados como respuesta JSON
