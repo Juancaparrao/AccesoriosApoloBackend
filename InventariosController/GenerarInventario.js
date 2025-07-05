@@ -178,7 +178,7 @@ async function GenerarInventarioAutomatico() {
   try {
     await connection.beginTransaction(); // Inicia una transacción de base de datos
 
-    console.log(`🕐 [${new Date().toLocaleString('es-CO')}] Iniciando generación automática de inventario...`);
+    console.log(`🕐 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Iniciando generación automática de inventario...`);
 
     // 1. Obtener todos los productos activos con stock
     const [productos] = await connection.execute(`
@@ -209,7 +209,7 @@ async function GenerarInventarioAutomatico() {
     `);
 
     if (productos.length === 0 && calcomanias.length === 0) {
-      console.log(`⚠️ [${new Date().toLocaleString('es-CO')}] No hay productos ni calcomanías disponibles para generar inventario automático.`);
+      console.log(`⚠️ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] No hay productos ni calcomanías disponibles para generar inventario automático.`);
       await connection.rollback(); // Revierte la transacción
       return { success: false, message: 'No hay productos ni calcomanías disponibles' };
     }
@@ -231,7 +231,7 @@ async function GenerarInventarioAutomatico() {
     // 4. Crear registro principal de inventario
     const [inventarioResult] = await connection.execute(`
       INSERT INTO inventario (fecha_creacion, cantidad_productos, cantidad_unidades, cantidad_calcomanias, cantidad_unidades_calcomanias, valor_total, responsable)
-      VALUES (NOW(), ?, ?, ?, ?, 0, 'Sistema')
+      VALUES (CONVERT_TZ(NOW(), 'UTC', 'America/Bogota'), ?, ?, ?, ?, 0, 'Sistema')
     `, [
       cantidad_productos_inventario,
       cantidad_unidades_productos,
@@ -286,7 +286,7 @@ async function GenerarInventarioAutomatico() {
 
     await connection.commit(); // Confirma la transacción
 
-    const mensaje = `✅ [${new Date().toLocaleString('es-CO')}] Inventario automático completado exitosamente - ID: ${id_inventario}`;
+    const mensaje = `✅ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Inventario automático completado exitosamente - ID: ${id_inventario}`;
     const estadisticas = `📊 Ítems Productos: ${cantidad_productos_inventario.toLocaleString('es-CO')}, Unidades Productos: ${cantidad_unidades_productos.toLocaleString('es-CO')}, Ítems Calcomanías: ${cantidad_calcomanias_inventario.toLocaleString('es-CO')}, Unidades Calcomanías: ${cantidad_unidades_calcomanias.toLocaleString('es-CO')}, Valor Total: $${valor_total_inventario.toLocaleString('es-CO')}`;
 
     console.log(mensaje);
@@ -307,7 +307,7 @@ async function GenerarInventarioAutomatico() {
 
   } catch (error) {
     await connection.rollback(); // Revierte la transacción en caso de error
-    const errorMsg = `❌ [${new Date().toLocaleString('es-CO')}] Error al generar inventario automático: ${error.message}`;
+    const errorMsg = `❌ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Error al generar inventario automático: ${error.message}`;
     console.error(errorMsg);
     console.error('Stack trace:', error.stack);
     return { success: false, message: error.message };
@@ -318,9 +318,10 @@ async function GenerarInventarioAutomatico() {
 
 // Función para verificar el estado del cron job
 function verificarEstadoCron() {
-  console.log(`🔍 [${new Date().toLocaleString('es-CO')}] Verificando estado del sistema de inventario automático...`);
+  const horaActual = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+  console.log(`🔍 [${horaActual}] Verificando estado del sistema de inventario automático...`);
   console.log(`⏰ Próxima ejecución programada: Todos los días a las 8:00 AM (Zona horaria: America/Bogota)`);
-  console.log(`🌐 Hora actual del servidor: ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}`);
+  console.log(`🌐 Hora actual del servidor: ${horaActual}`);
 }
 
 // Función para probar la conexión a la base de datos
@@ -328,13 +329,56 @@ async function probarConexionDB() {
   try {
     const connection = await pool.getConnection();
     const [result] = await connection.execute('SELECT NOW() as hora_servidor, CURDATE() as fecha_servidor');
-    console.log(`✅ [${new Date().toLocaleString('es-CO')}] Conexión a base de datos OK`);
+    console.log(`✅ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Conexión a base de datos OK`);
     console.log(`🗄️ Hora del servidor de BD: ${result[0].hora_servidor}`);
     console.log(`📅 Fecha del servidor de BD: ${result[0].fecha_servidor}`);
     connection.release();
     return true;
   } catch (error) {
-    console.error(`❌ [${new Date().toLocaleString('es-CO')}] Error de conexión a base de datos:`, error.message);
+    console.error(`❌ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Error de conexión a base de datos:`, error.message);
+    return false;
+  }
+}
+
+// FUNCIÓN PARA VALIDAR LA ZONA HORARIA
+function validarZonaHoraria() {
+  const fechaUTC = new Date();
+  const fechaColombia = new Date(fechaUTC.toLocaleString("en-US", { timeZone: "America/Bogota" }));
+  
+  console.log(`🌍 Validación de zona horaria:`);
+  console.log(`   - UTC: ${fechaUTC.toISOString()}`);
+  console.log(`   - Colombia: ${fechaColombia.toLocaleString('es-CO')}`);
+  console.log(`   - Diferencia: ${(fechaUTC.getTime() - fechaColombia.getTime()) / (1000 * 60 * 60)} horas`);
+  
+  return fechaColombia;
+}
+
+// FUNCIÓN PARA VERIFICAR SI YA SE EJECUTÓ HOY
+async function verificarEjecucionHoy() {
+  try {
+    const connection = await pool.getConnection();
+    const fechaHoy = new Date().toLocaleDateString('es-CO', { timeZone: 'America/Bogota' });
+    
+    const [result] = await connection.execute(`
+      SELECT COUNT(*) as ejecuciones_hoy 
+      FROM inventario 
+      WHERE DATE(fecha_creacion) = CURDATE() 
+      AND responsable = 'Sistema'
+    `);
+    
+    connection.release();
+    
+    const yaEjecutado = result[0].ejecuciones_hoy > 0;
+    
+    if (yaEjecutado) {
+      console.log(`⚠️ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Ya se ejecutó un inventario automático hoy`);
+    } else {
+      console.log(`✅ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] No se ha ejecutado inventario automático hoy`);
+    }
+    
+    return yaEjecutado;
+  } catch (error) {
+    console.error(`❌ Error al verificar ejecución diaria:`, error.message);
     return false;
   }
 }
@@ -343,22 +387,44 @@ async function probarConexionDB() {
 // Formato: segundo minuto hora día mes día_semana
 // '0 0 8 * * *' significa: segundo 0, minuto 0, hora 8, cualquier día del mes, cualquier mes, cualquier día de la semana
 const cronJob = cron.schedule('0 0 8 * * *', async () => {
-  console.log(`🔄 [${new Date().toLocaleString('es-CO')}] Ejecutando generación automática de inventario...`);
+  console.log(`🔄 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Iniciando tarea programada de inventario automático...`);
 
-  // Verificar conexión antes de ejecutar
-  const conexionOK = await probarConexionDB();
-  if (!conexionOK) {
-    console.error(`❌ [${new Date().toLocaleString('es-CO')}] No se puede generar inventario: problema de conexión a BD`);
-    return;
-  }
+  try {
+    // Validar zona horaria
+    validarZonaHoraria();
 
-  // Ejecutar generación de inventario
-  const resultado = await GenerarInventarioAutomatico();
+    // Verificar si ya se ejecutó hoy
+    const yaEjecutado = await verificarEjecucionHoy();
+    if (yaEjecutado) {
+      console.log(`⏭️ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Saltando ejecución: Ya se generó inventario automático hoy`);
+      return;
+    }
 
-  if (resultado.success) {
-    console.log(`🎉 [${new Date().toLocaleString('es-CO')}] Inventario automático completado exitosamente`);
-  } else {
-    console.error(`💥 [${new Date().toLocaleString('es-CO')}] Falló la generación automática de inventario: ${resultado.message}`);
+    // Verificar conexión antes de ejecutar
+    const conexionOK = await probarConexionDB();
+    if (!conexionOK) {
+      console.error(`❌ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] No se puede generar inventario: problema de conexión a BD`);
+      return;
+    }
+
+    // Ejecutar generación de inventario
+    const resultado = await GenerarInventarioAutomatico();
+
+    if (resultado.success) {
+      console.log(`🎉 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Inventario automático completado exitosamente`);
+      
+      // Opcional: Enviar notificación por email/slack/etc.
+      // await enviarNotificacionInventario(resultado.data);
+      
+    } else {
+      console.error(`💥 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Falló la generación automática de inventario: ${resultado.message}`);
+      
+      // Opcional: Enviar alerta por email/slack/etc.
+      // await enviarAlertaError(resultado.message);
+    }
+
+  } catch (error) {
+    console.error(`🚨 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Error crítico en tarea programada:`, error);
   }
 }, {
   scheduled: true,
@@ -371,19 +437,43 @@ if (cronJob) {
 
   // Verificar estado al iniciar
   setTimeout(() => {
+    console.log(`🚀 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Inicializando sistema de inventario automático...`);
     verificarEstadoCron();
     probarConexionDB();
-
-    // Habilitado para la prueba de 30 segundos
+    validarZonaHoraria();
   }, 2000);
 
   // Verificar estado cada hora para asegurar que el cron sigue activo
   cron.schedule('0 0 * * * *', () => {
-    console.log(`💓 [${new Date().toLocaleString('es-CO')}] Sistema de inventario automático activo - Heartbeat`);
+    console.log(`💓 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Sistema de inventario automático activo - Heartbeat`);
   }, {
     scheduled: true,
     timezone: "America/Bogota"
   });
+
+  // CRON JOB ADICIONAL PARA TESTING: Ejecutar cada 30 segundos (SOLO PARA DESARROLLO)
+  // ⚠️ COMENTAR O ELIMINAR EN PRODUCCIÓN
+
+  const cronJobTest = cron.schedule('*/30 * * * * *', async () => {
+    console.log(`🧪 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] TEST: Ejecutando generación automática de inventario cada 30 segundos...`);
+    
+    const conexionOK = await probarConexionDB();
+    if (!conexionOK) {
+      console.error(`❌ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] TEST: No se puede generar inventario: problema de conexión a BD`);
+      return;
+    }
+
+    const resultado = await GenerarInventarioAutomatico();
+    if (resultado.success) {
+      console.log(`✅ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] TEST: Inventario automático completado exitosamente`);
+    } else {
+      console.error(`❌ [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] TEST: Falló la generación automática: ${resultado.message}`);
+    }
+  }, {
+    scheduled: true,
+    timezone: "America/Bogota"
+  });
+  
 
 } else {
   console.error('❌ Error: No se pudo configurar el cron job');
@@ -391,24 +481,36 @@ if (cronJob) {
 
 // Manejar señales del sistema para limpiar recursos
 process.on('SIGINT', () => {
-  console.log(`🛑 [${new Date().toLocaleString('es-CO')}] Recibida señal SIGINT, cerrando aplicación...`);
+  console.log(`🛑 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Recibida señal SIGINT, cerrando aplicación...`);
   if (cronJob) {
     cronJob.destroy();
-    console.log('🗑️ Cron job detenido correctamente');
+    console.log('🗑️ Cron job principal detenido correctamente');
   }
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log(`🛑 [${new Date().toLocaleString('es-CO')}] Recibida señal SIGTERM, cerrando aplicación...`);
+  console.log(`🛑 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Recibida señal SIGTERM, cerrando aplicación...`);
   if (cronJob) {
     cronJob.destroy();
-    console.log('🗑️ Cron job detenido correctamente');
+    console.log('🗑️ Cron job principal detenido correctamente');
   }
   process.exit(0);
 });
 
+// Manejo de errores no capturados
+process.on('uncaughtException', (error) => {
+  console.error(`🚨 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Error no capturado:`, error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error(`🚨 [${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}] Promesa rechazada no manejada:`, reason);
+});
+
 module.exports = {
   GenerarInventario,
-  GenerarInventarioAutomatico
+  GenerarInventarioAutomatico,
+  verificarEstadoCron,
+  probarConexionDB,
+  validarZonaHoraria
 };
